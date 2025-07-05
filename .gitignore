@@ -1,0 +1,129 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+[Xx]64/
+[Xx]86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Bb]uild/
+[Oo]ut/
+
+# Visual Studio
+.vs/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj.filters
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains Rider / IntelliJ
+.idea/
+*.sln.iml
+*.iml
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+# except build/, which is used as an MSBuild target.
+!**/[Pp]ackages/build/
+# NuGet v3's project.json files produces more ignorable files
+*.nuget.props
+*.nuget.targets
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+TestResults/
+CoverageReport/
+
+# Test coverage
+*.coverage
+*.coveragexml
+coverage/
+coverlet/
+
+# Publish profiles
+Properties/PublishProfiles/
+*.pubxml
+*.publishproj
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Backup & temp files
+*.bak
+*.backup
+*.tmp
+*.temp
+*~
+
+# Log files
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+*.mdf
+*.ldf
+
+# PowerShell
+*.ps1xml
+
+# Migration Assistant specific
+/SCCM/Package/
+/Package/
+/Output/
+*.msi
+*.cab
+
+# Secrets and config
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+secrets.json
+*.pfx
+*.key
+
+# Documentation build
+docs/_build/
+docs/_site/
+
+# Build artifacts
+Package/
+MigrationAssistant-*.zip
