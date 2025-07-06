@@ -7,7 +7,7 @@ namespace MigrationTool.Service.Core;
 public class MigrationWindowsService : BackgroundService
 {
     private readonly ILogger<MigrationWindowsService> _logger;
-    private readonly ServiceManager _serviceManager;
+    private readonly IServiceManager _serviceManager;
     private readonly IStateManager _stateManager;
     private readonly IIpcServer _ipcServer;
     private readonly ServiceConfiguration _configuration;
@@ -15,7 +15,7 @@ public class MigrationWindowsService : BackgroundService
 
     public MigrationWindowsService(
         ILogger<MigrationWindowsService> logger,
-        ServiceManager serviceManager,
+        IServiceManager serviceManager,
         IStateManager stateManager,
         IIpcServer ipcServer,
         IOptions<ServiceConfiguration> configuration,

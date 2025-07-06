@@ -12,7 +12,7 @@ namespace MigrationService.Tests;
 public class MigrationWindowsServiceTests : IDisposable
 {
     private readonly Mock<ILogger<MigrationWindowsService>> _loggerMock;
-    private readonly Mock<ServiceManager> _serviceManagerMock;
+    private readonly Mock<IServiceManager> _serviceManagerMock;
     private readonly Mock<IStateManager> _stateManagerMock;
     private readonly Mock<IIpcServer> _ipcServerMock;
     private readonly Mock<IOptions<ServiceConfiguration>> _configMock;
@@ -41,12 +41,8 @@ public class MigrationWindowsServiceTests : IDisposable
         
         _configMock.Setup(x => x.Value).Returns(_configuration);
         
-        // Create a partial mock for ServiceManager to allow testing
-        var serviceManagerLogger = new Mock<ILogger<ServiceManager>>();
-        _serviceManagerMock = new Mock<ServiceManager>(
-            serviceManagerLogger.Object,
-            _stateManagerMock.Object,
-            _configMock.Object);
+        // Create a mock for IServiceManager
+        _serviceManagerMock = new Mock<IServiceManager>();
         
         _serviceManagerMock.Setup(x => x.InitializeAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);

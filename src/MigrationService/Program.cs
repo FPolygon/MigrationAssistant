@@ -74,7 +74,7 @@ public class Program
                 services.AddHostedService<MigrationWindowsService>();
 
                 // Add core services
-                services.AddSingleton<ServiceManager>();
+                services.AddSingleton<IServiceManager, ServiceManager>();
                 services.AddSingleton<IStateManager, StateManager>();
                 services.AddSingleton<IIpcServer, IpcServer>();
             });

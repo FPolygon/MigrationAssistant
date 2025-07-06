@@ -4,7 +4,7 @@ using MigrationTool.Service.Models;
 
 namespace MigrationTool.Service.Core;
 
-public class ServiceManager
+public class ServiceManager : IServiceManager
 {
     private readonly ILogger<ServiceManager> _logger;
     private readonly IStateManager _stateManager;
