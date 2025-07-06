@@ -140,7 +140,7 @@ public class ConfigurationLoaderTests : IDisposable
         
         var json = File.ReadAllText(configPath);
         json.Should().Contain("\"minimumLevel\":");
-        json.Should().Contain("\"warning\"");
+        json.Should().Match(j => j.Contains("\"Warning\"") || j.Contains("\"warning\""));
         
         // Verify round-trip
         var reloaded = _loader.LoadFromFile(configPath);

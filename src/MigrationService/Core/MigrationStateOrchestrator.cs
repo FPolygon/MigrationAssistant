@@ -74,7 +74,8 @@ public class MigrationStateOrchestrator
             // Check for escalation conditions
             if (await ShouldEscalateAsync(migration, elapsed, cancellationToken))
             {
-                await EscalateToITAsync(migration, "Automatic escalation based on rules", cancellationToken);
+                var escalationReason = migration.AttentionReason ?? "Automatic escalation based on rules";
+                await EscalateToITAsync(migration, escalationReason, cancellationToken);
             }
         }
         catch (Exception ex)

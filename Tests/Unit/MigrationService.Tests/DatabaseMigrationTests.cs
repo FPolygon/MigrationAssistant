@@ -8,6 +8,7 @@ using Xunit;
 
 namespace MigrationService.Tests;
 
+[Collection("Database")]
 public class DatabaseMigrationTests : IDisposable
 {
     private readonly Mock<ILogger<MigrationRunner>> _loggerMock;

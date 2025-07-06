@@ -9,6 +9,7 @@ using Xunit;
 
 namespace MigrationService.Tests;
 
+[Collection("Database")]
 public class StateManagerTests : IDisposable
 {
     private readonly Mock<ILogger<StateManager>> _loggerMock;

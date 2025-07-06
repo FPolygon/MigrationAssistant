@@ -99,6 +99,9 @@ public class FileLogProviderTests : IDisposable
         await _provider.WriteLogAsync(entry);
         await _provider.FlushAsync();
         
+        // Dispose provider to ensure file is closed
+        _provider.Dispose();
+        
         // Assert
         var logFiles = Directory.GetFiles(_testDirectory, "*.log");
         logFiles.Should().NotBeEmpty();
@@ -128,6 +131,9 @@ public class FileLogProviderTests : IDisposable
         // Act
         await _provider.WriteLogAsync(entry);
         await _provider.FlushAsync();
+        
+        // Dispose provider to ensure file is closed
+        _provider.Dispose();
         
         // Assert
         var logFiles = Directory.GetFiles(_testDirectory, "*.log");
@@ -238,6 +244,9 @@ public class FileLogProviderTests : IDisposable
             await _provider.WriteLogAsync(entry);
         }
         await _provider.FlushAsync();
+        
+        // Dispose to ensure all files are closed
+        _provider.Dispose();
         
         // Assert
         var logFiles = Directory.GetFiles(_testDirectory, "*.log");

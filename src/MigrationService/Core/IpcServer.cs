@@ -228,7 +228,15 @@ public class IpcServer : IIpcServer, IDisposable
 
     public void Dispose()
     {
-        _serverCancellation?.Cancel();
+        try
+        {
+            _serverCancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed, ignore
+        }
+        
         _serverCancellation?.Dispose();
         
         foreach (var client in _clients.Values)

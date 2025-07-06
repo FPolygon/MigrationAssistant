@@ -43,7 +43,10 @@ public class ConfigurationLoader
             PropertyNameCaseInsensitive = true,
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
-            Converters = { new JsonStringEnumConverter() }
+            Converters = { 
+                new JsonStringEnumConverter(),
+                new ProviderConfigurationConverter()
+            }
         };
     }
     
@@ -132,7 +135,10 @@ public class ConfigurationLoader
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                Converters = { new JsonStringEnumConverter() }
+                Converters = { 
+                    new JsonStringEnumConverter(),
+                    new ProviderConfigurationConverter()
+                }
             };
             
             var json = JsonSerializer.Serialize(config, options);

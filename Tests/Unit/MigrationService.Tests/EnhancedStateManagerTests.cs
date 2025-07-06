@@ -9,6 +9,7 @@ using Xunit;
 
 namespace MigrationService.Tests;
 
+[Collection("Database")]
 public class EnhancedStateManagerTests : IDisposable
 {
     private readonly Mock<ILogger<StateManager>> _loggerMock;
@@ -229,14 +230,18 @@ public class EnhancedStateManagerTests : IDisposable
             ProviderName = "FileBackupProvider",
             Category = "files",
             Status = BackupStatus.InProgress,
-            StartedAt = DateTime.UtcNow
+            StartedAt = DateTime.UtcNow,
+            OperationId = Guid.NewGuid().ToString()
         };
         
-        await _stateManager.CreateBackupOperationAsync(operation, CancellationToken.None);
+        var operationId = await _stateManager.CreateBackupOperationAsync(operation, CancellationToken.None);
+        
+        // Get the saved operation to get the database ID
+        var savedOperation = await _stateManager.GetBackupOperationAsync(operationId, CancellationToken.None);
         
         var result = new ProviderResult
         {
-            BackupOperationId = operation.Id,
+            BackupOperationId = savedOperation!.Id,
             Category = "files",
             Success = true,
             ItemCount = 150,

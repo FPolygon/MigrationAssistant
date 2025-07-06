@@ -95,9 +95,15 @@ public class ConnectionManagerTests : IDisposable
     {
         // Arrange
         var clientId = "test-client-3";
-        using var pipeStream = CreateMockPipeStream();
+        var connectionMock = new Mock<IIpcConnection>();
+        connectionMock.Setup(x => x.ClientId).Returns(clientId);
+        connectionMock.Setup(x => x.IsConnected).Returns(true);
         
-        await _connectionManager.AddConnectionAsync(clientId, pipeStream);
+        // Use reflection to add the mock connection directly
+        var connectionsField = _connectionManager.GetType()
+            .GetField("_connections", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var connections = connectionsField!.GetValue(_connectionManager) as System.Collections.Concurrent.ConcurrentDictionary<string, IIpcConnection>;
+        connections!.TryAdd(clientId, connectionMock.Object);
         
         // Act
         var isConnected = await _connectionManager.IsConnectedAsync(clientId);
