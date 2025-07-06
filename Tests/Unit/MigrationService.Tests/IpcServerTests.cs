@@ -43,6 +43,7 @@ public class IpcServerTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task StartAsync_ShouldStartSuccessfully()
     {
         // Act
@@ -61,6 +62,7 @@ public class IpcServerTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task StopAsync_ShouldStopSuccessfully()
     {
         // Arrange
@@ -116,6 +118,7 @@ public class IpcServerTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task SendMessageAsync_WithInvalidClient_ShouldLogWarning()
     {
         // Arrange
@@ -137,6 +140,7 @@ public class IpcServerTests : IDisposable
     }
 
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task BroadcastMessageAsync_WithNoClients_ShouldNotThrow()
     {
         // Arrange

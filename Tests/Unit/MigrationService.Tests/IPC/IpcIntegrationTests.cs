@@ -10,6 +10,15 @@ using Xunit;
 
 namespace MigrationService.Tests.IPC;
 
+// NOTE: These integration tests use Windows named pipes which may not work properly in CI environments like GitHub Actions.
+// Named pipes can fail due to:
+// - Permission restrictions in containerized/sandboxed environments
+// - Different security contexts between the test runner and named pipe server
+// - Resource cleanup issues when tests run in parallel
+// These tests are marked with [Trait("Category", "Integration")] to allow them to be filtered out in CI.
+
+[Trait("Category", "Integration")]
+[Trait("Category", "RequiresNamedPipes")]
 public class IpcIntegrationTests : IAsyncLifetime
 {
     private readonly ServiceProvider _serviceProvider;
