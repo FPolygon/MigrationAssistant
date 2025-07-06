@@ -1,9 +1,42 @@
-# Deploy-Migration.ps1
-# Master deployment script for Windows Migration Tool
+#Requires -Version 5.1
+#Requires -RunAsAdministrator
+
+<#
+.SYNOPSIS
+    Master deployment script for Windows Migration Tool
+
+.DESCRIPTION
+    This script handles installation, uninstallation, and repair of the Windows Migration Tool.
+    It must be run with administrative privileges.
+
+.PARAMETER Action
+    The deployment action to perform (Install, Uninstall, Repair)
+
+.PARAMETER ConfigPath
+    Path to the deployment configuration file
+
+.PARAMETER LogPath
+    Directory path for log files
+
+.PARAMETER Force
+    Force the action without prompts
+
+.PARAMETER TestMode
+    Install without starting the service (for testing)
+
+.EXAMPLE
+    .\Deploy-Migration.ps1 -Action Install
+    Installs the Migration Tool with default settings
+
+.EXAMPLE
+    .\Deploy-Migration.ps1 -Action Uninstall -Force
+    Uninstalls the Migration Tool without prompts
+#>
 
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
+    [ValidateSet('Install', 'Uninstall', 'Repair')]
     [string]$Action = "Install",
     
     [Parameter(Mandatory=$false)]
@@ -44,13 +77,13 @@ function Write-Log {
     }
 }
 
-function Test-Prerequisites {
-    Write-Log "Checking prerequisites..."
+function Test-Prerequisite {
+    Write-Log -Message "Checking prerequisites..."
     
     $errors = @()
     
     # Check OS version
-    $os = Get-WmiObject -Class Win32_OperatingSystem
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem
     $osVersion = [version]$os.Version
     if ($osVersion -lt [version]"10.0.17763") {
         $errors += "Windows 10 version 1809 or higher is required"
@@ -67,42 +100,42 @@ function Test-Prerequisites {
         $errors += "PowerShell 5.0 or higher is required"
     }
     
-    # Check if running as admin
+    # Check if running as admin (redundant with #Requires but kept for explicit error message)
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-    if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         $errors += "This script must be run as Administrator"
     }
     
     # Check OneDrive
     $oneDrive = Get-Process -Name OneDrive -ErrorAction SilentlyContinue
-    if (!$oneDrive) {
-        Write-Log "OneDrive is not running - will check during user backup" -Level "WARN"
+    if (-not $oneDrive) {
+        Write-Log -Message "OneDrive is not running - will check during user backup" -Level "WARN"
     }
     
     if ($errors.Count -gt 0) {
         foreach ($error in $errors) {
-            Write-Log $error -Level "ERROR"
+            Write-Log -Message $error -Level "ERROR"
         }
         return $false
     }
     
-    Write-Log "All prerequisites met"
+    Write-Log -Message "All prerequisites met"
     return $true
 }
 
 function Install-MigrationTool {
-    Write-Log "Installing Migration Tool..."
+    Write-Log -Message "Installing Migration Tool..."
     
     try {
         # Create installation directory
         $installDir = "C:\Program Files\MigrationTool"
-        if (!(Test-Path $installDir)) {
+        if (-not (Test-Path -Path $installDir)) {
             New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-            Write-Log "Created installation directory: $installDir"
+            Write-Log -Message "Created installation directory: $installDir"
         }
         
         # Copy binaries
-        Write-Log "Copying binaries..."
+        Write-Log -Message "Copying binaries..."
         Copy-Item -Path ".\Binaries\*" -Destination $installDir -Recurse -Force
         
         # Copy configuration
@@ -111,17 +144,17 @@ function Install-MigrationTool {
         Copy-Item -Path ".\Config\*" -Destination $configDir -Recurse -Force
         
         # Install Windows Service
-        Write-Log "Installing Windows Service..."
+        Write-Log -Message "Installing Windows Service..."
         $servicePath = "$installDir\MigrationService.exe"
         $serviceName = "MigrationService"
         
         # Check if service already exists
         $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
         if ($existingService) {
-            Write-Log "Service already exists, stopping and removing..."
+            Write-Log -Message "Service already exists, stopping and removing..."
             Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 2
-            sc.exe delete $serviceName
+            $null = sc.exe delete $serviceName
             Start-Sleep -Seconds 2
         }
         
@@ -133,41 +166,41 @@ function Install-MigrationTool {
                    -StartupType Automatic `
                    -ErrorAction Stop
         
-        Write-Log "Service created successfully"
+        Write-Log -Message "Service created successfully"
         
         # Configure service recovery
-        sc.exe failure $serviceName reset= 86400 actions= restart/60000/restart/60000/restart/60000
+        $null = sc.exe failure $serviceName reset= 86400 actions= restart/60000/restart/60000/restart/60000
         
         # Create scheduled task for agent
         Install-AgentTask
         
         # Set permissions
-        Set-InstallationPermissions -Path $installDir
+        Set-InstallationPermission -Path $installDir
         
         # Create registry entries
-        Create-RegistryEntries
+        New-RegistryEntry
         
         # Initialize database
         Initialize-Database -Path "$installDir\Data"
         
         # Start service
-        if (!$TestMode) {
-            Write-Log "Starting service..."
+        if (-not $TestMode) {
+            Write-Log -Message "Starting service..."
             Start-Service -Name $serviceName
-            Write-Log "Service started successfully"
+            Write-Log -Message "Service started successfully"
         }
         
-        Write-Log "Migration Tool installed successfully"
+        Write-Log -Message "Migration Tool installed successfully"
         return $true
     }
     catch {
-        Write-Log "Installation failed: $_" -Level "ERROR"
+        Write-Log -Message "Installation failed: $_" -Level "ERROR"
         return $false
     }
 }
 
 function Install-AgentTask {
-    Write-Log "Creating agent scheduled task..."
+    Write-Log -Message "Creating agent scheduled task..."
     
     $taskName = "MigrationAgent"
     $agentPath = "C:\Program Files\MigrationTool\MigrationAgent.exe"
@@ -222,73 +255,83 @@ function Install-AgentTask {
 '@ -f $agentPath
     
     # Register task
-    Register-ScheduledTask -Xml $taskXml -TaskName $taskName -Force | Out-Null
-    Write-Log "Agent scheduled task created"
+    $null = Register-ScheduledTask -Xml $taskXml -TaskName $taskName -Force
+    Write-Log -Message "Agent scheduled task created"
 }
 
-function Set-InstallationPermissions {
+function Set-InstallationPermission {
+    [CmdletBinding(SupportsShouldProcess)]
     param([string]$Path)
     
-    Write-Log "Setting permissions on $Path..."
+    Write-Log -Message "Setting permissions on $Path..."
     
-    $acl = Get-Acl $Path
-    
-    # Add read/execute for Users
-    $permission = "BUILTIN\Users","ReadAndExecute","ContainerInherit,ObjectInherit","None","Allow"
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
-    $acl.SetAccessRule($accessRule)
-    
-    # Add full control for SYSTEM
-    $permission = "NT AUTHORITY\SYSTEM","FullControl","ContainerInherit,ObjectInherit","None","Allow"
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
-    $acl.SetAccessRule($accessRule)
-    
-    # Add full control for Administrators
-    $permission = "BUILTIN\Administrators","FullControl","ContainerInherit,ObjectInherit","None","Allow"
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
-    $acl.SetAccessRule($accessRule)
-    
-    Set-Acl $Path $acl
-    Write-Log "Permissions set successfully"
+    if ($PSCmdlet.ShouldProcess($Path, "Set file system permissions")) {
+        $acl = Get-Acl $Path
+        
+        # Add read/execute for Users
+        $permission = "BUILTIN\Users","ReadAndExecute","ContainerInherit,ObjectInherit","None","Allow"
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
+        $acl.SetAccessRule($accessRule)
+        
+        # Add full control for SYSTEM
+        $permission = "NT AUTHORITY\SYSTEM","FullControl","ContainerInherit,ObjectInherit","None","Allow"
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
+        $acl.SetAccessRule($accessRule)
+        
+        # Add full control for Administrators
+        $permission = "BUILTIN\Administrators","FullControl","ContainerInherit,ObjectInherit","None","Allow"
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
+        $acl.SetAccessRule($accessRule)
+        
+        Set-Acl $Path $acl
+        Write-Log -Message "Permissions set successfully"
+    }
 }
 
-function Create-RegistryEntries {
-    Write-Log "Creating registry entries..."
+function New-RegistryEntry {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+    
+    Write-Log -Message "Creating registry entries..."
     
     $regPath = "HKLM:\SOFTWARE\MigrationTool"
     
-    if (!(Test-Path $regPath)) {
-        New-Item -Path $regPath -Force | Out-Null
+    if ($PSCmdlet.ShouldProcess($regPath, "Create registry key")) {
+        if (-not (Test-Path -Path $regPath)) {
+            $null = New-Item -Path $regPath -Force
+        }
     }
     
     # Set registry values
-    Set-ItemProperty -Path $regPath -Name "Version" -Value "1.0.0"
-    Set-ItemProperty -Path $regPath -Name "InstallPath" -Value "C:\Program Files\MigrationTool"
-    Set-ItemProperty -Path $regPath -Name "InstallDate" -Value (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-    Set-ItemProperty -Path $regPath -Name "ConfigPath" -Value "C:\Program Files\MigrationTool\Config"
-    Set-ItemProperty -Path $regPath -Name "LogPath" -Value "C:\ProgramData\MigrationTool\Logs"
-    
-    Write-Log "Registry entries created"
+    if ($PSCmdlet.ShouldProcess($regPath, "Set registry values")) {
+        Set-ItemProperty -Path $regPath -Name "Version" -Value "1.0.0"
+        Set-ItemProperty -Path $regPath -Name "InstallPath" -Value "C:\Program Files\MigrationTool"
+        Set-ItemProperty -Path $regPath -Name "InstallDate" -Value (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        Set-ItemProperty -Path $regPath -Name "ConfigPath" -Value "C:\Program Files\MigrationTool\Config"
+        Set-ItemProperty -Path $regPath -Name "LogPath" -Value "C:\ProgramData\MigrationTool\Logs"
+        
+        Write-Log -Message "Registry entries created"
+    }
 }
 
 function Initialize-Database {
     param([string]$Path)
     
-    Write-Log "Initializing database..."
+    Write-Log -Message "Initializing database..."
     
-    if (!(Test-Path $Path)) {
-        New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    if (-not (Test-Path -Path $Path)) {
+        $null = New-Item -ItemType Directory -Path $Path -Force
     }
     
     # Database will be created by service on first run
     # Just ensure directory exists and has correct permissions
-    Set-InstallationPermissions -Path $Path
+    Set-InstallationPermission -Path $Path
     
-    Write-Log "Database directory prepared"
+    Write-Log -Message "Database directory prepared"
 }
 
 function Uninstall-MigrationTool {
-    Write-Log "Uninstalling Migration Tool..."
+    Write-Log -Message "Uninstalling Migration Tool..."
     
     try {
         $serviceName = "MigrationService"
@@ -298,41 +341,41 @@ function Uninstall-MigrationTool {
         # Stop and remove service
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
         if ($service) {
-            Write-Log "Stopping service..."
+            Write-Log -Message "Stopping service..."
             Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 2
             
-            Write-Log "Removing service..."
-            sc.exe delete $serviceName
+            Write-Log -Message "Removing service..."
+            $null = sc.exe delete $serviceName
             Start-Sleep -Seconds 2
         }
         
         # Remove scheduled task
-        Write-Log "Removing scheduled task..."
+        Write-Log -Message "Removing scheduled task..."
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
         
         # Remove files
         if (Test-Path $installDir) {
-            Write-Log "Removing installation files..."
+            Write-Log -Message "Removing installation files..."
             Remove-Item -Path $installDir -Recurse -Force -ErrorAction SilentlyContinue
         }
         
         # Remove data directory
         $dataDir = "C:\ProgramData\MigrationTool"
         if (Test-Path $dataDir) {
-            Write-Log "Removing data files..."
+            Write-Log -Message "Removing data files..."
             Remove-Item -Path $dataDir -Recurse -Force -ErrorAction SilentlyContinue
         }
         
         # Remove registry entries
-        Write-Log "Removing registry entries..."
+        Write-Log -Message "Removing registry entries..."
         Remove-Item -Path "HKLM:\SOFTWARE\MigrationTool" -Recurse -Force -ErrorAction SilentlyContinue
         
-        Write-Log "Migration Tool uninstalled successfully"
+        Write-Log -Message "Migration Tool uninstalled successfully"
         return $true
     }
     catch {
-        Write-Log "Uninstallation failed: $_" -Level "ERROR"
+        Write-Log -Message "Uninstallation failed: $_" -Level "ERROR"
         return $false
     }
 }
@@ -343,16 +386,16 @@ function Uninstall-MigrationTool {
 
 # Initialize logging
 $script:LogFile = Join-Path $LogPath "Deploy-Migration_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
-New-Item -ItemType Directory -Path $LogPath -Force -ErrorAction SilentlyContinue | Out-Null
+$null = New-Item -ItemType Directory -Path $LogPath -Force -ErrorAction SilentlyContinue
 
-Write-Log "========================================="
-Write-Log "Migration Tool Deployment Script"
-Write-Log "Action: $Action"
-Write-Log "========================================="
+Write-Log -Message "========================================="
+Write-Log -Message "Migration Tool Deployment Script"
+Write-Log -Message "Action: $Action"
+Write-Log -Message "========================================="
 
 # Check prerequisites
-if (!(Test-Prerequisites)) {
-    Write-Log "Prerequisites check failed" -Level "ERROR"
+if (-not (Test-Prerequisite)) {
+    Write-Log -Message "Prerequisites check failed" -Level "ERROR"
     exit 1
 }
 
@@ -366,23 +409,23 @@ switch ($Action.ToLower()) {
         $result = Uninstall-MigrationTool
     }
     "repair" {
-        Write-Log "Performing repair installation..."
-        Uninstall-MigrationTool | Out-Null
+        Write-Log -Message "Performing repair installation..."
+        $null = Uninstall-MigrationTool
         $result = Install-MigrationTool
     }
     default {
-        Write-Log "Invalid action: $Action" -Level "ERROR"
-        Write-Log "Valid actions: Install, Uninstall, Repair"
+        Write-Log -Message "Invalid action: $Action" -Level "ERROR"
+        Write-Log -Message "Valid actions: Install, Uninstall, Repair"
         exit 1
     }
 }
 
 # Exit with appropriate code
 if ($result) {
-    Write-Log "Deployment completed successfully"
+    Write-Log -Message "Deployment completed successfully"
     exit 0
 } else {
-    Write-Log "Deployment failed" -Level "ERROR"
+    Write-Log -Message "Deployment failed" -Level "ERROR"
     exit 1
 }
 

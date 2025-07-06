@@ -134,7 +134,7 @@ function Get-ServiceDetailedStatus {
     }
 }
 
-function Show-ServiceLogs {
+function Show-ServiceLog {
     param([int]$Lines)
     
     $logPath = 'C:\ProgramData\MigrationTool\Logs'
@@ -246,12 +246,15 @@ function Test-ServiceConnectivity {
 }
 
 function Restart-MigrationService {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
+    param()
     Write-ColoredOutput "Restarting Migration Service..." -ForegroundColor Yellow
     
-    try {
-        # Stop the service
-        Stop-Service -Name $ServiceName -Force
-        Write-Host "Service stopped"
+    if ($PSCmdlet.ShouldProcess($ServiceName, "Restart Service")) {
+        try {
+            # Stop the service
+            Stop-Service -Name $ServiceName -Force
+            Write-Host "Service stopped"
         
         # Wait a moment
         Start-Sleep -Seconds 2
@@ -270,14 +273,15 @@ function Restart-MigrationService {
             Start-Sleep -Milliseconds 500
         }
         
-        Write-ColoredOutput "Service restarted successfully" -ForegroundColor Green
-    }
-    catch {
-        Write-ColoredOutput "ERROR: $_" -ForegroundColor Red
+            Write-ColoredOutput "Service restarted successfully" -ForegroundColor Green
+        }
+        catch {
+            Write-ColoredOutput "ERROR: $_" -ForegroundColor Red
+        }
     }
 }
 
-function Export-ServiceDiagnostics {
+function Export-ServiceDiagnostic {
     $exportPath = "$env:TEMP\MigrationService_Diagnostics_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
     
     Write-ColoredOutput "Exporting service diagnostics..." -ForegroundColor Yellow
@@ -353,7 +357,7 @@ try {
             Get-ServiceDetailedStatus
         }
         'Logs' {
-            Show-ServiceLogs -Lines $LogLines
+            Show-ServiceLog -Lines $LogLines
         }
         'Test' {
             Test-ServiceConnectivity
@@ -362,7 +366,7 @@ try {
             Restart-MigrationService
         }
         'Export' {
-            Export-ServiceDiagnostics
+            Export-ServiceDiagnostic
         }
     }
 }

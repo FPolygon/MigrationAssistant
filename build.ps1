@@ -81,7 +81,7 @@ function Test-DotNetCli {
     }
 }
 
-function Clean-Solution {
+function Clear-Solution {
     Write-Header "Cleaning solution"
     
     # Clean via dotnet
@@ -89,6 +89,7 @@ function Clean-Solution {
     
     # Remove output directories
     Get-ChildItem -Path $RootPath -Include bin,obj -Recurse -Directory | 
+        Where-Object { $_.Exists } |
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     
     # Remove test results
@@ -104,7 +105,7 @@ function Clean-Solution {
     Write-Host "Clean completed" -ForegroundColor Green
 }
 
-function Restore-Packages {
+function Restore-Package {
     if ($SkipRestore) {
         Write-Host "Skipping package restore" -ForegroundColor Yellow
         return
@@ -120,7 +121,7 @@ function Restore-Packages {
     Write-Host "Package restore completed" -ForegroundColor Green
 }
 
-function Build-Solution {
+function Invoke-Build {
     Write-Header "Building solution"
     Write-Host "Configuration: $Configuration" -ForegroundColor Yellow
     
@@ -143,7 +144,7 @@ function Build-Solution {
     Write-Host "Build completed successfully" -ForegroundColor Green
 }
 
-function Run-Tests {
+function Invoke-Test {
     Write-Header "Running tests"
     
     $testArgs = @(
@@ -173,11 +174,11 @@ function Run-Tests {
     Write-Host "Tests completed successfully" -ForegroundColor Green
     
     if ($Coverage) {
-        Generate-CoverageReport
+        New-CoverageReport
     }
 }
 
-function Generate-CoverageReport {
+function New-CoverageReport {
     Write-Header "Generating coverage report"
     
     # Check if report generator is installed
@@ -214,7 +215,7 @@ function Generate-CoverageReport {
     Write-Host "`nCoverage report generated at: $CoveragePath\index.html" -ForegroundColor Green
 }
 
-function Create-Package {
+function New-Package {
     Write-Header "Creating deployment package"
     
     # Create package directory
@@ -269,12 +270,12 @@ function Create-Package {
         Version = $version
         Configuration = $Configuration
         BuildDate = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-        GitCommit = & git rev-parse --short HEAD 2>$null
+        GitCommit = if (Get-Command git -ErrorAction SilentlyContinue) { & git rev-parse --short HEAD 2>$null } else { 'unknown' }
     }
     $versionInfo | ConvertTo-Json | Set-Content -Path (Join-Path $PackagePath "version.json")
     
     # Create ZIP package
-    $zipPath = Join-Path $RootPath "MigrationAssistant-$Configuration-$version.zip"
+    $zipPath = Join-Path $RootPath "MigrationAssistant-{0}-{1}.zip" -f $Configuration, $version
     Compress-Archive -Path "$PackagePath\*" -DestinationPath $zipPath -Force
     
     Write-Host "Package created: $zipPath" -ForegroundColor Green
@@ -283,30 +284,30 @@ function Create-Package {
 # Main execution
 try {
     Write-Host "Migration Assistant Build Script" -ForegroundColor Magenta
-    Write-Host "================================" -ForegroundColor Magenta
+    Write-Host ("=" * 32) -ForegroundColor Magenta
     
     # Verify prerequisites
     Test-DotNetCli
     
     # Clean if requested
     if ($Clean) {
-        Clean-Solution
+        Clear-Solution
     }
     
     # Restore packages
-    Restore-Packages
+    Restore-Package
     
     # Build solution
-    Build-Solution
+    Invoke-Build
     
     # Run tests if requested
     if ($Test) {
-        Run-Tests
+        Invoke-Test
     }
     
     # Create package if requested
     if ($Package) {
-        Create-Package
+        New-Package
     }
     
     Write-Host "`nBuild completed successfully!" -ForegroundColor Green
