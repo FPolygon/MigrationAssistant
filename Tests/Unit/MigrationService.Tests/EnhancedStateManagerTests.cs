@@ -62,6 +62,23 @@ public class EnhancedStateManagerTests : IDisposable
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
         
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = "test-user",
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
+        
         var operation = new BackupOperation
         {
             UserId = "test-user",
@@ -85,6 +102,23 @@ public class EnhancedStateManagerTests : IDisposable
     {
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
+        
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = "test-user",
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
         
         var operation = new BackupOperation
         {
@@ -125,6 +159,23 @@ public class EnhancedStateManagerTests : IDisposable
         
         var userId = "test-user";
         
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = userId,
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
+        
         // Create multiple operations
         for (int i = 0; i < 3; i++)
         {
@@ -154,6 +205,23 @@ public class EnhancedStateManagerTests : IDisposable
     {
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
+        
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = "test-user",
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
         
         var operation = new BackupOperation
         {
@@ -192,6 +260,23 @@ public class EnhancedStateManagerTests : IDisposable
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
         
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = "test-user",
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
+        
         var status = new OneDriveSyncStatus
         {
             UserId = "test-user",
@@ -224,6 +309,39 @@ public class EnhancedStateManagerTests : IDisposable
     {
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
+        
+        // First create the user profiles to satisfy foreign key constraints
+        var errorUserProfile = new UserProfile
+        {
+            UserId = "error-user",
+            UserName = "erroruser",
+            ProfilePath = @"C:\Users\erroruser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(errorUserProfile, CancellationToken.None);
+        
+        var goodUserProfile = new UserProfile
+        {
+            UserId = "good-user",
+            UserName = "gooduser",
+            ProfilePath = @"C:\Users\gooduser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(goodUserProfile, CancellationToken.None);
         
         // User with errors
         await _stateManager.UpdateOneDriveSyncStatusAsync(new OneDriveSyncStatus
@@ -264,6 +382,23 @@ public class EnhancedStateManagerTests : IDisposable
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
         
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = "test-user",
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
+        
         var escalation = new ITEscalation
         {
             UserId = "test-user",
@@ -285,6 +420,23 @@ public class EnhancedStateManagerTests : IDisposable
     {
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
+        
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = "test-user",
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
         
         var escalation = new ITEscalation
         {
@@ -317,6 +469,39 @@ public class EnhancedStateManagerTests : IDisposable
         await _stateManager.InitializeAsync(CancellationToken.None);
         
         var userId = "test-user";
+        
+        // First create the user profiles to satisfy foreign key constraints
+        var testUserProfile = new UserProfile
+        {
+            UserId = userId,
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(testUserProfile, CancellationToken.None);
+        
+        var otherUserProfile = new UserProfile
+        {
+            UserId = "other-user",
+            UserName = "otheruser",
+            ProfilePath = @"C:\Users\otheruser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(otherUserProfile, CancellationToken.None);
         
         // Create escalations for test user
         await _stateManager.CreateEscalationAsync(new ITEscalation
@@ -351,6 +536,23 @@ public class EnhancedStateManagerTests : IDisposable
     {
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
+        
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = "test-user",
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
         
         var request = new DelayRequest
         {
@@ -422,6 +624,23 @@ public class EnhancedStateManagerTests : IDisposable
         
         var userId = "test-user";
         
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = userId,
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
+        
         // Create and approve multiple delay requests
         for (int i = 0; i < 2; i++)
         {
@@ -462,6 +681,23 @@ public class EnhancedStateManagerTests : IDisposable
         await _stateManager.InitializeAsync(CancellationToken.None);
         
         var userId = "test-user";
+        
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = userId,
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
         
         // Create initial state
         await _stateManager.UpdateMigrationStateAsync(new MigrationState
@@ -559,6 +795,55 @@ public class EnhancedStateManagerTests : IDisposable
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
         
+        // Create user profiles first to satisfy foreign key constraints
+        var attentionUserProfile = new UserProfile
+        {
+            UserId = "attention-user",
+            UserName = "attentionuser",
+            ProfilePath = @"C:\Users\attentionuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(attentionUserProfile, CancellationToken.None);
+        
+        var syncErrorUserProfile = new UserProfile
+        {
+            UserId = "sync-error-user",
+            UserName = "syncerroruser",
+            ProfilePath = @"C:\Users\syncerroruser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(syncErrorUserProfile, CancellationToken.None);
+        
+        var normalUserProfile = new UserProfile
+        {
+            UserId = "normal-user",
+            UserName = "normaluser",
+            ProfilePath = @"C:\Users\normaluser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(normalUserProfile, CancellationToken.None);
+        
         // User with attention reason
         await _stateManager.UpdateMigrationStateAsync(new MigrationState
         {
@@ -600,6 +885,23 @@ public class EnhancedStateManagerTests : IDisposable
     {
         // Arrange
         await _stateManager.InitializeAsync(CancellationToken.None);
+        
+        // First create the user profile to satisfy foreign key constraint
+        var userProfile = new UserProfile
+        {
+            UserId = "test-user",
+            UserName = "testuser",
+            ProfilePath = @"C:\Users\testuser",
+            ProfileType = ProfileType.Local,
+            LastLoginTime = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            ProfileSizeBytes = 1024 * 1024 * 100,
+            RequiresBackup = true,
+            BackupPriority = 1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
         
         // Create a stale operation
         var operation = new BackupOperation

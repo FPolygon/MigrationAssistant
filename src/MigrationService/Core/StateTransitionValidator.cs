@@ -135,6 +135,14 @@ public class StateTransitionValidator
     {
         var result = new ValidationResult { IsValid = true };
 
+        // Validate state-specific constraints first
+        if (IsTerminalState(currentState.State) && newStateType != MigrationStateType.Failed)
+        {
+            result.IsValid = false;
+            result.Errors.Add($"Cannot transition from terminal state {currentState.State}");
+            return result;
+        }
+
         // Check if transition is allowed
         if (!IsValidTransition(currentState.State, newStateType))
         {
@@ -177,13 +185,6 @@ public class StateTransitionValidator
                     result.Errors.Add("Failure requires a reason");
                 }
                 break;
-        }
-
-        // Validate state-specific constraints
-        if (IsTerminalState(currentState.State) && newStateType != MigrationStateType.Failed)
-        {
-            result.IsValid = false;
-            result.Errors.Add($"Cannot transition from terminal state {currentState.State}");
         }
 
         return result;

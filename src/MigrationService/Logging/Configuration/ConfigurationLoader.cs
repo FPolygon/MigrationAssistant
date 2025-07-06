@@ -282,10 +282,16 @@ public class ConfigurationLoader
     {
         var sampleConfig = LoggingConfiguration.CreateDefault();
         
-        // Add some comments to the configuration
-        sampleConfig.CategoryOverrides.Add("MigrationTool.Service.IPC", LogLevel.Debug);
-        sampleConfig.CategoryOverrides.Add("MigrationTool.Backup", LogLevel.Information);
-        sampleConfig.CategoryOverrides.Add("MigrationTool.Performance", LogLevel.Warning);
+        // Add additional category overrides (avoiding duplicates)
+        // Note: CreateDefault() already includes these categories:
+        // - MigrationTool.Service.IPC (Debug)
+        // - MigrationTool.Backup (Information)
+        // - MigrationTool.Performance (Verbose)
+        
+        // Let's modify the existing ones or add new ones
+        sampleConfig.CategoryOverrides["MigrationTool.Performance"] = LogLevel.Warning; // Override from Verbose to Warning
+        sampleConfig.CategoryOverrides["MigrationTool.Database"] = LogLevel.Debug;
+        sampleConfig.CategoryOverrides["MigrationTool.Agent"] = LogLevel.Information;
         
         return SaveToFile(sampleConfig, filePath);
     }
