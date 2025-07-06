@@ -1,0 +1,39 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{F2501851-6F7E-45E6-9C22-E8D548205FD3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MigrationService", "src\MigrationService\MigrationService.csproj", "{D77C6260-D119-4727-9F03-C59CB20F6FCE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{48CC1DB2-E45E-4B1B-9E96-610AF192472E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Unit", "Unit", "{CD85EA30-4987-473B-BF51-7CBA5A669CE2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MigrationService.Tests", "Tests\Unit\MigrationService.Tests\MigrationService.Tests.csproj", "{3466813C-FB3E-43C1-AD78-5B2D858EC9CA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D77C6260-D119-4727-9F03-C59CB20F6FCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D77C6260-D119-4727-9F03-C59CB20F6FCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D77C6260-D119-4727-9F03-C59CB20F6FCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D77C6260-D119-4727-9F03-C59CB20F6FCE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3466813C-FB3E-43C1-AD78-5B2D858EC9CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3466813C-FB3E-43C1-AD78-5B2D858EC9CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3466813C-FB3E-43C1-AD78-5B2D858EC9CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3466813C-FB3E-43C1-AD78-5B2D858EC9CA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D77C6260-D119-4727-9F03-C59CB20F6FCE} = {F2501851-6F7E-45E6-9C22-E8D548205FD3}
+		{CD85EA30-4987-473B-BF51-7CBA5A669CE2} = {48CC1DB2-E45E-4B1B-9E96-610AF192472E}
+		{3466813C-FB3E-43C1-AD78-5B2D858EC9CA} = {CD85EA30-4987-473B-BF51-7CBA5A669CE2}
+	EndGlobalSection
+EndGlobal

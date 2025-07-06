@@ -1,0 +1,58 @@
+version: 2
+updates:
+  # Enable version updates for NuGet
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "YOUR_USERNAME"  # Replace with actual GitHub username
+    labels:
+      - "dependencies"
+      - "nuget"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    ignore:
+      # Ignore major version updates for stable packages
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Serilog*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Group Microsoft.Extensions packages together
+      microsoft-extensions:
+        patterns:
+          - "Microsoft.Extensions.*"
+      # Group test-related packages
+      test-dependencies:
+        patterns:
+          - "xunit*"
+          - "Moq"
+          - "FluentAssertions"
+          - "coverlet.*"
+          - "Microsoft.NET.Test.Sdk"
+      # Group Serilog packages
+      serilog:
+        patterns:
+          - "Serilog*"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "YOUR_USERNAME"  # Replace with actual GitHub username
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
