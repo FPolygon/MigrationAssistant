@@ -179,13 +179,18 @@ function Invoke-Test {
 }
 
 function New-CoverageReport {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+    
     Write-Header "Generating coverage report"
     
     # Check if report generator is installed
     $reportGeneratorPath = & dotnet tool list -g | Select-String "dotnet-reportgenerator-globaltool"
     if (-not $reportGeneratorPath) {
         Write-Host "Installing ReportGenerator tool..." -ForegroundColor Yellow
-        & dotnet tool install -g dotnet-reportgenerator-globaltool
+        if ($PSCmdlet.ShouldProcess("ReportGenerator", "Install global dotnet tool")) {
+            & dotnet tool install -g dotnet-reportgenerator-globaltool
+        }
     }
     
     # Find coverage files
@@ -199,11 +204,13 @@ function New-CoverageReport {
     $reports = ($coverageFiles | ForEach-Object { $_.FullName }) -join ';'
     
     # Generate report
-    & reportgenerator `
-        "-reports:$reports" `
-        "-targetdir:$CoveragePath" `
-        "-reporttypes:Html;Badges;TextSummary;Cobertura" `
-        "-verbosity:Warning"
+    if ($PSCmdlet.ShouldProcess($CoveragePath, "Generate coverage report")) {
+        & reportgenerator `
+            "-reports:$reports" `
+            "-targetdir:$CoveragePath" `
+            "-reporttypes:Html;Badges;TextSummary;Cobertura" `
+            "-verbosity:Warning"
+    }
     
     # Display summary
     $summaryFile = Join-Path $CoveragePath "Summary.txt"
@@ -216,13 +223,20 @@ function New-CoverageReport {
 }
 
 function New-Package {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+    
     Write-Header "Creating deployment package"
     
     # Create package directory
     if (Test-Path $PackagePath) {
-        Remove-Item $PackagePath -Recurse -Force
+        if ($PSCmdlet.ShouldProcess($PackagePath, "Remove existing package directory")) {
+            Remove-Item $PackagePath -Recurse -Force
+        }
     }
-    New-Item -ItemType Directory -Path $PackagePath | Out-Null
+    if ($PSCmdlet.ShouldProcess($PackagePath, "Create package directory")) {
+        New-Item -ItemType Directory -Path $PackagePath | Out-Null
+    }
     
     # Define package structure
     $packageBinPath = Join-Path $PackagePath "bin"
@@ -230,9 +244,11 @@ function New-Package {
     $packageDocsPath = Join-Path $PackagePath "docs"
     
     # Create directories
-    New-Item -ItemType Directory -Path $packageBinPath | Out-Null
-    New-Item -ItemType Directory -Path $packageScriptsPath | Out-Null
-    New-Item -ItemType Directory -Path $packageDocsPath | Out-Null
+    if ($PSCmdlet.ShouldProcess("Package subdirectories", "Create")) {
+        New-Item -ItemType Directory -Path $packageBinPath | Out-Null
+        New-Item -ItemType Directory -Path $packageScriptsPath | Out-Null
+        New-Item -ItemType Directory -Path $packageDocsPath | Out-Null
+    }
     
     # Copy service binaries
     $serviceBinPath = Join-Path $RootPath "src\MigrationService\bin\$Configuration\net8.0-windows"
@@ -276,7 +292,9 @@ function New-Package {
     
     # Create ZIP package
     $zipPath = Join-Path $RootPath "MigrationAssistant-{0}-{1}.zip" -f $Configuration, $version
-    Compress-Archive -Path "$PackagePath\*" -DestinationPath $zipPath -Force
+    if ($PSCmdlet.ShouldProcess($zipPath, "Create ZIP package")) {
+        Compress-Archive -Path "$PackagePath\*" -DestinationPath $zipPath -Force
+    }
     
     Write-Host "Package created: $zipPath" -ForegroundColor Green
 }
