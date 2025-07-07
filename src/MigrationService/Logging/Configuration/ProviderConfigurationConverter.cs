@@ -13,31 +13,31 @@ public class ProviderConfigurationConverter : JsonConverter<ProviderConfiguratio
     {
         using var doc = JsonDocument.ParseValue(ref reader);
         var root = doc.RootElement;
-        
+
         // Clone the element so we can read it multiple times
         var json = root.GetRawText();
-        
+
         // Check if there are provider-specific properties to determine the type
-        if (root.TryGetProperty("logDirectory", out _) || 
+        if (root.TryGetProperty("logDirectory", out _) ||
             root.TryGetProperty("LogDirectory", out _) ||
             root.TryGetProperty("filePrefix", out _) ||
             root.TryGetProperty("FilePrefix", out _))
         {
             return JsonSerializer.Deserialize<FileProviderConfiguration>(json, options);
         }
-        
-        if (root.TryGetProperty("source", out _) || 
+
+        if (root.TryGetProperty("source", out _) ||
             root.TryGetProperty("Source", out _) ||
             root.TryGetProperty("logName", out _) ||
             root.TryGetProperty("LogName", out _))
         {
             return JsonSerializer.Deserialize<EventLogProviderConfiguration>(json, options);
         }
-        
+
         // Default to file provider if we can't determine the type
         return JsonSerializer.Deserialize<FileProviderConfiguration>(json, options);
     }
-    
+
     public override void Write(Utf8JsonWriter writer, ProviderConfiguration value, JsonSerializerOptions options)
     {
         // Let the default serialization handle writing

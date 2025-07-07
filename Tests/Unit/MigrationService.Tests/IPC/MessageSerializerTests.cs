@@ -10,12 +10,12 @@ namespace MigrationService.Tests.IPC;
 public class MessageSerializerTests
 {
     private readonly MessageSerializer _serializer;
-    
+
     public MessageSerializerTests()
     {
         _serializer = new MessageSerializer();
     }
-    
+
     [Fact]
     public void SerializeMessage_ShouldSerializeBasicMessage()
     {
@@ -27,16 +27,16 @@ public class MessageSerializerTests
             Timestamp = new DateTime(2024, 1, 1, 12, 0, 0, DateTimeKind.Utc),
             Payload = null
         };
-        
+
         // Act
         var json = _serializer.SerializeMessageToString(message);
-        
+
         // Assert
         json.Should().Contain("\"id\":\"test-id\"");
         json.Should().Contain("\"type\":\"HEARTBEAT\"");
         json.Should().Contain("\"timestamp\":\"2024-01-01T12:00:00Z\"");
     }
-    
+
     [Fact]
     public void SerializeMessage_WithBackupRequestPayload_ShouldSerializeCorrectly()
     {
@@ -46,17 +46,17 @@ public class MessageSerializerTests
             "high",
             DateTime.UtcNow.AddDays(7),
             "files", "browsers", "email");
-        
+
         // Act
         var json = _serializer.SerializeMessageToString(message);
-        
+
         // Assert
         json.Should().Contain("\"type\":\"BACKUP_REQUEST\"");
         json.Should().Contain("\"userId\":\"user-123\"");
         json.Should().Contain("\"priority\":\"high\"");
         json.Should().Contain("\"categories\":[\"files\",\"browsers\",\"email\"]");
     }
-    
+
     [Fact]
     public void DeserializeMessage_ShouldDeserializeBasicMessage()
     {
@@ -67,17 +67,17 @@ public class MessageSerializerTests
             ""timestamp"": ""2024-01-01T12:00:00Z"",
             ""payload"": null
         }";
-        
+
         // Act
         var message = _serializer.DeserializeMessage(json);
-        
+
         // Assert
         message.Should().NotBeNull();
         message!.Id.Should().Be("test-123");
         message.Type.Should().Be(MessageTypes.Heartbeat);
         message.Timestamp.Should().Be(new DateTime(2024, 1, 1, 12, 0, 0, DateTimeKind.Utc));
     }
-    
+
     [Fact]
     public void DeserializeMessage_WithBackupProgressPayload_ShouldDeserializeCorrectly()
     {
@@ -95,14 +95,14 @@ public class MessageSerializerTests
                 ""bytesTotal"": 2147483648
             }
         }";
-        
+
         // Act
         var message = _serializer.DeserializeMessage(json);
-        
+
         // Assert
         message.Should().NotBeNull();
         message!.Type.Should().Be(MessageTypes.BackupProgress);
-        
+
         var payload = message.Payload as BackupProgressPayload;
         payload.Should().NotBeNull();
         payload!.UserId.Should().Be("user-789");
@@ -112,7 +112,7 @@ public class MessageSerializerTests
         payload.BytesTransferred.Should().Be(1073741824);
         payload.BytesTotal.Should().Be(2147483648);
     }
-    
+
     [Fact]
     public void RoundTrip_AllMessageTypes_ShouldPreserveData()
     {
@@ -128,13 +128,13 @@ public class MessageSerializerTests
             MessageFactory.CreateHeartbeat("client-123", 42),
             MessageFactory.CreateAcknowledgment("orig-123", true)
         };
-        
+
         foreach (var original in messages)
         {
             // Act
             var json = _serializer.SerializeMessageToString(original);
             var deserialized = _serializer.DeserializeMessage(json);
-            
+
             // Assert
             deserialized.Should().NotBeNull();
             deserialized!.Id.Should().Be(original.Id);
@@ -142,7 +142,7 @@ public class MessageSerializerTests
             deserialized.Payload.Should().NotBeNull();
         }
     }
-    
+
     [Fact]
     public void DeserializePayload_Generic_ShouldWorkCorrectly()
     {
@@ -153,35 +153,35 @@ public class MessageSerializerTests
             Categories = new List<string> { "files", "browsers" },
             EstimatedSizeMB = 1024
         };
-        
+
         // Act
         var deserialized = _serializer.DeserializePayload<BackupStartedPayload>(payload);
-        
+
         // Assert
         deserialized.Should().NotBeNull();
         deserialized!.UserId.Should().Be("test-user");
         deserialized.Categories.Should().BeEquivalentTo(new[] { "files", "browsers" });
         deserialized.EstimatedSizeMB.Should().Be(1024);
     }
-    
+
     [Fact]
     public void DeserializeMessage_WithInvalidJson_ShouldThrowException()
     {
         // Arrange
         var invalidJson = "{ invalid json }";
-        
+
         // Act & Assert
         var act = () => _serializer.DeserializeMessage(invalidJson);
         act.Should().Throw<MessageSerializationException>()
             .WithMessage("Failed to deserialize message JSON");
     }
-    
+
     [Fact]
     public void DeserializeMessage_WithNullResult_ShouldThrowException()
     {
         // Arrange
         var json = "null";
-        
+
         // Act & Assert
         var act = () => _serializer.DeserializeMessage(json);
         act.Should().Throw<MessageSerializationException>()

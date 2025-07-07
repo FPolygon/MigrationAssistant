@@ -6,7 +6,7 @@ namespace MigrationTool.Service.IPC;
 public static class MessageFactory
 {
     // Service → Agent Messages
-    
+
     public static IpcMessage<BackupRequestPayload> CreateBackupRequest(string userId, string priority, DateTime deadline, params string[] categories)
     {
         return new IpcMessage<BackupRequestPayload>
@@ -21,7 +21,7 @@ public static class MessageFactory
             }
         };
     }
-    
+
     public static IpcMessage<StatusUpdatePayload> CreateStatusUpdate(string overallStatus, List<string> blockingUsers, List<string> readyUsers, int totalUsers)
     {
         return new IpcMessage<StatusUpdatePayload>
@@ -36,7 +36,7 @@ public static class MessageFactory
             }
         };
     }
-    
+
     public static IpcMessage<EscalationNoticePayload> CreateEscalationNotice(string reason, string details, string? ticketNumber = null)
     {
         return new IpcMessage<EscalationNoticePayload>
@@ -50,9 +50,9 @@ public static class MessageFactory
             }
         };
     }
-    
+
     // Agent → Service Messages
-    
+
     public static IpcMessage<AgentStartedPayload> CreateAgentStarted(string userId, string agentVersion, string sessionId)
     {
         return new IpcMessage<AgentStartedPayload>
@@ -66,7 +66,7 @@ public static class MessageFactory
             }
         };
     }
-    
+
     public static IpcMessage<BackupStartedPayload> CreateBackupStarted(string userId, List<string> categories, long estimatedSizeMB)
     {
         return new IpcMessage<BackupStartedPayload>
@@ -80,12 +80,12 @@ public static class MessageFactory
             }
         };
     }
-    
+
     public static IpcMessage<BackupProgressPayload> CreateBackupProgress(
-        string userId, 
-        string category, 
-        double progress, 
-        long bytesTransferred, 
+        string userId,
+        string category,
+        double progress,
+        long bytesTransferred,
         long bytesTotal,
         string? currentFile = null)
     {
@@ -103,10 +103,10 @@ public static class MessageFactory
             }
         };
     }
-    
+
     public static IpcMessage<BackupCompletedPayload> CreateBackupCompleted(
-        string userId, 
-        bool success, 
+        string userId,
+        bool success,
         string? manifestPath,
         Dictionary<string, BackupCompletedPayload.CategoryResult> categories)
     {
@@ -122,7 +122,7 @@ public static class MessageFactory
             }
         };
     }
-    
+
     public static IpcMessage<DelayRequestPayload> CreateDelayRequest(string userId, string reason, int requestedDelaySeconds, int delaysUsed)
     {
         return new IpcMessage<DelayRequestPayload>
@@ -137,9 +137,9 @@ public static class MessageFactory
             }
         };
     }
-    
+
     // Bidirectional Messages
-    
+
     public static IpcMessage<HeartbeatPayload> CreateHeartbeat(string senderId, long sequenceNumber)
     {
         return new IpcMessage<HeartbeatPayload>
@@ -153,7 +153,7 @@ public static class MessageFactory
             }
         };
     }
-    
+
     public static IpcMessage<AcknowledgmentPayload> CreateAcknowledgment(string originalMessageId, bool success, string? error = null)
     {
         return new IpcMessage<AcknowledgmentPayload>
@@ -168,7 +168,7 @@ public static class MessageFactory
             }
         };
     }
-    
+
     public static IpcMessage<ErrorReportPayload> CreateErrorReport(
         string userId,
         string errorCode,

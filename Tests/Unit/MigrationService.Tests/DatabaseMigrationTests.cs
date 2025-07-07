@@ -50,7 +50,7 @@ public class DatabaseMigrationTests : IDisposable
         await connection.OpenAsync();
 
         var tables = await GetTableNamesAsync(connection);
-        
+
         tables.Should().Contain("MigrationHistory");
         tables.Should().Contain("UserProfiles");
         tables.Should().Contain("MigrationStates");
@@ -75,10 +75,10 @@ public class DatabaseMigrationTests : IDisposable
 
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT Version, Description FROM MigrationHistory ORDER BY Version";
-        
+
         using var reader = await command.ExecuteReaderAsync();
         await reader.ReadAsync();
-        
+
         reader.GetInt32(0).Should().Be(1);
         reader.GetString(1).Should().Contain("Initial database schema");
     }
@@ -98,7 +98,7 @@ public class DatabaseMigrationTests : IDisposable
 
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM MigrationHistory";
-        
+
         var count = await command.ExecuteScalarAsync();
         Convert.ToInt32(count).Should().Be(1); // Only one migration should be recorded
     }
@@ -114,7 +114,7 @@ public class DatabaseMigrationTests : IDisposable
         await connection.OpenAsync();
 
         var indexes = await GetIndexNamesAsync(connection);
-        
+
         indexes.Should().Contain("idx_migration_states_status");
         indexes.Should().Contain("idx_migration_states_state");
         indexes.Should().Contain("idx_backup_operations_user");
@@ -140,8 +140,8 @@ public class DatabaseMigrationTests : IDisposable
         await connection.OpenAsync();
 
         var columns = await GetTableColumnsAsync(connection, "UserProfiles");
-        
-        columns.Should().ContainKeys(new[] 
+
+        columns.Should().ContainKeys(new[]
         {
             "UserId", "UserName", "DomainName", "ProfilePath", "ProfileType",
             "LastLoginTime", "IsActive", "ProfileSizeBytes", "RequiresBackup",
@@ -160,11 +160,11 @@ public class DatabaseMigrationTests : IDisposable
         await connection.OpenAsync();
 
         var foreignKeys = await GetForeignKeysAsync(connection, "MigrationStates");
-        
-        foreignKeys.Should().Contain(fk => 
-            fk.Table == "MigrationStates" && 
-            fk.From == "UserId" && 
-            fk.ToTable == "UserProfiles" && 
+
+        foreignKeys.Should().Contain(fk =>
+            fk.Table == "MigrationStates" &&
+            fk.From == "UserId" &&
+            fk.ToTable == "UserProfiles" &&
             fk.To == "UserId");
     }
 
@@ -177,7 +177,7 @@ public class DatabaseMigrationTests : IDisposable
             _loggerMock.Object, failingConnectionString);
 
         // Act & Assert
-        await Assert.ThrowsAsync<Exception>(async () => 
+        await Assert.ThrowsAsync<Exception>(async () =>
             await failingRunner.RunMigrationsAsync(CancellationToken.None));
 
         // Verify no partial migration was applied
@@ -193,13 +193,13 @@ public class DatabaseMigrationTests : IDisposable
         var tables = new List<string>();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
-        
+
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
             tables.Add(reader.GetString(0));
         }
-        
+
         return tables;
     }
 
@@ -208,13 +208,13 @@ public class DatabaseMigrationTests : IDisposable
         var indexes = new List<string>();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'";
-        
+
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
             indexes.Add(reader.GetString(0));
         }
-        
+
         return indexes;
     }
 
@@ -223,7 +223,7 @@ public class DatabaseMigrationTests : IDisposable
         var columns = new Dictionary<string, string>();
         using var command = connection.CreateCommand();
         command.CommandText = $"PRAGMA table_info({tableName})";
-        
+
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -231,7 +231,7 @@ public class DatabaseMigrationTests : IDisposable
             var type = reader.GetString(2);
             columns[name] = type;
         }
-        
+
         return columns;
     }
 
@@ -240,7 +240,7 @@ public class DatabaseMigrationTests : IDisposable
         var foreignKeys = new List<ForeignKeyInfo>();
         using var command = connection.CreateCommand();
         command.CommandText = $"PRAGMA foreign_key_list({tableName})";
-        
+
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -252,7 +252,7 @@ public class DatabaseMigrationTests : IDisposable
                 To = reader.GetString(4)
             });
         }
-        
+
         return foreignKeys;
     }
 
@@ -288,7 +288,7 @@ public class DatabaseMigrationTests : IDisposable
             // Create partial state
             await connection.ExecuteAsync(
                 "CREATE TABLE UserProfiles (UserId TEXT PRIMARY KEY)", cancellationToken);
-            
+
             // Then fail
             throw new Exception("Simulated migration failure");
         }
@@ -320,7 +320,7 @@ public class Migration001Tests
         var migration = new Migration001_InitialSchema();
         var mockConnection = new Mock<IDatabaseConnection>();
         var executedCommands = new List<string>();
-        
+
         mockConnection.Setup(x => x.ExecuteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<string, CancellationToken>((sql, ct) => executedCommands.Add(sql))
             .Returns(Task.CompletedTask);

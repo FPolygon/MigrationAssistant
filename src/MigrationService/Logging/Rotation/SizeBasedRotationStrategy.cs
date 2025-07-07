@@ -12,7 +12,7 @@ public class SizeBasedRotationStrategy : IRotationStrategy
 {
     private readonly long _maxFileSizeBytes;
     private int _rotationCounter;
-    
+
     /// <summary>
     /// Initializes a new instance of the SizeBasedRotationStrategy.
     /// </summary>
@@ -21,20 +21,20 @@ public class SizeBasedRotationStrategy : IRotationStrategy
     {
         _maxFileSizeBytes = maxFileSizeBytes;
     }
-    
+
     public bool ShouldRotate(string currentFilePath, long currentFileSize)
     {
         return currentFileSize >= _maxFileSizeBytes;
     }
-    
+
     public string GenerateNextFileName(string baseFileName, string extension)
     {
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
         var counter = Interlocked.Increment(ref _rotationCounter);
-        
+
         return $"{baseFileName}_{timestamp}_{counter:D3}{extension}";
     }
-    
+
     public Task PostRotationCleanupAsync(string rotatedFilePath, CancellationToken cancellationToken = default)
     {
         // No cleanup needed for size-based rotation

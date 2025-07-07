@@ -60,7 +60,7 @@ public class MigrationStateOrchestratorTests
 
         // Assert
         _stateManagerMock.Verify(x => x.TransitionStateAsync(
-            "user1", MigrationStateType.Failed, It.Is<string>(s => s.Contains("timed out")), 
+            "user1", MigrationStateType.Failed, It.Is<string>(s => s.Contains("timed out")),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -84,8 +84,8 @@ public class MigrationStateOrchestratorTests
 
         // Assert
         _stateManagerMock.Verify(x => x.TransitionStateAsync(
-            "user1", MigrationStateType.WaitingForUser, 
-            It.Is<string>(s => s.Contains("Automatic transition")), 
+            "user1", MigrationStateType.WaitingForUser,
+            It.Is<string>(s => s.Contains("Automatic transition")),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -121,7 +121,7 @@ public class MigrationStateOrchestratorTests
 
         // Assert
         _stateManagerMock.Verify(x => x.TransitionStateAsync(
-            "user1", MigrationStateType.BackupCompleted, 
+            "user1", MigrationStateType.BackupCompleted,
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -157,7 +157,7 @@ public class MigrationStateOrchestratorTests
 
         // Assert
         _stateManagerMock.Verify(x => x.CreateEscalationAsync(
-            It.Is<ITEscalation>(e => e.AutoTriggered == true), 
+            It.Is<ITEscalation>(e => e.AutoTriggered == true),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -239,7 +239,7 @@ public class MigrationStateOrchestratorTests
         // Arrange
         var userId = "user1";
         var operationId = "op123";
-        
+
         var migration = new MigrationState
         {
             UserId = userId,
@@ -324,7 +324,7 @@ public class MigrationStateOrchestratorTests
             .ReturnsAsync(syncStatus);
 
         _stateManagerMock.Setup(x => x.CreateEscalationAsync(
-            It.Is<ITEscalation>(e => e.TriggerType == EscalationTriggerType.QuotaExceeded), 
+            It.Is<ITEscalation>(e => e.TriggerType == EscalationTriggerType.QuotaExceeded),
             It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 

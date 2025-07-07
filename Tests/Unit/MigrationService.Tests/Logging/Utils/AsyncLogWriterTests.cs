@@ -13,13 +13,13 @@ public class AsyncLogWriterTests : IDisposable
 {
     private readonly Mock<ILoggingProvider> _mockProvider;
     private readonly AsyncLogWriter _asyncWriter;
-    
+
     public AsyncLogWriterTests()
     {
         _mockProvider = new Mock<ILoggingProvider>();
         _mockProvider.Setup(x => x.Name).Returns("TestProvider");
         _mockProvider.Setup(x => x.IsEnabled).Returns(true);
-        
+
         var options = new AsyncLogWriterOptions
         {
             MaxQueueSize = 100,
@@ -28,56 +28,56 @@ public class AsyncLogWriterTests : IDisposable
             FlushInterval = TimeSpan.FromMilliseconds(100),
             OverflowPolicy = OverflowPolicy.DropOldest
         };
-        
+
         _asyncWriter = new AsyncLogWriter(_mockProvider.Object, options);
     }
-    
+
     [Fact]
     public void QueueSize_Initially_ShouldBeZero()
     {
         // Assert
         _asyncWriter.QueueSize.Should().Be(0);
     }
-    
+
     [Fact]
     public void IsRunning_Initially_ShouldBeTrue()
     {
         // Assert
         _asyncWriter.IsRunning.Should().BeTrue();
     }
-    
+
     [Fact]
     public void QueueLogEntry_ShouldReturnTrueAndIncreaseQueueSize()
     {
         // Arrange
         var entry = new LogEntry { Message = "Test message" };
-        
+
         // Act
         var result = _asyncWriter.QueueLogEntry(entry);
-        
+
         // Assert
         result.Should().BeTrue();
         _asyncWriter.QueueSize.Should().Be(1);
     }
-    
+
     [Fact]
     public async Task QueueLogEntry_ShouldEventuallyCallProvider()
     {
         // Arrange
         var entry = new LogEntry { Message = "Test message" };
-        
+
         // Act
         _asyncWriter.QueueLogEntry(entry);
-        
+
         // Wait for processing
         await Task.Delay(200);
-        
+
         // Assert
         _mockProvider.Verify(x => x.WriteLogAsync(
             It.Is<LogEntry>(e => e.Message == "Test message"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
-    
+
     [Fact]
     public async Task QueueLogEntry_MultipleEntries_ShouldProcessInBatches()
     {
@@ -87,22 +87,22 @@ public class AsyncLogWriterTests : IDisposable
         {
             entries[i] = new LogEntry { Message = $"Message {i}" };
         }
-        
+
         // Act
         foreach (var entry in entries)
         {
             _asyncWriter.QueueLogEntry(entry);
         }
-        
+
         // Wait for processing
         await Task.Delay(300);
-        
+
         // Assert
         _mockProvider.Verify(x => x.WriteLogAsync(
             It.IsAny<LogEntry>(),
             It.IsAny<CancellationToken>()), Times.Exactly(25));
     }
-    
+
     [Fact]
     public async Task FlushAsync_ShouldWaitForQueueToEmpty()
     {
@@ -112,20 +112,20 @@ public class AsyncLogWriterTests : IDisposable
         {
             entries[i] = new LogEntry { Message = $"Message {i}" };
         }
-        
+
         foreach (var entry in entries)
         {
             _asyncWriter.QueueLogEntry(entry);
         }
-        
+
         // Act
         await _asyncWriter.FlushAsync();
-        
+
         // Assert
         _asyncWriter.QueueSize.Should().Be(0);
         _mockProvider.Verify(x => x.FlushAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
-    
+
     [Fact]
     public void QueueLogEntry_WhenQueueFull_WithDropOldestPolicy_ShouldDropOldEntries()
     {
@@ -135,20 +135,20 @@ public class AsyncLogWriterTests : IDisposable
             MaxQueueSize = 5,
             OverflowPolicy = OverflowPolicy.DropOldest
         };
-        
+
         using var limitedWriter = new AsyncLogWriter(_mockProvider.Object, options);
-        
+
         // Act - Fill queue beyond capacity
         for (int i = 0; i < 10; i++)
         {
             var entry = new LogEntry { Message = $"Message {i}" };
             limitedWriter.QueueLogEntry(entry);
         }
-        
+
         // Assert
         limitedWriter.QueueSize.Should().BeLessOrEqualTo(5);
     }
-    
+
     [Fact]
     public void QueueLogEntry_WhenQueueFull_WithDropNewestPolicy_ShouldRejectNewEntries()
     {
@@ -158,24 +158,24 @@ public class AsyncLogWriterTests : IDisposable
             MaxQueueSize = 5,
             OverflowPolicy = OverflowPolicy.DropNewest
         };
-        
+
         using var limitedWriter = new AsyncLogWriter(_mockProvider.Object, options);
-        
+
         // Fill queue to capacity
         for (int i = 0; i < 5; i++)
         {
             var entry = new LogEntry { Message = $"Message {i}" };
             limitedWriter.QueueLogEntry(entry);
         }
-        
+
         // Act - Try to add one more
         var extraEntry = new LogEntry { Message = "Extra message" };
         var result = limitedWriter.QueueLogEntry(extraEntry);
-        
+
         // Assert
         result.Should().BeFalse();
     }
-    
+
     [Fact]
     public void QueueLogEntry_ReachingHighWatermark_ShouldRaiseQueuePressureEvent()
     {
@@ -185,37 +185,37 @@ public class AsyncLogWriterTests : IDisposable
             MaxQueueSize = 10,
             HighWatermark = 8
         };
-        
+
         using var pressureWriter = new AsyncLogWriter(_mockProvider.Object, options);
-        
+
         var pressureEventRaised = false;
         pressureWriter.QueuePressure += (sender, args) =>
         {
             pressureEventRaised = true;
             args.CurrentSize.Should().BeGreaterOrEqualTo(8);
         };
-        
+
         // Act - Fill queue to high watermark
         for (int i = 0; i < 9; i++)
         {
             var entry = new LogEntry { Message = $"Message {i}" };
             pressureWriter.QueueLogEntry(entry);
         }
-        
+
         // Assert
         pressureEventRaised.Should().BeTrue();
     }
-    
+
     [Fact]
     public void GetStatistics_ShouldReturnCurrentState()
     {
         // Arrange
         var entry = new LogEntry { Message = "Test message" };
         _asyncWriter.QueueLogEntry(entry);
-        
+
         // Act
         var stats = _asyncWriter.GetStatistics();
-        
+
         // Assert
         stats.Should().NotBeNull();
         stats.CurrentQueueSize.Should().BeGreaterThan(0);
@@ -223,7 +223,7 @@ public class AsyncLogWriterTests : IDisposable
         stats.HighWatermark.Should().Be(75);
         stats.IsRunning.Should().BeTrue();
     }
-    
+
     [Fact]
     public async Task ProviderException_ShouldNotStopProcessing()
     {
@@ -239,38 +239,38 @@ public class AsyncLogWriterTests : IDisposable
                 }
                 return Task.CompletedTask;
             });
-        
+
         var entry1 = new LogEntry { Message = "Failing message" };
         var entry2 = new LogEntry { Message = "Success message" };
-        
+
         // Act
         _asyncWriter.QueueLogEntry(entry1);
         _asyncWriter.QueueLogEntry(entry2);
-        
+
         // Wait for processing
         await Task.Delay(200);
-        
+
         // Assert
-        _mockProvider.Verify(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()), 
+        _mockProvider.Verify(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2));
     }
-    
+
     [Fact]
     public void Dispose_ShouldStopProcessingAndFlushRemaining()
     {
         // Arrange
         var entry = new LogEntry { Message = "Test message" };
         _asyncWriter.QueueLogEntry(entry);
-        
+
         // Act
         _asyncWriter.Dispose();
-        
+
         // Assert
         _asyncWriter.IsRunning.Should().BeFalse();
-        _mockProvider.Verify(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()), 
+        _mockProvider.Verify(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
     }
-    
+
     public void Dispose()
     {
         _asyncWriter?.Dispose();

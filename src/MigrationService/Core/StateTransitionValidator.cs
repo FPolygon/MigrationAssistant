@@ -7,70 +7,70 @@ public class StateTransitionValidator
     // Define valid state transitions
     private static readonly Dictionary<MigrationStateType, HashSet<MigrationStateType>> ValidTransitions = new()
     {
-        [MigrationStateType.NotStarted] = new HashSet<MigrationStateType> 
-        { 
+        [MigrationStateType.NotStarted] = new HashSet<MigrationStateType>
+        {
             MigrationStateType.Initializing,
-            MigrationStateType.Cancelled 
+            MigrationStateType.Cancelled
         },
-        
-        [MigrationStateType.Initializing] = new HashSet<MigrationStateType> 
-        { 
+
+        [MigrationStateType.Initializing] = new HashSet<MigrationStateType>
+        {
             MigrationStateType.WaitingForUser,
             MigrationStateType.Failed,
-            MigrationStateType.Cancelled 
+            MigrationStateType.Cancelled
         },
-        
-        [MigrationStateType.WaitingForUser] = new HashSet<MigrationStateType> 
-        { 
+
+        [MigrationStateType.WaitingForUser] = new HashSet<MigrationStateType>
+        {
             MigrationStateType.BackupInProgress,
             MigrationStateType.Cancelled,
-            MigrationStateType.Escalated 
+            MigrationStateType.Escalated
         },
-        
-        [MigrationStateType.BackupInProgress] = new HashSet<MigrationStateType> 
-        { 
+
+        [MigrationStateType.BackupInProgress] = new HashSet<MigrationStateType>
+        {
             MigrationStateType.BackupCompleted,
             MigrationStateType.Failed,
             MigrationStateType.Cancelled,
-            MigrationStateType.Escalated 
+            MigrationStateType.Escalated
         },
-        
-        [MigrationStateType.BackupCompleted] = new HashSet<MigrationStateType> 
-        { 
+
+        [MigrationStateType.BackupCompleted] = new HashSet<MigrationStateType>
+        {
             MigrationStateType.SyncInProgress,
             MigrationStateType.ReadyForReset,
-            MigrationStateType.Failed 
+            MigrationStateType.Failed
         },
-        
-        [MigrationStateType.SyncInProgress] = new HashSet<MigrationStateType> 
-        { 
+
+        [MigrationStateType.SyncInProgress] = new HashSet<MigrationStateType>
+        {
             MigrationStateType.ReadyForReset,
             MigrationStateType.Failed,
-            MigrationStateType.Escalated 
+            MigrationStateType.Escalated
         },
-        
+
         [MigrationStateType.ReadyForReset] = new HashSet<MigrationStateType>
         {
             // Terminal state - no transitions except back to failed if something goes wrong
             MigrationStateType.Failed
         },
-        
-        [MigrationStateType.Failed] = new HashSet<MigrationStateType> 
-        { 
+
+        [MigrationStateType.Failed] = new HashSet<MigrationStateType>
+        {
             MigrationStateType.Initializing, // Allow retry
             MigrationStateType.Cancelled,
-            MigrationStateType.Escalated 
+            MigrationStateType.Escalated
         },
-        
+
         [MigrationStateType.Cancelled] = new HashSet<MigrationStateType>
         {
             // Terminal state - no transitions
         },
-        
-        [MigrationStateType.Escalated] = new HashSet<MigrationStateType> 
-        { 
+
+        [MigrationStateType.Escalated] = new HashSet<MigrationStateType>
+        {
             MigrationStateType.Initializing, // Allow retry after IT resolution
-            MigrationStateType.Cancelled 
+            MigrationStateType.Cancelled
         }
     };
 
@@ -112,25 +112,25 @@ public class StateTransitionValidator
 
     public static bool IsTerminalState(MigrationStateType state)
     {
-        return state == MigrationStateType.ReadyForReset || 
+        return state == MigrationStateType.ReadyForReset ||
                state == MigrationStateType.Cancelled;
     }
 
     public static bool RequiresUserAction(MigrationStateType state)
     {
-        return state == MigrationStateType.WaitingForUser || 
+        return state == MigrationStateType.WaitingForUser ||
                state == MigrationStateType.Escalated;
     }
 
     public static bool IsErrorState(MigrationStateType state)
     {
-        return state == MigrationStateType.Failed || 
+        return state == MigrationStateType.Failed ||
                state == MigrationStateType.Escalated;
     }
 
     public static ValidationResult ValidateStateTransition(
-        MigrationState currentState, 
-        MigrationStateType newStateType, 
+        MigrationState currentState,
+        MigrationStateType newStateType,
         string reason)
     {
         var result = new ValidationResult { IsValid = true };

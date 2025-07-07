@@ -35,15 +35,15 @@ public static class EventLogInstaller
                     return false;
                 }
             }
-            
+
             // Create the event source
             var sourceData = new EventSourceCreationData(sourceName, logName)
             {
                 MachineName = "."
             };
-            
+
             System.Diagnostics.EventLog.CreateEventSource(sourceData);
-            
+
             Console.WriteLine($"Successfully created event source '{sourceName}' in log '{logName}'");
             return true;
         }
@@ -64,7 +64,7 @@ public static class EventLogInstaller
             return false;
         }
     }
-    
+
     /// <summary>
     /// Removes the event source for the Migration Tool.
     /// </summary>
@@ -78,9 +78,9 @@ public static class EventLogInstaller
             {
                 return true; // Source doesn't exist, nothing to remove
             }
-            
+
             System.Diagnostics.EventLog.DeleteEventSource(sourceName);
-            
+
             Console.WriteLine($"Successfully removed event source '{sourceName}'");
             return true;
         }
@@ -101,7 +101,7 @@ public static class EventLogInstaller
             return false;
         }
     }
-    
+
     /// <summary>
     /// Verifies that the event source exists and is properly configured.
     /// </summary>
@@ -117,14 +117,14 @@ public static class EventLogInstaller
                 Console.WriteLine($"Event source '{sourceName}' does not exist");
                 return false;
             }
-            
+
             var actualLogName = System.Diagnostics.EventLog.LogNameFromSourceName(sourceName, ".");
             if (!string.Equals(actualLogName, expectedLogName, StringComparison.OrdinalIgnoreCase))
             {
                 Console.WriteLine($"Event source '{sourceName}' is associated with '{actualLogName}' instead of expected '{expectedLogName}'");
                 return false;
             }
-            
+
             Console.WriteLine($"Event source '{sourceName}' is properly configured for log '{expectedLogName}'");
             return true;
         }
@@ -134,7 +134,7 @@ public static class EventLogInstaller
             return false;
         }
     }
-    
+
     /// <summary>
     /// Lists all event sources in the specified log.
     /// </summary>
@@ -144,10 +144,10 @@ public static class EventLogInstaller
         try
         {
             var eventLog = new System.Diagnostics.EventLog(logName);
-            
+
             Console.WriteLine($"Event sources in '{logName}' log:");
             Console.WriteLine(new string('-', 50));
-            
+
             // Note: There's no direct API to list all sources in a log
             // This is a simplified approach
             Console.WriteLine("Use Windows Event Viewer or PowerShell Get-WinEvent to see all sources");
@@ -157,7 +157,7 @@ public static class EventLogInstaller
             Console.WriteLine($"Failed to list event sources for log '{logName}': {ex.Message}");
         }
     }
-    
+
     /// <summary>
     /// Tests writing a test event to verify the event source is working.
     /// </summary>
@@ -172,13 +172,13 @@ public static class EventLogInstaller
                 Console.WriteLine($"Event source '{sourceName}' does not exist");
                 return false;
             }
-            
+
             using var eventLog = new System.Diagnostics.EventLog();
             eventLog.Source = sourceName;
-            
+
             var testMessage = $"Test event from MigrationTool logging system at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC";
             eventLog.WriteEntry(testMessage, EventLogEntryType.Information, EventIdMapper.SpecialEventIds.ConfigurationLoaded);
-            
+
             Console.WriteLine($"Successfully wrote test event to source '{sourceName}'");
             Console.WriteLine("Check Windows Event Viewer to verify the event was logged");
             return true;

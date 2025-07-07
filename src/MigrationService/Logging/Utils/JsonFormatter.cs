@@ -12,7 +12,7 @@ namespace MigrationTool.Service.Logging.Utils;
 public class JsonFormatter : ILogFormatter
 {
     private readonly JsonSerializerOptions _serializerOptions;
-    
+
     /// <summary>
     /// Initializes a new instance of the JsonFormatter.
     /// </summary>
@@ -27,7 +27,7 @@ public class JsonFormatter : ILogFormatter
             Converters = { new JsonStringEnumConverter() }
         };
     }
-    
+
     public string Format(LogEntry entry)
     {
         var logObject = new
@@ -53,15 +53,15 @@ public class JsonFormatter : ILogFormatter
             } : null,
             exception = entry.Exception != null ? FormatException(entry.Exception) : null
         };
-        
+
         return JsonSerializer.Serialize(logObject, _serializerOptions);
     }
-    
+
     private object FormatException(Exception exception)
     {
         var exceptions = new List<object>();
         var current = exception;
-        
+
         while (current != null)
         {
             exceptions.Add(new
@@ -72,10 +72,10 @@ public class JsonFormatter : ILogFormatter
                 stackTrace = current.StackTrace?.Split('\n', StringSplitOptions.RemoveEmptyEntries),
                 data = current.Data.Count > 0 ? current.Data : null
             });
-            
+
             current = current.InnerException;
         }
-        
+
         return new
         {
             type = exception.GetType().FullName,

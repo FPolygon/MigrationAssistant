@@ -19,17 +19,17 @@ public class DynamicConfiguration : IDisposable
     private readonly SemaphoreSlim _updateLock = new(1, 1);
     private LoggingConfiguration _currentConfiguration;
     private bool _disposed;
-    
+
     /// <summary>
     /// Event raised when configuration changes.
     /// </summary>
     public event EventHandler<ConfigurationChangedEventArgs>? ConfigurationChanged;
-    
+
     /// <summary>
     /// Gets the current logging configuration.
     /// </summary>
     public LoggingConfiguration CurrentConfiguration => _currentConfiguration;
-    
+
     /// <summary>
     /// Initializes a new instance of the DynamicConfiguration.
     /// </summary>
@@ -41,7 +41,7 @@ public class DynamicConfiguration : IDisposable
         _loader = loader ?? new ConfigurationLoader();
         _currentConfiguration = LoggingConfiguration.CreateDefault();
     }
-    
+
     /// <summary>
     /// Initializes the dynamic configuration system.
     /// </summary>
@@ -51,10 +51,10 @@ public class DynamicConfiguration : IDisposable
     {
         // Load initial configuration
         _currentConfiguration = _loader.LoadConfiguration(configFilePath);
-        
+
         // Apply configuration to logging service
         await ApplyConfigurationAsync(_currentConfiguration);
-        
+
         // Set up file watching if a specific file was provided
         if (!string.IsNullOrEmpty(configFilePath) && File.Exists(configFilePath))
         {
@@ -73,7 +73,7 @@ public class DynamicConfiguration : IDisposable
             }
         }
     }
-    
+
     /// <summary>
     /// Updates the log level for a specific category at runtime.
     /// </summary>
@@ -87,7 +87,7 @@ public class DynamicConfiguration : IDisposable
         {
             _currentConfiguration.CategoryOverrides[category] = level;
             await ApplyConfigurationAsync(_currentConfiguration);
-            
+
             OnConfigurationChanged(new ConfigurationChangedEventArgs
             {
                 ChangeType = ConfigurationChangeType.CategoryLevelChanged,
@@ -100,7 +100,7 @@ public class DynamicConfiguration : IDisposable
             _updateLock.Release();
         }
     }
-    
+
     /// <summary>
     /// Updates the global minimum log level at runtime.
     /// </summary>
@@ -113,7 +113,7 @@ public class DynamicConfiguration : IDisposable
         {
             _currentConfiguration.Global.MinimumLevel = level;
             await ApplyConfigurationAsync(_currentConfiguration);
-            
+
             OnConfigurationChanged(new ConfigurationChangedEventArgs
             {
                 ChangeType = ConfigurationChangeType.GlobalLevelChanged,
@@ -125,7 +125,7 @@ public class DynamicConfiguration : IDisposable
             _updateLock.Release();
         }
     }
-    
+
     /// <summary>
     /// Enables or disables a specific logging provider at runtime.
     /// </summary>
@@ -141,7 +141,7 @@ public class DynamicConfiguration : IDisposable
             {
                 providerConfig.Enabled = enabled;
                 await ApplyConfigurationAsync(_currentConfiguration);
-                
+
                 OnConfigurationChanged(new ConfigurationChangedEventArgs
                 {
                     ChangeType = ConfigurationChangeType.ProviderStateChanged,
@@ -155,7 +155,7 @@ public class DynamicConfiguration : IDisposable
             _updateLock.Release();
         }
     }
-    
+
     /// <summary>
     /// Reloads configuration from file.
     /// </summary>
@@ -167,12 +167,12 @@ public class DynamicConfiguration : IDisposable
         try
         {
             var newConfiguration = _loader.LoadConfiguration(configFilePath);
-            
+
             if (ValidateConfiguration(newConfiguration))
             {
                 _currentConfiguration = newConfiguration;
                 await ApplyConfigurationAsync(_currentConfiguration);
-                
+
                 OnConfigurationChanged(new ConfigurationChangedEventArgs
                 {
                     ChangeType = ConfigurationChangeType.FullReload,
@@ -185,7 +185,7 @@ public class DynamicConfiguration : IDisposable
             _updateLock.Release();
         }
     }
-    
+
     /// <summary>
     /// Gets the effective log level for a specific category.
     /// </summary>
@@ -198,7 +198,7 @@ public class DynamicConfiguration : IDisposable
         {
             return specificLevel;
         }
-        
+
         // Check partial matches
         foreach (var (prefix, level) in _currentConfiguration.CategoryOverrides)
         {
@@ -207,33 +207,33 @@ public class DynamicConfiguration : IDisposable
                 return level;
             }
         }
-        
+
         return _currentConfiguration.Global.MinimumLevel;
     }
-    
+
     private void WatchConfigurationFile(string filePath)
     {
         try
         {
             var directory = Path.GetDirectoryName(filePath);
             var fileName = Path.GetFileName(filePath);
-            
+
             if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName))
                 return;
-            
+
             var watcher = new FileSystemWatcher(directory, fileName)
             {
                 NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size,
                 EnableRaisingEvents = true
             };
-            
+
             watcher.Changed += async (sender, e) =>
             {
                 // Debounce multiple rapid file change events
                 await Task.Delay(500);
                 await ReloadConfigurationAsync(e.FullPath);
             };
-            
+
             _watchers[filePath] = watcher;
             Console.WriteLine($"Watching configuration file: {filePath}");
         }
@@ -242,21 +242,21 @@ public class DynamicConfiguration : IDisposable
             Console.Error.WriteLine($"Failed to setup file watcher for '{filePath}': {ex.Message}");
         }
     }
-    
+
     private async Task ApplyConfigurationAsync(LoggingConfiguration configuration)
     {
         // Convert configuration to logging settings for each provider
         foreach (var (providerName, providerConfig) in configuration.Providers)
         {
             var settings = providerConfig.ToLoggingSettings(
-                configuration.Global, 
+                configuration.Global,
                 configuration.CategoryOverrides);
-            
+
             // Apply settings to the logging service
             await _loggingService.ConfigureAsync(settings);
         }
     }
-    
+
     private bool ValidateConfiguration(LoggingConfiguration configuration)
     {
         try
@@ -266,13 +266,13 @@ public class DynamicConfiguration : IDisposable
                 Console.Error.WriteLine("Configuration is null");
                 return false;
             }
-            
+
             if (configuration.Global == null)
             {
                 Console.Error.WriteLine("Global configuration is null");
                 return false;
             }
-            
+
             // Validate that at least one provider is enabled
             var hasEnabledProvider = false;
             foreach (var provider in configuration.Providers.Values)
@@ -283,13 +283,13 @@ public class DynamicConfiguration : IDisposable
                     break;
                 }
             }
-            
+
             if (!hasEnabledProvider)
             {
                 Console.Error.WriteLine("No logging providers are enabled");
                 return false;
             }
-            
+
             return true;
         }
         catch (Exception ex)
@@ -298,7 +298,7 @@ public class DynamicConfiguration : IDisposable
             return false;
         }
     }
-    
+
     private void OnConfigurationChanged(ConfigurationChangedEventArgs args)
     {
         try
@@ -310,13 +310,13 @@ public class DynamicConfiguration : IDisposable
             Console.Error.WriteLine($"Error in configuration change handler: {ex.Message}");
         }
     }
-    
+
     public void Dispose()
     {
         if (_disposed) return;
-        
+
         _disposed = true;
-        
+
         foreach (var watcher in _watchers.Values)
         {
             try
@@ -326,7 +326,7 @@ public class DynamicConfiguration : IDisposable
             }
             catch { }
         }
-        
+
         _watchers.Clear();
         _updateLock.Dispose();
     }
@@ -341,27 +341,27 @@ public class ConfigurationChangedEventArgs : EventArgs
     /// The type of configuration change.
     /// </summary>
     public ConfigurationChangeType ChangeType { get; set; }
-    
+
     /// <summary>
     /// The category that changed (for category-specific changes).
     /// </summary>
     public string? Category { get; set; }
-    
+
     /// <summary>
     /// The new log level (for level changes).
     /// </summary>
     public LogLevel? NewLevel { get; set; }
-    
+
     /// <summary>
     /// The provider name (for provider-specific changes).
     /// </summary>
     public string? ProviderName { get; set; }
-    
+
     /// <summary>
     /// The new provider state (for provider state changes).
     /// </summary>
     public bool? ProviderEnabled { get; set; }
-    
+
     /// <summary>
     /// The configuration file path (for file reloads).
     /// </summary>
@@ -377,17 +377,17 @@ public enum ConfigurationChangeType
     /// A category-specific log level was changed.
     /// </summary>
     CategoryLevelChanged,
-    
+
     /// <summary>
     /// The global minimum log level was changed.
     /// </summary>
     GlobalLevelChanged,
-    
+
     /// <summary>
     /// A provider was enabled or disabled.
     /// </summary>
     ProviderStateChanged,
-    
+
     /// <summary>
     /// The entire configuration was reloaded.
     /// </summary>

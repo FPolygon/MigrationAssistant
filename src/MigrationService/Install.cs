@@ -13,7 +13,7 @@ public class Install
         try
         {
             var exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
-            
+
             // If running from a dll, change to exe
             if (exePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             {
@@ -84,7 +84,7 @@ public class Install
     private static void StartService()
     {
         using var service = new System.ServiceProcess.ServiceController("MigrationService");
-        
+
         if (service.Status == System.ServiceProcess.ServiceControllerStatus.Running)
         {
             Console.WriteLine("Service is already running");
@@ -100,7 +100,7 @@ public class Install
     private static void StopService()
     {
         using var service = new System.ServiceProcess.ServiceController("MigrationService");
-        
+
         if (service.Status == System.ServiceProcess.ServiceControllerStatus.Stopped)
         {
             Console.WriteLine("Service is already stopped");

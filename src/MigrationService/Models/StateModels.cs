@@ -75,7 +75,7 @@ public class MigrationState
     public string? AttentionReason { get; set; }
     public int DelayCount { get; set; }
     public bool IsBlocking { get; set; } = true;
-    
+
     public bool RequiresAttention() => !string.IsNullOrEmpty(AttentionReason);
     public bool NeedsProgressUpdate() => State == MigrationStateType.BackupInProgress;
 }

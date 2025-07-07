@@ -15,22 +15,22 @@ public class LoggingConfiguration
     /// Global logging settings.
     /// </summary>
     public GlobalLoggingSettings Global { get; set; } = new();
-    
+
     /// <summary>
     /// Provider-specific configurations.
     /// </summary>
     public Dictionary<string, ProviderConfiguration> Providers { get; set; } = new();
-    
+
     /// <summary>
     /// Category-specific log level overrides.
     /// </summary>
     public Dictionary<string, LogLevel> CategoryOverrides { get; set; } = new();
-    
+
     /// <summary>
     /// Performance monitoring settings.
     /// </summary>
     public PerformanceSettings Performance { get; set; } = new();
-    
+
     /// <summary>
     /// Creates default logging configuration.
     /// </summary>
@@ -85,27 +85,27 @@ public class GlobalLoggingSettings
     /// </summary>
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public LogLevel MinimumLevel { get; set; } = LogLevel.Information;
-    
+
     /// <summary>
     /// Whether to enable automatic context flow (correlation IDs, user context).
     /// </summary>
     public bool EnableContextFlow { get; set; } = true;
-    
+
     /// <summary>
     /// Whether to enable performance logging.
     /// </summary>
     public bool EnablePerformanceLogging { get; set; } = true;
-    
+
     /// <summary>
     /// Whether to log to console in debug builds.
     /// </summary>
     public bool EnableConsoleLogging { get; set; } = false;
-    
+
     /// <summary>
     /// Maximum number of log entries to buffer before forcing a flush.
     /// </summary>
     public int MaxBufferSize { get; set; } = 1000;
-    
+
     /// <summary>
     /// Maximum time to wait before flushing buffered entries (in milliseconds).
     /// </summary>
@@ -121,25 +121,25 @@ public abstract class ProviderConfiguration
     /// Whether the provider is enabled.
     /// </summary>
     public bool Enabled { get; set; } = true;
-    
+
     /// <summary>
     /// Minimum log level for this provider (overrides global setting).
     /// </summary>
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public LogLevel? MinimumLevel { get; set; }
-    
+
     /// <summary>
     /// Provider-specific settings.
     /// </summary>
     public Dictionary<string, object> Settings { get; set; } = new();
-    
+
     /// <summary>
     /// Converts this configuration to LoggingSettings for the provider.
     /// </summary>
     /// <param name="globalSettings">Global logging settings.</param>
     /// <param name="categoryOverrides">Category overrides.</param>
     /// <returns>LoggingSettings for the provider.</returns>
-    public virtual LoggingSettings ToLoggingSettings(GlobalLoggingSettings globalSettings, 
+    public virtual LoggingSettings ToLoggingSettings(GlobalLoggingSettings globalSettings,
         Dictionary<string, LogLevel> categoryOverrides)
     {
         var settings = new LoggingSettings
@@ -149,7 +149,7 @@ public abstract class ProviderConfiguration
             CategoryOverrides = new Dictionary<string, LogLevel>(categoryOverrides),
             ProviderSettings = new Dictionary<string, object>(Settings)
         };
-        
+
         return settings;
     }
 }
@@ -163,48 +163,48 @@ public class FileProviderConfiguration : ProviderConfiguration
     /// Directory where log files are stored.
     /// </summary>
     public string LogDirectory { get; set; } = @"C:\ProgramData\MigrationTool\Logs";
-    
+
     /// <summary>
     /// Prefix for log file names.
     /// </summary>
     public string FilePrefix { get; set; } = "migration";
-    
+
     /// <summary>
     /// Maximum size of a log file before rotation (in bytes).
     /// </summary>
     public long MaxFileSizeBytes { get; set; } = 10 * 1024 * 1024; // 10MB
-    
+
     /// <summary>
     /// Time-based rotation interval.
     /// </summary>
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public RotationInterval RotationInterval { get; set; } = RotationInterval.Daily;
-    
+
     /// <summary>
     /// Number of days to retain log files.
     /// </summary>
     public int RetentionDays { get; set; } = 30;
-    
+
     /// <summary>
     /// Whether to use JSON format instead of plain text.
     /// </summary>
     public bool UseJsonFormat { get; set; } = false;
-    
+
     /// <summary>
     /// Whether to use UTC timestamps.
     /// </summary>
     public bool UseUtc { get; set; } = true;
-    
+
     /// <summary>
     /// Whether to include detailed timestamps in file names.
     /// </summary>
     public bool IncludeTimestamp { get; set; } = false;
-    
-    public override LoggingSettings ToLoggingSettings(GlobalLoggingSettings globalSettings, 
+
+    public override LoggingSettings ToLoggingSettings(GlobalLoggingSettings globalSettings,
         Dictionary<string, LogLevel> categoryOverrides)
     {
         var settings = base.ToLoggingSettings(globalSettings, categoryOverrides);
-        
+
         // Add file-specific settings
         settings.ProviderSettings["LogDirectory"] = LogDirectory;
         settings.ProviderSettings["FilePrefix"] = FilePrefix;
@@ -214,7 +214,7 @@ public class FileProviderConfiguration : ProviderConfiguration
         settings.ProviderSettings["UseJsonFormat"] = UseJsonFormat;
         settings.ProviderSettings["UseUtc"] = UseUtc;
         settings.ProviderSettings["IncludeTimestamp"] = IncludeTimestamp;
-        
+
         return settings;
     }
 }
@@ -228,33 +228,33 @@ public class EventLogProviderConfiguration : ProviderConfiguration
     /// The event source name.
     /// </summary>
     public string Source { get; set; } = "MigrationTool";
-    
+
     /// <summary>
     /// The event log name (usually "Application").
     /// </summary>
     public string LogName { get; set; } = "Application";
-    
+
     /// <summary>
     /// The machine name for the event log.
     /// </summary>
     public string MachineName { get; set; } = ".";
-    
+
     /// <summary>
     /// Maximum length of a single event message.
     /// </summary>
     public int MaxMessageLength { get; set; } = 31839;
-    
-    public override LoggingSettings ToLoggingSettings(GlobalLoggingSettings globalSettings, 
+
+    public override LoggingSettings ToLoggingSettings(GlobalLoggingSettings globalSettings,
         Dictionary<string, LogLevel> categoryOverrides)
     {
         var settings = base.ToLoggingSettings(globalSettings, categoryOverrides);
-        
+
         // Add event log specific settings
         settings.ProviderSettings["Source"] = Source;
         settings.ProviderSettings["LogName"] = LogName;
         settings.ProviderSettings["MachineName"] = MachineName;
         settings.ProviderSettings["MaxMessageLength"] = MaxMessageLength;
-        
+
         return settings;
     }
 }
@@ -268,26 +268,26 @@ public class ConsoleProviderConfiguration : ProviderConfiguration
     /// Whether to use colored output.
     /// </summary>
     public bool UseColors { get; set; } = true;
-    
+
     /// <summary>
     /// Whether to include timestamps.
     /// </summary>
     public bool IncludeTimestamp { get; set; } = true;
-    
+
     /// <summary>
     /// Whether to include category information.
     /// </summary>
     public bool IncludeCategory { get; set; } = true;
-    
-    public override LoggingSettings ToLoggingSettings(GlobalLoggingSettings globalSettings, 
+
+    public override LoggingSettings ToLoggingSettings(GlobalLoggingSettings globalSettings,
         Dictionary<string, LogLevel> categoryOverrides)
     {
         var settings = base.ToLoggingSettings(globalSettings, categoryOverrides);
-        
+
         settings.ProviderSettings["UseColors"] = UseColors;
         settings.ProviderSettings["IncludeTimestamp"] = IncludeTimestamp;
         settings.ProviderSettings["IncludeCategory"] = IncludeCategory;
-        
+
         return settings;
     }
 }
@@ -301,22 +301,22 @@ public class PerformanceSettings
     /// Whether to enable performance monitoring.
     /// </summary>
     public bool Enabled { get; set; } = true;
-    
+
     /// <summary>
     /// Minimum duration (in milliseconds) to log performance metrics.
     /// </summary>
     public double MinimumDurationMs { get; set; } = 100;
-    
+
     /// <summary>
     /// Whether to collect memory usage metrics.
     /// </summary>
     public bool CollectMemoryMetrics { get; set; } = false;
-    
+
     /// <summary>
     /// Whether to collect CPU usage metrics.
     /// </summary>
     public bool CollectCpuMetrics { get; set; } = false;
-    
+
     /// <summary>
     /// Interval for collecting system metrics (in seconds).
     /// </summary>

@@ -16,22 +16,22 @@ public class LoggingService : IDisposable
     private readonly SemaphoreSlim _configLock = new(1, 1);
     private LoggingSettings _settings = new();
     private bool _disposed;
-    
+
     /// <summary>
     /// Gets the singleton instance of the logging service.
     /// </summary>
     public static LoggingService Instance { get; } = new();
-    
+
     /// <summary>
     /// Gets the current logging settings.
     /// </summary>
     public LoggingSettings Settings => _settings;
-    
+
     /// <summary>
     /// Gets the collection of registered providers.
     /// </summary>
     public IReadOnlyDictionary<string, ILoggingProvider> Providers => _providers;
-    
+
     /// <summary>
     /// Registers a logging provider.
     /// </summary>
@@ -41,15 +41,15 @@ public class LoggingService : IDisposable
     public void RegisterProvider(ILoggingProvider provider)
     {
         ArgumentNullException.ThrowIfNull(provider);
-        
+
         if (!_providers.TryAdd(provider.Name, provider))
         {
             throw new InvalidOperationException($"A provider with name '{provider.Name}' is already registered.");
         }
-        
+
         provider.Configure(_settings);
     }
-    
+
     /// <summary>
     /// Unregisters a logging provider.
     /// </summary>
@@ -64,7 +64,7 @@ public class LoggingService : IDisposable
         }
         return false;
     }
-    
+
     /// <summary>
     /// Configures the logging service with new settings.
     /// </summary>
@@ -75,7 +75,7 @@ public class LoggingService : IDisposable
         try
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            
+
             // Reconfigure all providers
             foreach (var provider in _providers.Values)
             {
@@ -87,37 +87,37 @@ public class LoggingService : IDisposable
             _configLock.Release();
         }
     }
-    
+
     /// <summary>
     /// Logs a message with the specified level and category.
     /// </summary>
-    public async Task LogAsync(LogLevel level, string category, string message, 
+    public async Task LogAsync(LogLevel level, string category, string message,
         Exception? exception = null, CancellationToken cancellationToken = default)
     {
         if (_disposed) return;
-        
+
         var entry = CreateLogEntry(level, category, message, exception);
         await WriteToProvidersAsync(entry, cancellationToken);
     }
-    
+
     /// <summary>
     /// Logs a structured message with additional properties.
     /// </summary>
     public async Task LogAsync(LogLevel level, string category, string message,
-        IDictionary<string, object?> properties, Exception? exception = null, 
+        IDictionary<string, object?> properties, Exception? exception = null,
         CancellationToken cancellationToken = default)
     {
         if (_disposed) return;
-        
+
         var entry = CreateLogEntry(level, category, message, exception);
         foreach (var (key, value) in properties)
         {
             entry.Properties[key] = value;
         }
-        
+
         await WriteToProvidersAsync(entry, cancellationToken);
     }
-    
+
     /// <summary>
     /// Logs a performance metric.
     /// </summary>
@@ -125,17 +125,17 @@ public class LoggingService : IDisposable
         IDictionary<string, double>? customMetrics = null, CancellationToken cancellationToken = default)
     {
         if (_disposed) return;
-        
+
         var entry = CreateLogEntry(LogLevel.Information, category, $"Performance: {operation}", null);
         entry.Performance = new PerformanceMetrics
         {
             DurationMs = durationMs,
             CustomMetrics = customMetrics != null ? new Dictionary<string, double>(customMetrics) : new Dictionary<string, double>()
         };
-        
+
         await WriteToProvidersAsync(entry, cancellationToken);
     }
-    
+
     /// <summary>
     /// Creates a logger instance for a specific category.
     /// </summary>
@@ -145,7 +145,7 @@ public class LoggingService : IDisposable
     {
         return new Logger(this, category);
     }
-    
+
     /// <summary>
     /// Creates a logger instance for a specific type.
     /// </summary>
@@ -155,7 +155,7 @@ public class LoggingService : IDisposable
     {
         return new Logger<T>(this);
     }
-    
+
     /// <summary>
     /// Flushes all providers.
     /// </summary>
@@ -164,10 +164,10 @@ public class LoggingService : IDisposable
         var tasks = _providers.Values
             .Where(p => p.IsEnabled)
             .Select(p => p.FlushAsync(cancellationToken));
-        
+
         await Task.WhenAll(tasks);
     }
-    
+
     private LogEntry CreateLogEntry(LogLevel level, string category, string message, Exception? exception)
     {
         var entry = new LogEntry
@@ -177,36 +177,36 @@ public class LoggingService : IDisposable
             Message = message,
             Exception = exception
         };
-        
+
         // Add context properties
         var contextProps = LogContext.GetProperties();
         foreach (var (key, value) in contextProps)
         {
             entry.Properties[key] = value;
         }
-        
+
         // Set special properties from context
         if (contextProps.TryGetValue("CorrelationId", out var correlationId))
         {
             entry.CorrelationId = correlationId?.ToString();
         }
-        
+
         if (contextProps.TryGetValue("UserId", out var userId))
         {
             entry.UserId = userId?.ToString();
         }
-        
+
         return entry;
     }
-    
+
     private async Task WriteToProvidersAsync(LogEntry entry, CancellationToken cancellationToken)
     {
         var effectiveLevel = _settings.GetEffectiveLevel(entry.Category);
         if (!entry.Level.IsEnabled(effectiveLevel))
             return;
-        
+
         var tasks = new List<Task>();
-        
+
         foreach (var provider in _providers.Values)
         {
             if (provider.IsEnabled && provider.IsLevelEnabled(entry.Level))
@@ -214,13 +214,13 @@ public class LoggingService : IDisposable
                 tasks.Add(WriteToProviderSafeAsync(provider, entry, cancellationToken));
             }
         }
-        
+
         if (tasks.Count > 0)
         {
             await Task.WhenAll(tasks);
         }
     }
-    
+
     private async Task WriteToProviderSafeAsync(ILoggingProvider provider, LogEntry entry, CancellationToken cancellationToken)
     {
         try
@@ -233,20 +233,20 @@ public class LoggingService : IDisposable
             Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Failed to write to provider '{provider.Name}': {ex.Message}");
         }
     }
-    
+
     public void Dispose()
     {
         if (_disposed) return;
-        
+
         _disposed = true;
-        
+
         // Flush all providers
         try
         {
             FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
         }
         catch { }
-        
+
         // Dispose all providers
         foreach (var provider in _providers.Values)
         {
@@ -256,7 +256,7 @@ public class LoggingService : IDisposable
             }
             catch { }
         }
-        
+
         _providers.Clear();
         _configLock.Dispose();
     }
@@ -285,20 +285,20 @@ public interface ILogger<T> : ILogger
 internal class Logger : ILogger
 {
     private readonly LoggingService _service;
-    
+
     public string Category { get; }
-    
+
     public Logger(LoggingService service, string category)
     {
         _service = service;
         Category = category;
     }
-    
+
     public Task LogAsync(LogLevel level, string message, Exception? exception = null)
     {
         return _service.LogAsync(level, Category, message, exception);
     }
-    
+
     public Task LogAsync(LogLevel level, string message, IDictionary<string, object?> properties, Exception? exception = null)
     {
         return _service.LogAsync(level, Category, message, properties, exception);

@@ -13,12 +13,12 @@ public interface ILoggingProvider : IDisposable
     /// Gets the name of the logging provider.
     /// </summary>
     string Name { get; }
-    
+
     /// <summary>
     /// Gets whether the provider is currently enabled.
     /// </summary>
     bool IsEnabled { get; }
-    
+
     /// <summary>
     /// Writes a log entry asynchronously.
     /// </summary>
@@ -26,20 +26,20 @@ public interface ILoggingProvider : IDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task WriteLogAsync(LogEntry entry, CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Flushes any buffered log entries.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task FlushAsync(CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Configures the provider with the specified settings.
     /// </summary>
     /// <param name="settings">The logging settings.</param>
     void Configure(LoggingSettings settings);
-    
+
     /// <summary>
     /// Checks if the provider should log entries of the specified level.
     /// </summary>
@@ -57,22 +57,22 @@ public class LoggingSettings
     /// The minimum log level to write.
     /// </summary>
     public LogLevel MinimumLevel { get; set; } = LogLevel.Information;
-    
+
     /// <summary>
     /// Whether the provider is enabled.
     /// </summary>
     public bool Enabled { get; set; } = true;
-    
+
     /// <summary>
     /// Provider-specific settings.
     /// </summary>
     public Dictionary<string, object> ProviderSettings { get; set; } = new();
-    
+
     /// <summary>
     /// Category-specific log level overrides.
     /// </summary>
     public Dictionary<string, LogLevel> CategoryOverrides { get; set; } = new();
-    
+
     /// <summary>
     /// Gets the effective log level for a specific category.
     /// </summary>
@@ -80,18 +80,18 @@ public class LoggingSettings
     {
         if (string.IsNullOrEmpty(category))
             return MinimumLevel;
-        
+
         // Check for exact match
         if (CategoryOverrides.TryGetValue(category, out var exactLevel))
             return exactLevel;
-        
+
         // Check for partial matches (e.g., "MigrationTool.Service" matches "MigrationTool.Service.IPC")
         foreach (var (prefix, level) in CategoryOverrides)
         {
             if (category.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 return level;
         }
-        
+
         return MinimumLevel;
     }
 }

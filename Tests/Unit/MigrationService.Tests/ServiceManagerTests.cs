@@ -22,16 +22,16 @@ public class ServiceManagerTests
         _loggerMock = new Mock<ILogger<ServiceManager>>();
         _stateManagerMock = new Mock<IStateManager>();
         _configMock = new Mock<IOptions<ServiceConfiguration>>();
-        
+
         _configuration = new ServiceConfiguration
         {
             DataPath = @"C:\Test\Data",
             LogPath = @"C:\Test\Logs",
             StateCheckIntervalSeconds = 60
         };
-        
+
         _configMock.Setup(x => x.Value).Returns(_configuration);
-        
+
         _serviceManager = new ServiceManager(
             _loggerMock.Object,
             _stateManagerMock.Object,
@@ -43,7 +43,7 @@ public class ServiceManagerTests
     {
         // Act
         await _serviceManager.InitializeAsync(CancellationToken.None);
-        
+
         // Assert
         _loggerMock.Verify(
             x => x.Log(
@@ -60,10 +60,10 @@ public class ServiceManagerTests
     {
         // Arrange
         await _serviceManager.InitializeAsync(CancellationToken.None);
-        
+
         // Act
         await _serviceManager.InitializeAsync(CancellationToken.None);
-        
+
         // Assert
         _loggerMock.Verify(
             x => x.Log(
@@ -81,10 +81,10 @@ public class ServiceManagerTests
         // Arrange
         _stateManagerMock.Setup(x => x.CheckHealthAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        
+
         // Act
         await _serviceManager.PerformHealthCheckAsync(CancellationToken.None);
-        
+
         // Assert
         _stateManagerMock.Verify(x => x.CheckHealthAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -95,10 +95,10 @@ public class ServiceManagerTests
         // Arrange
         _stateManagerMock.Setup(x => x.CheckHealthAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
-        
+
         // Act
         await _serviceManager.PerformHealthCheckAsync(CancellationToken.None);
-        
+
         // Assert
         _loggerMock.Verify(
             x => x.Log(
@@ -119,13 +119,13 @@ public class ServiceManagerTests
             new MigrationState { UserId = "user1", AttentionReason = "" },
             new MigrationState { UserId = "user2", AttentionReason = "Quota exceeded" }
         };
-        
+
         _stateManagerMock.Setup(x => x.GetActiveMigrationsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(migrations);
-        
+
         // Act
         await _serviceManager.CheckMigrationStatusAsync(CancellationToken.None);
-        
+
         // Assert
         _stateManagerMock.Verify(x => x.GetActiveMigrationsAsync(It.IsAny<CancellationToken>()), Times.Once);
         _loggerMock.Verify(
@@ -144,13 +144,13 @@ public class ServiceManagerTests
         // Arrange
         _stateManagerMock.Setup(x => x.GetActiveMigrationsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MigrationState>());
-        
+
         _stateManagerMock.Setup(x => x.AreAllUsersReadyForResetAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        
+
         // Act
         await _serviceManager.CheckMigrationStatusAsync(CancellationToken.None);
-        
+
         // Assert
         _stateManagerMock.Verify(x => x.AreAllUsersReadyForResetAsync(It.IsAny<CancellationToken>()), Times.Once);
         _loggerMock.Verify(
@@ -168,7 +168,7 @@ public class ServiceManagerTests
     {
         // Act
         await _serviceManager.CleanupAsync(CancellationToken.None);
-        
+
         // Assert
         _stateManagerMock.Verify(x => x.FlushAsync(It.IsAny<CancellationToken>()), Times.Once);
         _loggerMock.Verify(
@@ -187,10 +187,10 @@ public class ServiceManagerTests
         // Arrange
         _stateManagerMock.Setup(x => x.FlushAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Flush failed"));
-        
+
         // Act
         await _serviceManager.CleanupAsync(CancellationToken.None);
-        
+
         // Assert
         _loggerMock.Verify(
             x => x.Log(

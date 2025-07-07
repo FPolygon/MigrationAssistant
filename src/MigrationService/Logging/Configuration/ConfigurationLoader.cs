@@ -14,28 +14,28 @@ namespace MigrationTool.Service.Logging.Configuration;
 public class ConfigurationLoader
 {
     private readonly JsonSerializerOptions _jsonOptions;
-    
+
     /// <summary>
     /// Registry key for logging configuration.
     /// </summary>
     public const string REGISTRY_KEY = @"HKEY_LOCAL_MACHINE\SOFTWARE\MigrationTool\Logging";
-    
+
     /// <summary>
     /// Environment variable prefix for logging configuration.
     /// </summary>
     public const string ENV_PREFIX = "MIGRATION_LOG_";
-    
+
     /// <summary>
     /// Default configuration file paths to check.
     /// </summary>
-    public static readonly string[] DEFAULT_CONFIG_PATHS = 
+    public static readonly string[] DEFAULT_CONFIG_PATHS =
     {
         @"C:\ProgramData\MigrationTool\Config\logging.json",
         @"C:\Program Files\MigrationTool\Config\logging.json",
         "logging.json",
         "config\\logging.json"
     };
-    
+
     public ConfigurationLoader()
     {
         _jsonOptions = new JsonSerializerOptions
@@ -43,13 +43,13 @@ public class ConfigurationLoader
             PropertyNameCaseInsensitive = true,
             ReadCommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
-            Converters = { 
+            Converters = {
                 new JsonStringEnumConverter(),
                 new ProviderConfigurationConverter()
             }
         };
     }
-    
+
     /// <summary>
     /// Loads logging configuration from the first available source.
     /// </summary>
@@ -58,7 +58,7 @@ public class ConfigurationLoader
     public LoggingConfiguration LoadConfiguration(string? configFilePath = null)
     {
         LoggingConfiguration? config = null;
-        
+
         // Try to load from specific file if provided
         if (!string.IsNullOrEmpty(configFilePath))
         {
@@ -69,23 +69,23 @@ public class ConfigurationLoader
                 return config;
             }
         }
-        
+
         // Try default file locations
         foreach (var path in DEFAULT_CONFIG_PATHS)
         {
             config = LoadFromFile(path);
             if (config != null) break;
         }
-        
+
         // If no file found, start with default configuration
         config ??= LoggingConfiguration.CreateDefault();
-        
+
         // Apply overrides from registry and environment variables
         ApplyOverrides(config);
-        
+
         return config;
     }
-    
+
     /// <summary>
     /// Loads configuration from a JSON file.
     /// </summary>
@@ -97,15 +97,15 @@ public class ConfigurationLoader
         {
             if (!File.Exists(filePath))
                 return null;
-            
+
             var json = File.ReadAllText(filePath);
             var config = JsonSerializer.Deserialize<LoggingConfiguration>(json, _jsonOptions);
-            
+
             if (config != null)
             {
                 Console.WriteLine($"Loaded logging configuration from: {filePath}");
             }
-            
+
             return config;
         }
         catch (Exception ex)
@@ -114,7 +114,7 @@ public class ConfigurationLoader
             return null;
         }
     }
-    
+
     /// <summary>
     /// Saves configuration to a JSON file.
     /// </summary>
@@ -130,20 +130,20 @@ public class ConfigurationLoader
             {
                 Directory.CreateDirectory(directory);
             }
-            
+
             var options = new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                Converters = { 
+                Converters = {
                     new JsonStringEnumConverter(),
                     new ProviderConfigurationConverter()
                 }
             };
-            
+
             var json = JsonSerializer.Serialize(config, options);
             File.WriteAllText(filePath, json);
-            
+
             Console.WriteLine($"Saved logging configuration to: {filePath}");
             return true;
         }
@@ -153,7 +153,7 @@ public class ConfigurationLoader
             return false;
         }
     }
-    
+
     /// <summary>
     /// Applies configuration overrides from registry and environment variables.
     /// </summary>
@@ -163,7 +163,7 @@ public class ConfigurationLoader
         ApplyRegistryOverrides(config);
         ApplyEnvironmentOverrides(config);
     }
-    
+
     /// <summary>
     /// Applies configuration overrides from Windows Registry.
     /// </summary>
@@ -179,7 +179,7 @@ public class ConfigurationLoader
                 config.Global.MinimumLevel = minLevel;
                 Console.WriteLine($"Applied registry override: MinimumLevel = {minLevel}");
             }
-            
+
             // Check provider enable/disable overrides
             var fileProviderEnabled = Registry.GetValue(REGISTRY_KEY, "FileProviderEnabled", null);
             if (fileProviderEnabled is int fileEnabled)
@@ -190,7 +190,7 @@ public class ConfigurationLoader
                     Console.WriteLine($"Applied registry override: FileProvider.Enabled = {fileConfig.Enabled}");
                 }
             }
-            
+
             var eventLogEnabled = Registry.GetValue(REGISTRY_KEY, "EventLogProviderEnabled", null);
             if (eventLogEnabled is int eventEnabled)
             {
@@ -200,10 +200,10 @@ public class ConfigurationLoader
                     Console.WriteLine($"Applied registry override: EventLogProvider.Enabled = {eventConfig.Enabled}");
                 }
             }
-            
+
             // Check log directory override
             var logDirValue = Registry.GetValue(REGISTRY_KEY, "LogDirectory", null) as string;
-            if (!string.IsNullOrEmpty(logDirValue) && 
+            if (!string.IsNullOrEmpty(logDirValue) &&
                 config.Providers.TryGetValue("FileProvider", out var fileProviderConfig) &&
                 fileProviderConfig is FileProviderConfiguration fileProvider)
             {
@@ -216,7 +216,7 @@ public class ConfigurationLoader
             Console.Error.WriteLine($"Failed to apply registry overrides: {ex.Message}");
         }
     }
-    
+
     /// <summary>
     /// Applies configuration overrides from environment variables.
     /// </summary>
@@ -232,17 +232,17 @@ public class ConfigurationLoader
                 config.Global.MinimumLevel = minLevel;
                 Console.WriteLine($"Applied environment override: MinimumLevel = {minLevel}");
             }
-            
+
             // Check log directory
             var logDirEnv = Environment.GetEnvironmentVariable($"{ENV_PREFIX}DIRECTORY");
-            if (!string.IsNullOrEmpty(logDirEnv) && 
+            if (!string.IsNullOrEmpty(logDirEnv) &&
                 config.Providers.TryGetValue("FileProvider", out var fileProviderConfig) &&
                 fileProviderConfig is FileProviderConfiguration fileProvider)
             {
                 fileProvider.LogDirectory = logDirEnv;
                 Console.WriteLine($"Applied environment override: LogDirectory = {logDirEnv}");
             }
-            
+
             // Check provider enable/disable
             var fileEnabledEnv = Environment.GetEnvironmentVariable($"{ENV_PREFIX}FILE_ENABLED");
             if (!string.IsNullOrEmpty(fileEnabledEnv) && bool.TryParse(fileEnabledEnv, out var fileEnabled))
@@ -253,7 +253,7 @@ public class ConfigurationLoader
                     Console.WriteLine($"Applied environment override: FileProvider.Enabled = {fileEnabled}");
                 }
             }
-            
+
             var eventEnabledEnv = Environment.GetEnvironmentVariable($"{ENV_PREFIX}EVENTLOG_ENABLED");
             if (!string.IsNullOrEmpty(eventEnabledEnv) && bool.TryParse(eventEnabledEnv, out var eventEnabled))
             {
@@ -263,7 +263,7 @@ public class ConfigurationLoader
                     Console.WriteLine($"Applied environment override: EventLogProvider.Enabled = {eventEnabled}");
                 }
             }
-            
+
             // Check debug mode
             var debugEnv = Environment.GetEnvironmentVariable($"{ENV_PREFIX}DEBUG");
             if (!string.IsNullOrEmpty(debugEnv) && bool.TryParse(debugEnv, out var debugEnabled) && debugEnabled)
@@ -278,7 +278,7 @@ public class ConfigurationLoader
             Console.Error.WriteLine($"Failed to apply environment overrides: {ex.Message}");
         }
     }
-    
+
     /// <summary>
     /// Creates a sample configuration file.
     /// </summary>
@@ -287,18 +287,18 @@ public class ConfigurationLoader
     public bool CreateSampleConfiguration(string filePath)
     {
         var sampleConfig = LoggingConfiguration.CreateDefault();
-        
+
         // Add additional category overrides (avoiding duplicates)
         // Note: CreateDefault() already includes these categories:
         // - MigrationTool.Service.IPC (Debug)
         // - MigrationTool.Backup (Information)
         // - MigrationTool.Performance (Verbose)
-        
+
         // Let's modify the existing ones or add new ones
         sampleConfig.CategoryOverrides["MigrationTool.Performance"] = LogLevel.Warning; // Override from Verbose to Warning
         sampleConfig.CategoryOverrides["MigrationTool.Database"] = LogLevel.Debug;
         sampleConfig.CategoryOverrides["MigrationTool.Agent"] = LogLevel.Information;
-        
+
         return SaveToFile(sampleConfig, filePath);
     }
 }

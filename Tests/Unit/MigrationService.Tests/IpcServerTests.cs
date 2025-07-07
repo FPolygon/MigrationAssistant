@@ -23,17 +23,17 @@ public class IpcServerTests : IDisposable
     {
         _loggerMock = new Mock<ILogger<IpcServer>>();
         _configMock = new Mock<IOptions<ServiceConfiguration>>();
-        
+
         // Use a unique pipe name for each test
         _testPipeName = $"TestPipe_{Guid.NewGuid():N}";
-        
+
         _configuration = new ServiceConfiguration
         {
             PipeName = _testPipeName
         };
-        
+
         _configMock.Setup(x => x.Value).Returns(_configuration);
-        
+
         _ipcServer = new IpcServer(_loggerMock.Object, _configMock.Object);
     }
 
@@ -49,7 +49,7 @@ public class IpcServerTests : IDisposable
         // Act
         await _ipcServer.StartAsync(CancellationToken.None);
         await Task.Delay(100); // Give server time to start
-        
+
         // Assert
         _loggerMock.Verify(
             x => x.Log(
@@ -68,10 +68,10 @@ public class IpcServerTests : IDisposable
         // Arrange
         await _ipcServer.StartAsync(CancellationToken.None);
         await Task.Delay(100);
-        
+
         // Act
         await _ipcServer.StopAsync(CancellationToken.None);
-        
+
         // Assert
         _loggerMock.Verify(
             x => x.Log(
@@ -92,25 +92,25 @@ public class IpcServerTests : IDisposable
         // 2. Connect a client
         // 3. Send a message
         // 4. Verify the MessageReceived event was triggered
-        
+
         // Arrange
         // Variables would be used to capture event data when test is fully implemented
         // IpcMessage? receivedMessage = null;
         // string? clientId = null;
-        
+
         _ipcServer.MessageReceived += (sender, args) =>
         {
             // When implemented, this would capture the message data
             // receivedMessage = args.Message;
             // clientId = args.ClientId;
         };
-        
+
         await _ipcServer.StartAsync(CancellationToken.None);
         await Task.Delay(100);
-        
+
         // Act - simulate client connection and message
         // This would require actual named pipe client code
-        
+
         // Assert
         // messageReceived.Should().BeTrue();
         // receivedMessage.Should().NotBeNull();
@@ -124,10 +124,10 @@ public class IpcServerTests : IDisposable
         // Arrange
         await _ipcServer.StartAsync(CancellationToken.None);
         var message = new IpcMessage { Type = "Test", Payload = "Test payload" };
-        
+
         // Act
         await _ipcServer.SendMessageAsync("non-existent-client", message, CancellationToken.None);
-        
+
         // Assert
         _loggerMock.Verify(
             x => x.Log(
@@ -146,10 +146,10 @@ public class IpcServerTests : IDisposable
         // Arrange
         await _ipcServer.StartAsync(CancellationToken.None);
         var message = new IpcMessage { Type = "Broadcast", Payload = "Test broadcast" };
-        
+
         // Act
         var act = async () => await _ipcServer.BroadcastMessageAsync(message, CancellationToken.None);
-        
+
         // Assert
         await act.Should().NotThrowAsync();
     }
@@ -164,11 +164,11 @@ public class IpcServerTests : IDisposable
             Payload = "Test payload data",
             CorrelationId = Guid.NewGuid().ToString()
         };
-        
+
         // Act
         var json = JsonConvert.SerializeObject(message);
         var deserialized = JsonConvert.DeserializeObject<IpcMessage>(json);
-        
+
         // Assert
         deserialized.Should().NotBeNull();
         deserialized!.Type.Should().Be(message.Type);
@@ -182,10 +182,10 @@ public class IpcServerTests : IDisposable
         // Arrange
         var clientId = "test-client-123";
         var message = new IpcMessage { Type = "Test", Payload = "Data" };
-        
+
         // Act
         var eventArgs = new IpcMessageReceivedEventArgs(clientId, message);
-        
+
         // Assert
         eventArgs.ClientId.Should().Be(clientId);
         eventArgs.Message.Should().Be(message);
@@ -197,18 +197,18 @@ public class IpcServerTests : IDisposable
         // Arrange
         await _ipcServer.StartAsync(CancellationToken.None);
         await Task.Delay(100);
-        
+
         // Act
         _ipcServer.Dispose();
-        
+
         // Assert
         // After disposal, starting again should work (new instance would be needed)
         // This mainly verifies dispose doesn't throw
         _loggerMock.Invocations.Clear();
-        
+
         // Attempting to use disposed server should not work
         await _ipcServer.SendMessageAsync("any-client", new IpcMessage(), CancellationToken.None);
-        
+
         // Should log warning about client not found (since server is disposed)
         _loggerMock.Verify(
             x => x.Log(

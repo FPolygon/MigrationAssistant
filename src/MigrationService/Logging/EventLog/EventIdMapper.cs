@@ -14,7 +14,7 @@ public static class EventIdMapper
     // 3000-3999: Error events
     // 4000-4999: Audit events
     // 5000-5999: Performance events
-    
+
     private static readonly Dictionary<LogLevel, int> _baseLevelIds = new()
     {
         { LogLevel.Information, 1000 },
@@ -22,7 +22,7 @@ public static class EventIdMapper
         { LogLevel.Error, 3000 },
         { LogLevel.Critical, 3500 }
     };
-    
+
     private static readonly Dictionary<string, int> _categoryOffsets = new()
     {
         // Service lifecycle
@@ -71,7 +71,7 @@ public static class EventIdMapper
         // Performance
         { "MigrationTool.Performance", 90 }
     };
-    
+
     /// <summary>
     /// Gets the Windows Event ID for a log entry.
     /// </summary>
@@ -86,13 +86,13 @@ public static class EventIdMapper
             // Default to information level for unmapped levels
             baseId = _baseLevelIds[LogLevel.Information];
         }
-        
+
         // Get category offset
         var categoryOffset = GetCategoryOffset(category);
-        
+
         return baseId + categoryOffset;
     }
-    
+
     /// <summary>
     /// Gets the Windows Event Log event type for a log level.
     /// </summary>
@@ -111,7 +111,7 @@ public static class EventIdMapper
             _ => System.Diagnostics.EventLogEntryType.Information
         };
     }
-    
+
     /// <summary>
     /// Gets special event IDs for common scenarios.
     /// </summary>
@@ -124,24 +124,24 @@ public static class EventIdMapper
         public const int ServiceResumed = 1004;
         public const int ServiceInstalled = 1005;
         public const int ServiceUninstalled = 1006;
-        
+
         // Configuration events
         public const int ConfigurationLoaded = 1010;
         public const int ConfigurationChanged = 1011;
         public const int ConfigurationError = 3010;
-        
+
         // Database events
         public const int DatabaseInitialized = 1020;
         public const int DatabaseMigrated = 1021;
         public const int DatabaseError = 3020;
-        
+
         // IPC events
         public const int IpcServerStarted = 1030;
         public const int IpcServerStopped = 1031;
         public const int IpcClientConnected = 1032;
         public const int IpcClientDisconnected = 1033;
         public const int IpcError = 3030;
-        
+
         // Migration events
         public const int MigrationStarted = 1040;
         public const int MigrationCompleted = 1041;
@@ -149,30 +149,30 @@ public static class EventIdMapper
         public const int BackupStarted = 1042;
         public const int BackupCompleted = 1043;
         public const int BackupFailed = 3041;
-        
+
         // Security events (audit range)
         public const int UnauthorizedAccess = 4001;
         public const int SecurityError = 4002;
         public const int PermissionDenied = 4003;
-        
+
         // Performance events
         public const int PerformanceWarning = 5001;
         public const int PerformanceCritical = 5002;
     }
-    
+
     private static int GetCategoryOffset(string category)
     {
         if (string.IsNullOrEmpty(category))
             return 0;
-        
+
         // Try exact match first
         if (_categoryOffsets.TryGetValue(category, out var exactOffset))
             return exactOffset;
-        
+
         // Try partial matches (find the longest matching prefix)
         var bestMatch = string.Empty;
         var bestOffset = 0;
-        
+
         foreach (var (prefix, offset) in _categoryOffsets)
         {
             if (category.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase) &&
@@ -182,7 +182,7 @@ public static class EventIdMapper
                 bestOffset = offset;
             }
         }
-        
+
         return bestOffset;
     }
 }

@@ -59,7 +59,7 @@ public class Program
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 30,
                     outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}")
-                .WriteTo.EventLog("MigrationService", 
+                .WriteTo.EventLog("MigrationService",
                     manageEventSource: true,
                     restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information));
 
@@ -97,7 +97,7 @@ public class Program
 
     private static bool IsInstallCommand(string arg)
     {
-        var installCommands = new[] { "install", "uninstall", "start", "stop", "status", 
+        var installCommands = new[] { "install", "uninstall", "start", "stop", "status",
                                      "/install", "/uninstall", "/start", "/stop", "/status",
                                      "-install", "-uninstall", "-start", "-stop", "-status" };
         return installCommands.Contains(arg, StringComparer.OrdinalIgnoreCase);

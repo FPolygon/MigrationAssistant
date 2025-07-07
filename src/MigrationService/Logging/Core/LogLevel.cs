@@ -10,32 +10,32 @@ public enum LogLevel
     /// Should only be enabled during development or detailed troubleshooting.
     /// </summary>
     Verbose = 0,
-    
+
     /// <summary>
     /// Debug information useful during development and troubleshooting.
     /// </summary>
     Debug = 1,
-    
+
     /// <summary>
     /// Informational messages that track the general flow of the application.
     /// </summary>
     Information = 2,
-    
+
     /// <summary>
     /// Warnings about potentially harmful situations or recoverable errors.
     /// </summary>
     Warning = 3,
-    
+
     /// <summary>
     /// Error events that might still allow the application to continue running.
     /// </summary>
     Error = 4,
-    
+
     /// <summary>
     /// Critical failures that require immediate attention.
     /// </summary>
     Critical = 5,
-    
+
     /// <summary>
     /// No logging.
     /// </summary>
@@ -64,7 +64,7 @@ public static class LogLevelExtensions
             _ => level.ToString().ToUpper()
         };
     }
-    
+
     /// <summary>
     /// Determines if this log level should be logged based on the minimum level.
     /// </summary>

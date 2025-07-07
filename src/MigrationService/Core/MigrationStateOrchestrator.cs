@@ -24,7 +24,7 @@ public class MigrationStateOrchestrator
         try
         {
             var activeMigrations = await _stateManager.GetActiveMigrationsAsync(cancellationToken);
-            
+
             foreach (var migration in activeMigrations)
             {
                 await ProcessUserTransitionAsync(migration, cancellationToken);
@@ -46,12 +46,12 @@ public class MigrationStateOrchestrator
             // Check for timeout
             var elapsed = DateTime.UtcNow - migration.LastUpdated;
             var timeout = StateTransitionRules.GetStateTimeout(migration.State);
-            
+
             if (elapsed > timeout)
             {
-                _logger.LogWarning("Migration {UserId} has timed out in state {State}", 
+                _logger.LogWarning("Migration {UserId} has timed out in state {State}",
                     migration.UserId, migration.State);
-                
+
                 await HandleTimeoutAsync(migration, elapsed, cancellationToken);
                 return;
             }
@@ -63,10 +63,10 @@ public class MigrationStateOrchestrator
                 var reason = $"Automatic transition from {migration.State} to {nextState.Value}";
                 var success = await _stateManager.TransitionStateAsync(
                     migration.UserId, nextState.Value, reason, cancellationToken);
-                
+
                 if (success)
                 {
-                    _logger.LogInformation("User {UserId} automatically transitioned to {State}", 
+                    _logger.LogInformation("User {UserId} automatically transitioned to {State}",
                         migration.UserId, nextState.Value);
                 }
             }
@@ -96,11 +96,11 @@ public class MigrationStateOrchestrator
                 // Check backup status
                 var backupOps = await _stateManager.GetUserBackupOperationsAsync(
                     migration.UserId, cancellationToken);
-                
+
                 var latestOp = backupOps
                     .OrderByDescending(op => op.StartedAt)
                     .FirstOrDefault();
-                
+
                 if (latestOp != null)
                 {
                     return StateTransitionRules.GetAutomaticTransition(migration, latestOp.Status);
@@ -111,7 +111,7 @@ public class MigrationStateOrchestrator
                 // Check OneDrive sync status
                 var syncStatus = await _stateManager.GetOneDriveSyncStatusAsync(
                     migration.UserId, cancellationToken);
-                
+
                 if (syncStatus != null && syncStatus.SyncStatus == "UpToDate" && migration.Progress >= 100)
                 {
                     return MigrationStateType.ReadyForReset;
@@ -145,12 +145,12 @@ public class MigrationStateOrchestrator
                 // Check for repeated failures
                 var operations = await _stateManager.GetUserBackupOperationsAsync(
                     migration.UserId, cancellationToken);
-                
+
                 var recentFailures = operations
                     .Where(op => op.Status == BackupStatus.Failed)
                     .Where(op => op.StartedAt > DateTime.UtcNow.AddDays(-1))
                     .Count();
-                
+
                 if (recentFailures >= 3)
                 {
                     return true;
@@ -161,7 +161,7 @@ public class MigrationStateOrchestrator
                 // Check if already has open escalation
                 var escalations = await _stateManager.GetUserEscalationsAsync(
                     migration.UserId, cancellationToken);
-                
+
                 return !escalations.Any(e => e.Status == "Open");
         }
 
@@ -194,15 +194,15 @@ public class MigrationStateOrchestrator
         MigrationState migration, TimeSpan elapsed, CancellationToken cancellationToken)
     {
         var reason = $"Operation timed out after {elapsed.TotalHours:F1} hours in state {migration.State}";
-        
+
         // Determine appropriate action based on state
         switch (migration.State)
         {
             case MigrationStateType.WaitingForUser:
                 // Long timeout is expected, just log
-                _logger.LogInformation("User {UserId} has been waiting for {Hours:F1} hours", 
+                _logger.LogInformation("User {UserId} has been waiting for {Hours:F1} hours",
                     migration.UserId, elapsed.TotalHours);
-                
+
                 if (elapsed.TotalDays > 7)
                 {
                     await EscalateToITAsync(migration, reason, cancellationToken);
@@ -214,7 +214,7 @@ public class MigrationStateOrchestrator
                 // These should not take this long
                 await _stateManager.TransitionStateAsync(
                     migration.UserId, MigrationStateType.Failed, reason, cancellationToken);
-                
+
                 await EscalateToITAsync(migration, reason, cancellationToken);
                 break;
 
@@ -245,12 +245,12 @@ public class MigrationStateOrchestrator
             };
 
             var escalationId = await _stateManager.CreateEscalationAsync(escalation, cancellationToken);
-            
+
             // Transition to escalated state if not already
             if (migration.State != MigrationStateType.Escalated)
             {
                 await _stateManager.TransitionStateAsync(
-                    migration.UserId, MigrationStateType.Escalated, 
+                    migration.UserId, MigrationStateType.Escalated,
                     $"Escalated to IT: {reason}", cancellationToken);
             }
 
@@ -266,16 +266,16 @@ public class MigrationStateOrchestrator
     {
         if (reason.Contains("quota", StringComparison.OrdinalIgnoreCase))
             return EscalationTriggerType.QuotaExceeded;
-        
+
         if (reason.Contains("sync error", StringComparison.OrdinalIgnoreCase))
             return EscalationTriggerType.SyncError;
-        
+
         if (reason.Contains("timeout", StringComparison.OrdinalIgnoreCase))
             return EscalationTriggerType.Timeout;
-        
+
         if (migration.State == MigrationStateType.Failed)
             return EscalationTriggerType.BackupFailure;
-        
+
         return EscalationTriggerType.MultipleFailures;
     }
 
@@ -298,7 +298,7 @@ public class MigrationStateOrchestrator
                 // Check if all backup categories are complete
                 var operations = await _stateManager.GetUserBackupOperationsAsync(userId, cancellationToken);
                 var categories = new[] { "files", "browsers", "email", "system" };
-                
+
                 var completedCategories = operations
                     .Where(op => op.Status == BackupStatus.Completed)
                     .Select(op => op.Category.ToLower())
@@ -309,7 +309,7 @@ public class MigrationStateOrchestrator
                 {
                     // All backups complete
                     await _stateManager.TransitionStateAsync(
-                        userId, MigrationStateType.BackupCompleted, 
+                        userId, MigrationStateType.BackupCompleted,
                         "All backup categories completed successfully", cancellationToken);
                 }
                 else
@@ -327,8 +327,8 @@ public class MigrationStateOrchestrator
                 {
                     // Too many retries, fail the migration
                     await _stateManager.TransitionStateAsync(
-                        userId, MigrationStateType.Failed, 
-                        $"Backup operation {operationId} failed after {operation.RetryCount} retries", 
+                        userId, MigrationStateType.Failed,
+                        $"Backup operation {operationId} failed after {operation.RetryCount} retries",
                         cancellationToken);
                 }
             }
@@ -345,15 +345,15 @@ public class MigrationStateOrchestrator
     public async Task<MigrationStatistics> GetStatisticsAsync(CancellationToken cancellationToken)
     {
         var stats = new MigrationStatistics();
-        
+
         try
         {
             var summaries = await _stateManager.GetMigrationSummariesAsync(cancellationToken);
-            
+
             foreach (var summary in summaries)
             {
                 stats.TotalUsers++;
-                
+
                 switch (summary.State)
                 {
                     case MigrationStateType.NotStarted:
@@ -374,19 +374,19 @@ public class MigrationStateOrchestrator
                         stats.Escalated++;
                         break;
                 }
-                
+
                 stats.TotalDataSizeMB += summary.TotalBackupSizeMB;
             }
-            
-            stats.CompletionPercentage = stats.TotalUsers > 0 
-                ? (stats.Completed * 100) / stats.TotalUsers 
+
+            stats.CompletionPercentage = stats.TotalUsers > 0
+                ? (stats.Completed * 100) / stats.TotalUsers
                 : 0;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error calculating migration statistics");
         }
-        
+
         return stats;
     }
 }

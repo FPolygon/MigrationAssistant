@@ -10,12 +10,12 @@ namespace MigrationTool.Service.Logging.Core;
 public static class LogContext
 {
     internal static readonly AsyncLocal<LogContextScope?> _currentScope = new();
-    
+
     /// <summary>
     /// Gets the current log context scope.
     /// </summary>
     public static LogContextScope? Current => _currentScope.Value;
-    
+
     /// <summary>
     /// Pushes a new property onto the context stack.
     /// </summary>
@@ -26,7 +26,7 @@ public static class LogContext
     {
         return new LogContextScope(name, value);
     }
-    
+
     /// <summary>
     /// Pushes multiple properties onto the context stack.
     /// </summary>
@@ -36,7 +36,7 @@ public static class LogContext
     {
         return new LogContextScope(properties);
     }
-    
+
     /// <summary>
     /// Sets the correlation ID for the current context.
     /// </summary>
@@ -46,7 +46,7 @@ public static class LogContext
     {
         return PushProperty("CorrelationId", correlationId);
     }
-    
+
     /// <summary>
     /// Sets the user context for logging.
     /// </summary>
@@ -62,7 +62,7 @@ public static class LogContext
         };
         return PushProperties(properties);
     }
-    
+
     /// <summary>
     /// Gets all properties from the current context.
     /// </summary>
@@ -71,7 +71,7 @@ public static class LogContext
     {
         var properties = new Dictionary<string, object?>();
         var scope = _currentScope.Value;
-        
+
         while (scope != null)
         {
             foreach (var (key, value) in scope.Properties)
@@ -81,7 +81,7 @@ public static class LogContext
             }
             scope = scope.Parent;
         }
-        
+
         return properties;
     }
 }
@@ -93,35 +93,35 @@ public sealed class LogContextScope : IDisposable
 {
     private readonly LogContextScope? _parent;
     private bool _disposed;
-    
+
     /// <summary>
     /// Gets the properties in this scope.
     /// </summary>
     public IDictionary<string, object?> Properties { get; }
-    
+
     /// <summary>
     /// Gets the parent scope.
     /// </summary>
     public LogContextScope? Parent => _parent;
-    
+
     internal LogContextScope(string name, object? value)
     {
         _parent = LogContext.Current;
         Properties = new Dictionary<string, object?> { [name] = value };
         LogContext._currentScope.Value = this;
     }
-    
+
     internal LogContextScope(IDictionary<string, object?> properties)
     {
         _parent = LogContext.Current;
         Properties = new Dictionary<string, object?>(properties);
         LogContext._currentScope.Value = this;
     }
-    
+
     public void Dispose()
     {
         if (_disposed) return;
-        
+
         _disposed = true;
         LogContext._currentScope.Value = _parent;
     }

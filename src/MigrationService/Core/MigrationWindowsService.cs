@@ -79,10 +79,10 @@ public class MigrationWindowsService : BackgroundService
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Migration Service OnStart called");
-        
+
         // Ensure directories exist
         EnsureDirectoriesExist();
-        
+
         await base.StartAsync(cancellationToken);
     }
 
@@ -104,7 +104,7 @@ public class MigrationWindowsService : BackgroundService
         }
 
         await base.StopAsync(cancellationToken);
-        
+
         _logger.LogInformation("Migration Service stopped");
     }
 

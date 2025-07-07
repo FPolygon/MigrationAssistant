@@ -27,7 +27,7 @@ public class IpcServer : IIpcServer, IDisposable
         _logger = logger;
         _configuration = configuration.Value;
         _clients = new ConcurrentDictionary<string, ClientConnection>();
-        
+
         // Replace {ComputerName} placeholder with actual computer name
         _pipeName = _configuration.PipeName.Replace("{ComputerName}", Environment.MachineName);
     }
@@ -40,7 +40,7 @@ public class IpcServer : IIpcServer, IDisposable
         _serverTask = Task.Run(() => RunServerAsync(_serverCancellation.Token), cancellationToken);
 
         await Task.CompletedTask;
-        
+
         _logger.LogInformation("IPC server started");
     }
 
@@ -94,9 +94,9 @@ public class IpcServer : IIpcServer, IDisposable
 
     public async Task BroadcastMessageAsync(IpcMessage message, CancellationToken cancellationToken)
     {
-        var tasks = _clients.Values.Select(client => 
+        var tasks = _clients.Values.Select(client =>
             SendMessageToClientSafelyAsync(client, message, cancellationToken));
-        
+
         await Task.WhenAll(tasks);
     }
 
@@ -107,7 +107,7 @@ public class IpcServer : IIpcServer, IDisposable
             try
             {
                 var pipeSecurity = CreatePipeSecurity();
-                
+
                 using var serverPipe = NamedPipeServerStreamAcl.Create(
                     _pipeName,
                     PipeDirection.InOut,
@@ -119,9 +119,9 @@ public class IpcServer : IIpcServer, IDisposable
                     pipeSecurity);
 
                 _logger.LogDebug("Waiting for client connection");
-                
+
                 await serverPipe.WaitForConnectionAsync(cancellationToken);
-                
+
                 _logger.LogDebug("Client connected");
 
                 // Handle client connection in a separate task
@@ -236,9 +236,9 @@ public class IpcServer : IIpcServer, IDisposable
         {
             // Already disposed, ignore
         }
-        
+
         _serverCancellation?.Dispose();
-        
+
         foreach (var client in _clients.Values)
         {
             client.Dispose();

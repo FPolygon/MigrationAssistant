@@ -17,25 +17,25 @@ public class AsyncLogWriter : IDisposable
     private readonly SemaphoreSlim _processingSignal = new(0);
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private readonly Task _processingTask;
-    
+
     private volatile bool _disposed;
     private long _queueSize;
-    
+
     /// <summary>
     /// Gets the current number of buffered log entries.
     /// </summary>
     public int QueueSize => (int)_queueSize;
-    
+
     /// <summary>
     /// Gets whether the writer is running.
     /// </summary>
     public bool IsRunning => !_disposed && !_processingTask.IsCompleted;
-    
+
     /// <summary>
     /// Event raised when the queue reaches high watermark.
     /// </summary>
     public event EventHandler<QueuePressureEventArgs>? QueuePressure;
-    
+
     /// <summary>
     /// Initializes a new instance of the AsyncLogWriter.
     /// </summary>
@@ -45,10 +45,10 @@ public class AsyncLogWriter : IDisposable
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         _options = options ?? new AsyncLogWriterOptions();
-        
+
         _processingTask = Task.Run(ProcessLogEntriesAsync);
     }
-    
+
     /// <summary>
     /// Queues a log entry for asynchronous writing.
     /// </summary>
@@ -57,9 +57,9 @@ public class AsyncLogWriter : IDisposable
     public bool QueueLogEntry(LogEntry entry)
     {
         if (_disposed) return false;
-        
+
         var currentSize = Interlocked.Read(ref _queueSize);
-        
+
         // Check if queue is full
         if (currentSize >= _options.MaxQueueSize)
         {
@@ -94,13 +94,13 @@ public class AsyncLogWriter : IDisposable
                 return false;
             }
         }
-        
+
         _logQueue.Enqueue(entry);
         Interlocked.Increment(ref _queueSize);
-        
+
         // Signal the processing task
         _processingSignal.Release();
-        
+
         // Check for queue pressure
         var newSize = Interlocked.Read(ref _queueSize);
         if (newSize >= _options.HighWatermark)
@@ -112,10 +112,10 @@ public class AsyncLogWriter : IDisposable
                 DroppedEntry = null
             });
         }
-        
+
         return true;
     }
-    
+
     /// <summary>
     /// Flushes all queued entries and waits for them to be written.
     /// </summary>
@@ -124,11 +124,11 @@ public class AsyncLogWriter : IDisposable
     public async Task FlushAsync(TimeSpan timeout = default)
     {
         if (_disposed) return;
-        
-        var timeoutCts = timeout == default ? 
+
+        var timeoutCts = timeout == default ?
             new CancellationTokenSource(TimeSpan.FromSeconds(30)) :
             new CancellationTokenSource(timeout);
-        
+
         try
         {
             // Wait until the queue is empty or timeout occurs
@@ -136,7 +136,7 @@ public class AsyncLogWriter : IDisposable
             {
                 await Task.Delay(10, timeoutCts.Token);
             }
-            
+
             // Flush the underlying provider
             await _provider.FlushAsync(timeoutCts.Token);
         }
@@ -149,7 +149,7 @@ public class AsyncLogWriter : IDisposable
             timeoutCts.Dispose();
         }
     }
-    
+
     /// <summary>
     /// Gets statistics about the async writer performance.
     /// </summary>
@@ -164,35 +164,35 @@ public class AsyncLogWriter : IDisposable
             IsRunning = IsRunning
         };
     }
-    
+
     private async Task ProcessLogEntriesAsync()
     {
         var cancellationToken = _cancellationTokenSource.Token;
         var batch = new LogEntry[_options.BatchSize];
         var flushTimer = DateTime.UtcNow.Add(_options.FlushInterval);
-        
+
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
                 // Wait for entries or timeout
                 await _processingSignal.WaitAsync(_options.FlushInterval, cancellationToken);
-                
+
                 var batchCount = 0;
                 var now = DateTime.UtcNow;
-                
+
                 // Collect a batch of entries
                 while (batchCount < _options.BatchSize && _logQueue.TryDequeue(out var entry))
                 {
                     batch[batchCount++] = entry;
                     Interlocked.Decrement(ref _queueSize);
                 }
-                
+
                 // Process the batch if we have entries or if it's time to flush
                 if (batchCount > 0 || now >= flushTimer)
                 {
                     await ProcessBatchAsync(batch, batchCount, cancellationToken);
-                    
+
                     if (now >= flushTimer)
                     {
                         await _provider.FlushAsync(cancellationToken);
@@ -211,11 +211,11 @@ public class AsyncLogWriter : IDisposable
                 await Task.Delay(1000, cancellationToken); // Brief pause before retrying
             }
         }
-        
+
         // Process any remaining entries
         await ProcessRemainingEntriesAsync(cancellationToken);
     }
-    
+
     private async Task ProcessBatchAsync(LogEntry[] batch, int count, CancellationToken cancellationToken)
     {
         for (int i = 0; i < count; i++)
@@ -231,7 +231,7 @@ public class AsyncLogWriter : IDisposable
             }
         }
     }
-    
+
     private async Task ProcessRemainingEntriesAsync(CancellationToken cancellationToken)
     {
         try
@@ -241,7 +241,7 @@ public class AsyncLogWriter : IDisposable
                 await _provider.WriteLogAsync(entry, cancellationToken);
                 Interlocked.Decrement(ref _queueSize);
             }
-            
+
             await _provider.FlushAsync(cancellationToken);
         }
         catch (Exception ex)
@@ -249,7 +249,7 @@ public class AsyncLogWriter : IDisposable
             Console.Error.WriteLine($"Error processing remaining log entries: {ex.Message}");
         }
     }
-    
+
     private void OnQueuePressure(QueuePressureEventArgs args)
     {
         try
@@ -261,21 +261,21 @@ public class AsyncLogWriter : IDisposable
             Console.Error.WriteLine($"Error in queue pressure handler: {ex.Message}");
         }
     }
-    
+
     public void Dispose()
     {
         if (_disposed) return;
-        
+
         _disposed = true;
-        
+
         try
         {
             // Signal shutdown
             _cancellationTokenSource.Cancel();
-            
+
             // Wait for processing to complete (with timeout)
             _processingTask.Wait(TimeSpan.FromSeconds(10));
-            
+
             // Flush any remaining entries
             FlushAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
         }
@@ -300,22 +300,22 @@ public class AsyncLogWriterOptions
     /// Maximum number of entries to buffer before applying overflow policy.
     /// </summary>
     public int MaxQueueSize { get; set; } = 10000;
-    
+
     /// <summary>
     /// Queue size at which to raise queue pressure events.
     /// </summary>
     public int HighWatermark { get; set; } = 7500;
-    
+
     /// <summary>
     /// Number of entries to process in each batch.
     /// </summary>
     public int BatchSize { get; set; } = 100;
-    
+
     /// <summary>
     /// Maximum time to wait before flushing buffered entries.
     /// </summary>
     public TimeSpan FlushInterval { get; set; } = TimeSpan.FromSeconds(5);
-    
+
     /// <summary>
     /// Policy for handling queue overflow.
     /// </summary>
@@ -331,17 +331,17 @@ public class AsyncLogWriterStatistics
     /// Current number of entries in the queue.
     /// </summary>
     public int CurrentQueueSize { get; set; }
-    
+
     /// <summary>
     /// Maximum queue size.
     /// </summary>
     public int MaxQueueSize { get; set; }
-    
+
     /// <summary>
     /// High watermark for queue pressure events.
     /// </summary>
     public int HighWatermark { get; set; }
-    
+
     /// <summary>
     /// Whether the writer is currently running.
     /// </summary>
@@ -357,12 +357,12 @@ public class QueuePressureEventArgs : EventArgs
     /// Current queue size.
     /// </summary>
     public int CurrentSize { get; set; }
-    
+
     /// <summary>
     /// Maximum queue size.
     /// </summary>
     public int MaxSize { get; set; }
-    
+
     /// <summary>
     /// Entry that was dropped (if applicable).
     /// </summary>
@@ -378,12 +378,12 @@ public enum OverflowPolicy
     /// Drop the oldest entries when queue is full.
     /// </summary>
     DropOldest,
-    
+
     /// <summary>
     /// Drop the newest entries when queue is full.
     /// </summary>
     DropNewest,
-    
+
     /// <summary>
     /// Block new entries when queue is full.
     /// </summary>

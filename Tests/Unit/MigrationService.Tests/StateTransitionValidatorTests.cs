@@ -287,8 +287,8 @@ public class StateTransitionRulesTests
     public void GetAutomaticTransition_SyncInProgress_WithFullProgress_ShouldReturnReadyForReset()
     {
         // Arrange
-        var state = new MigrationState 
-        { 
+        var state = new MigrationState
+        {
             State = MigrationStateType.SyncInProgress,
             Progress = 100
         };

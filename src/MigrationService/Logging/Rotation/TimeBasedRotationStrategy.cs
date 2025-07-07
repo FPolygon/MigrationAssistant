@@ -13,7 +13,7 @@ public class TimeBasedRotationStrategy : IRotationStrategy
     private readonly RotationInterval _interval;
     private readonly bool _useUtc;
     private DateTime _lastRotationTime;
-    
+
     /// <summary>
     /// Initializes a new instance of the TimeBasedRotationStrategy.
     /// </summary>
@@ -25,43 +25,43 @@ public class TimeBasedRotationStrategy : IRotationStrategy
         _useUtc = useUtc;
         _lastRotationTime = GetCurrentTime();
     }
-    
+
     public bool ShouldRotate(string currentFilePath, long currentFileSize)
     {
         var currentTime = GetCurrentTime();
         var shouldRotate = false;
-        
+
         switch (_interval)
         {
             case RotationInterval.Hourly:
-                shouldRotate = currentTime.Hour != _lastRotationTime.Hour || 
+                shouldRotate = currentTime.Hour != _lastRotationTime.Hour ||
                               currentTime.Date != _lastRotationTime.Date;
                 break;
-                
+
             case RotationInterval.Daily:
                 shouldRotate = currentTime.Date != _lastRotationTime.Date;
                 break;
-                
+
             case RotationInterval.Weekly:
                 var currentWeekStart = GetWeekStart(currentTime);
                 var lastWeekStart = GetWeekStart(_lastRotationTime);
                 shouldRotate = currentWeekStart != lastWeekStart;
                 break;
-                
+
             case RotationInterval.Monthly:
                 shouldRotate = currentTime.Year != _lastRotationTime.Year ||
                               currentTime.Month != _lastRotationTime.Month;
                 break;
         }
-        
+
         if (shouldRotate)
         {
             _lastRotationTime = currentTime;
         }
-        
+
         return shouldRotate;
     }
-    
+
     public string GenerateNextFileName(string baseFileName, string extension)
     {
         var timestamp = GetCurrentTime();
@@ -73,21 +73,21 @@ public class TimeBasedRotationStrategy : IRotationStrategy
             RotationInterval.Monthly => "yyyyMM",
             _ => "yyyyMMdd"
         };
-        
+
         return $"{baseFileName}_{timestamp.ToString(timeFormat)}{extension}";
     }
-    
+
     public Task PostRotationCleanupAsync(string rotatedFilePath, CancellationToken cancellationToken = default)
     {
         // No cleanup needed for time-based rotation
         return Task.CompletedTask;
     }
-    
+
     private DateTime GetCurrentTime()
     {
         return _useUtc ? DateTime.UtcNow : DateTime.Now;
     }
-    
+
     private DateTime GetWeekStart(DateTime date)
     {
         var diff = (7 + (int)date.DayOfWeek - (int)DayOfWeek.Monday) % 7;

@@ -14,7 +14,7 @@ public class CombinedRotationStrategy : IRotationStrategy
 {
     private readonly List<IRotationStrategy> _strategies;
     private readonly IRotationStrategy _primaryStrategy;
-    
+
     /// <summary>
     /// Initializes a new instance of the CombinedRotationStrategy.
     /// </summary>
@@ -27,10 +27,10 @@ public class CombinedRotationStrategy : IRotationStrategy
         {
             throw new ArgumentException("At least one rotation strategy must be provided.", nameof(strategies));
         }
-        
+
         _primaryStrategy = primaryStrategy ?? _strategies[0];
     }
-    
+
     /// <summary>
     /// Convenience constructor for size and time-based rotation.
     /// </summary>
@@ -46,22 +46,22 @@ public class CombinedRotationStrategy : IRotationStrategy
         };
         _primaryStrategy = _strategies[1]; // Use time-based for naming
     }
-    
+
     public bool ShouldRotate(string currentFilePath, long currentFileSize)
     {
         return _strategies.Any(strategy => strategy.ShouldRotate(currentFilePath, currentFileSize));
     }
-    
+
     public string GenerateNextFileName(string baseFileName, string extension)
     {
         return _primaryStrategy.GenerateNextFileName(baseFileName, extension);
     }
-    
+
     public async Task PostRotationCleanupAsync(string rotatedFilePath, CancellationToken cancellationToken = default)
     {
-        var tasks = _strategies.Select(strategy => 
+        var tasks = _strategies.Select(strategy =>
             strategy.PostRotationCleanupAsync(rotatedFilePath, cancellationToken));
-        
+
         await Task.WhenAll(tasks);
     }
 }

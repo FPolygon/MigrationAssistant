@@ -15,7 +15,7 @@ public interface IRotationStrategy
     /// <param name="currentFileSize">The current size of the log file in bytes.</param>
     /// <returns>True if the file should be rotated; otherwise, false.</returns>
     bool ShouldRotate(string currentFilePath, long currentFileSize);
-    
+
     /// <summary>
     /// Generates the next log file name.
     /// </summary>
@@ -23,7 +23,7 @@ public interface IRotationStrategy
     /// <param name="extension">The file extension.</param>
     /// <returns>The next log file name.</returns>
     string GenerateNextFileName(string baseFileName, string extension);
-    
+
     /// <summary>
     /// Performs post-rotation cleanup if necessary.
     /// </summary>

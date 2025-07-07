@@ -11,7 +11,7 @@ public static class ServiceInstaller
     private const string ServiceName = "MigrationService";
     private const string ServiceDisplayName = "Windows Migration Service";
     private const string ServiceDescription = "Manages user data migration to OneDrive before system reset for Autopilot enrollment";
-    
+
     public static void Install(string exePath)
     {
         Console.WriteLine($"Installing {ServiceName}...");
@@ -93,7 +93,7 @@ public static class ServiceInstaller
         }
 
         process.WaitForExit();
-        
+
         if (process.ExitCode != 0)
         {
             var error = process.StandardError.ReadToEnd();
@@ -132,9 +132,9 @@ public static class ServiceInstaller
         try
         {
             using var key = Registry.LocalMachine.OpenSubKey(
-                $@"SYSTEM\CurrentControlSet\Services\{ServiceName}", 
+                $@"SYSTEM\CurrentControlSet\Services\{ServiceName}",
                 writable: true);
-            
+
             if (key != null)
             {
                 key.SetValue("Description", ServiceDescription);
@@ -152,7 +152,7 @@ public static class ServiceInstaller
         try
         {
             using var service = new ServiceController(ServiceName);
-            
+
             if (service.Status == ServiceControllerStatus.Running)
             {
                 Console.WriteLine("Stopping service...");
@@ -189,9 +189,9 @@ public static class ServiceInstaller
         try
         {
             using var key = Registry.LocalMachine.OpenSubKey(
-                $@"SYSTEM\CurrentControlSet\Services\{ServiceName}", 
+                $@"SYSTEM\CurrentControlSet\Services\{ServiceName}",
                 writable: true);
-            
+
             if (key != null)
             {
                 key.SetValue("DelayedAutostart", enabled ? 1 : 0, RegistryValueKind.DWord);

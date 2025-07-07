@@ -11,10 +11,10 @@ public interface IIpcConnection : IDisposable
     DateTime ConnectedAt { get; }
     DateTime? LastMessageAt { get; }
     string? UserId { get; }
-    
+
     event EventHandler<MessageReceivedEventArgs>? MessageReceived;
     event EventHandler<ClientDisconnectedEventArgs>? Disconnected;
-    
+
     Task StartAsync(CancellationToken cancellationToken = default);
     Task SendMessageAsync(IpcMessage message, CancellationToken cancellationToken = default);
     Task DisconnectAsync(string? reason = null);

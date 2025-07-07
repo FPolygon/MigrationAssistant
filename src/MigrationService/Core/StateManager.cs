@@ -21,10 +21,10 @@ public class StateManager : IStateManager, IDisposable
     {
         _logger = logger;
         _configuration = configuration.Value;
-        
+
         var dbPath = Path.Combine(_configuration.DataPath, "migration.db");
-        _connectionString = $"Data Source={dbPath};Mode=ReadWriteCreate;";
-        
+        _connectionString = $"Data Source={dbPath};Mode=ReadWriteCreate;Cache=Shared;";
+
         var migrationRunnerLogger = new LoggerFactory()
             .CreateLogger<MigrationRunner>();
         _migrationRunner = new MigrationRunner(migrationRunnerLogger, _connectionString);
@@ -52,7 +52,16 @@ public class StateManager : IStateManager, IDisposable
 
             // Run database migrations
             await _migrationRunner.RunMigrationsAsync(cancellationToken);
-            
+
+            // Enable WAL mode for better concurrency
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                await connection.OpenAsync(cancellationToken);
+                using var command = connection.CreateCommand();
+                command.CommandText = "PRAGMA journal_mode=WAL";
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+
             _isInitialized = true;
             _logger.LogInformation("State database initialized successfully");
         }
@@ -67,14 +76,22 @@ public class StateManager : IStateManager, IDisposable
     {
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
+            // Use a connection string without ReadWriteCreate to avoid creating a new DB
+            var healthCheckConnectionString = _connectionString.Replace("Mode=ReadWriteCreate;", "Mode=ReadWrite;");
+            using var connection = new SqliteConnection(healthCheckConnectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
+            // Check if essential tables exist
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT 1";
-            
-            var result = await command.ExecuteScalarAsync(cancellationToken);
-            return result != null;
+            command.CommandText = @"
+                SELECT COUNT(*) 
+                FROM sqlite_master 
+                WHERE type='table' AND name IN ('UserProfiles', 'MigrationStates', 'BackupOperations')";
+
+            var tableCount = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+
+            // We expect at least these 3 core tables to exist
+            return tableCount >= 3;
         }
         catch (Exception ex)
         {
@@ -89,7 +106,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE)";
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -112,7 +129,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT UserId, UserName, DomainName, ProfilePath, ProfileType, 
@@ -141,7 +158,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT UserId, UserName, DomainName, ProfilePath, ProfileType, 
@@ -171,7 +188,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT OR REPLACE INTO UserProfiles 
@@ -180,7 +197,7 @@ public class StateManager : IStateManager, IDisposable
                 VALUES (@userId, @userName, @domainName, @profilePath, @profileType, 
                         @lastLoginTime, @isActive, @profileSize, @requiresBackup, 
                         @backupPriority, CURRENT_TIMESTAMP)";
-            
+
             command.Parameters.AddWithValue("@userId", profile.UserId);
             command.Parameters.AddWithValue("@userName", profile.UserName);
             command.Parameters.AddWithValue("@domainName", profile.DomainName ?? (object)DBNull.Value);
@@ -193,8 +210,8 @@ public class StateManager : IStateManager, IDisposable
             command.Parameters.AddWithValue("@backupPriority", profile.BackupPriority);
 
             await command.ExecuteNonQueryAsync(cancellationToken);
-            
-            await RecordSystemEventAsync("UserProfileUpdated", "Information", 
+
+            await RecordSystemEventAsync("UserProfileUpdated", "Information",
                 $"Updated profile for user {profile.UserName}", null, profile.UserId, cancellationToken);
         }
         catch (Exception ex)
@@ -212,7 +229,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT UserId, UserName, DomainName, ProfilePath, ProfileType, 
@@ -248,7 +265,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT UserId, State, Status, Progress, StartedAt, LastUpdated, 
@@ -276,24 +293,36 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
-            using var command = connection.CreateCommand();
-            command.CommandText = @"
-                SELECT UserId, State, Status, Progress, StartedAt, LastUpdated, 
-                       CompletedAt, Deadline, AttentionReason, DelayCount, IsBlocking
-                FROM MigrationStates 
-                WHERE UserId = @userId";
-            command.Parameters.AddWithValue("@userId", userId);
 
-            using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            if (await reader.ReadAsync(cancellationToken))
-            {
-                return ReadMigrationState(reader);
-            }
+            return await GetMigrationStateInternalAsync(userId, connection, null, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get migration state for user {UserId}", userId);
+        }
+
+        return null;
+    }
+
+    private async Task<MigrationState?> GetMigrationStateInternalAsync(string userId, SqliteConnection connection, SqliteTransaction? transaction, CancellationToken cancellationToken)
+    {
+        using var command = connection.CreateCommand();
+        if (transaction != null)
+        {
+            command.Transaction = transaction;
+        }
+
+        command.CommandText = @"
+            SELECT UserId, State, Status, Progress, StartedAt, LastUpdated, 
+                   CompletedAt, Deadline, AttentionReason, DelayCount, IsBlocking
+            FROM MigrationStates 
+            WHERE UserId = @userId";
+        command.Parameters.AddWithValue("@userId", userId);
+
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return ReadMigrationState(reader);
         }
 
         return null;
@@ -305,27 +334,8 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
-            using var command = connection.CreateCommand();
-            command.CommandText = @"
-                INSERT OR REPLACE INTO MigrationStates 
-                (UserId, State, Status, Progress, StartedAt, LastUpdated, CompletedAt,
-                 Deadline, AttentionReason, DelayCount, IsBlocking) 
-                VALUES (@userId, @state, @status, @progress, @startedAt, CURRENT_TIMESTAMP, 
-                        @completedAt, @deadline, @attentionReason, @delayCount, @isBlocking)";
-            
-            command.Parameters.AddWithValue("@userId", state.UserId);
-            command.Parameters.AddWithValue("@state", state.State.ToString());
-            command.Parameters.AddWithValue("@status", state.Status);
-            command.Parameters.AddWithValue("@progress", state.Progress);
-            command.Parameters.AddWithValue("@startedAt", state.StartedAt ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@completedAt", state.CompletedAt ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@deadline", state.Deadline ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@attentionReason", state.AttentionReason ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@delayCount", state.DelayCount);
-            command.Parameters.AddWithValue("@isBlocking", state.IsBlocking);
 
-            await command.ExecuteNonQueryAsync(cancellationToken);
+            await UpdateMigrationStateInternalAsync(state, connection, null, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -334,18 +344,47 @@ public class StateManager : IStateManager, IDisposable
         }
     }
 
+    private async Task UpdateMigrationStateInternalAsync(MigrationState state, SqliteConnection connection, SqliteTransaction? transaction, CancellationToken cancellationToken)
+    {
+        using var command = connection.CreateCommand();
+        if (transaction != null)
+        {
+            command.Transaction = transaction;
+        }
+
+        command.CommandText = @"
+            INSERT OR REPLACE INTO MigrationStates 
+            (UserId, State, Status, Progress, StartedAt, LastUpdated, CompletedAt,
+             Deadline, AttentionReason, DelayCount, IsBlocking) 
+            VALUES (@userId, @state, @status, @progress, @startedAt, CURRENT_TIMESTAMP, 
+                    @completedAt, @deadline, @attentionReason, @delayCount, @isBlocking)";
+
+        command.Parameters.AddWithValue("@userId", state.UserId);
+        command.Parameters.AddWithValue("@state", state.State.ToString());
+        command.Parameters.AddWithValue("@status", state.Status);
+        command.Parameters.AddWithValue("@progress", state.Progress);
+        command.Parameters.AddWithValue("@startedAt", state.StartedAt ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("@completedAt", state.CompletedAt ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("@deadline", state.Deadline ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("@attentionReason", state.AttentionReason ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("@delayCount", state.DelayCount);
+        command.Parameters.AddWithValue("@isBlocking", state.IsBlocking);
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task<bool> TransitionStateAsync(string userId, MigrationStateType newState, string reason, CancellationToken cancellationToken)
     {
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
-        
+
         using var transaction = connection.BeginTransaction();
         try
         {
             // Get current state
-            var currentState = await GetMigrationStateAsync(userId, cancellationToken);
+            var currentState = await GetMigrationStateInternalAsync(userId, connection, transaction, cancellationToken);
             var oldStateValue = currentState?.State.ToString() ?? "NotStarted";
-            
+
             // Create state if it doesn't exist
             if (currentState == null)
             {
@@ -356,25 +395,29 @@ public class StateManager : IStateManager, IDisposable
                     StartedAt = DateTime.UtcNow
                 };
             }
-            
+
             // Validate the transition
             var validationResult = StateTransitionValidator.ValidateStateTransition(currentState, newState, reason);
             if (!validationResult.IsValid)
             {
                 var errorMessage = string.Join("; ", validationResult.Errors);
                 _logger.LogWarning("Invalid state transition for user {UserId}: {Errors}", userId, errorMessage);
-                
-                await RecordSystemEventAsync("InvalidStateTransition", "Warning", 
-                    $"Attempted invalid transition from {currentState.State} to {newState}", 
+
+                // Don't record system event within transaction to avoid connection conflicts
+                transaction.Rollback();
+
+                // Record event outside of transaction
+                await RecordSystemEventAsync("InvalidStateTransition", "Warning",
+                    $"Attempted invalid transition from {currentState.State} to {newState}",
                     errorMessage, userId, cancellationToken);
-                
+
                 return false;
             }
-            
+
             // Update migration state
             currentState.State = newState;
             currentState.LastUpdated = DateTime.UtcNow;
-            
+
             // Update state-specific fields
             switch (newState)
             {
@@ -382,41 +425,41 @@ public class StateManager : IStateManager, IDisposable
                     if (!currentState.StartedAt.HasValue)
                         currentState.StartedAt = DateTime.UtcNow;
                     break;
-                    
+
                 case MigrationStateType.BackupCompleted:
                 case MigrationStateType.ReadyForReset:
                     currentState.CompletedAt = DateTime.UtcNow;
                     currentState.Progress = 100;
                     break;
-                    
+
                 case MigrationStateType.Failed:
                 case MigrationStateType.Escalated:
                     currentState.AttentionReason = reason;
                     break;
             }
-            
-            await UpdateMigrationStateAsync(currentState, cancellationToken);
-            
+
+            await UpdateMigrationStateInternalAsync(currentState, connection, transaction, cancellationToken);
+
             // Record state history
             using var historyCommand = connection.CreateCommand();
             historyCommand.Transaction = transaction;
             historyCommand.CommandText = @"
                 INSERT INTO StateHistory (UserId, OldState, NewState, Reason, ChangedBy, Details)
                 VALUES (@userId, @oldState, @newState, @reason, 'SYSTEM', @details)";
-            
+
             historyCommand.Parameters.AddWithValue("@userId", userId);
             historyCommand.Parameters.AddWithValue("@oldState", oldStateValue);
             historyCommand.Parameters.AddWithValue("@newState", newState.ToString());
             historyCommand.Parameters.AddWithValue("@reason", reason);
             historyCommand.Parameters.AddWithValue("@details", $"Transition from {oldStateValue} to {newState}");
-            
+
             await historyCommand.ExecuteNonQueryAsync(cancellationToken);
-            
+
             transaction.Commit();
-            
-            _logger.LogInformation("User {UserId} transitioned from {OldState} to {NewState}: {Reason}", 
+
+            _logger.LogInformation("User {UserId} transitioned from {OldState} to {NewState}: {Reason}",
                 userId, oldStateValue, newState, reason);
-            
+
             return true;
         }
         catch (Exception ex)
@@ -436,10 +479,10 @@ public class StateManager : IStateManager, IDisposable
         try
         {
             operation.OperationId = Guid.NewGuid().ToString();
-            
+
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO BackupOperations 
@@ -447,7 +490,7 @@ public class StateManager : IStateManager, IDisposable
                  BytesTotal, BytesTransferred, ItemsTotal, ItemsCompleted, RetryCount)
                 VALUES (@userId, @operationId, @providerName, @category, @status, @startedAt, 
                         @progress, @bytesTotal, @bytesTransferred, @itemsTotal, @itemsCompleted, @retryCount)";
-            
+
             command.Parameters.AddWithValue("@userId", operation.UserId);
             command.Parameters.AddWithValue("@operationId", operation.OperationId);
             command.Parameters.AddWithValue("@providerName", operation.ProviderName);
@@ -462,10 +505,10 @@ public class StateManager : IStateManager, IDisposable
             command.Parameters.AddWithValue("@retryCount", operation.RetryCount);
 
             await command.ExecuteNonQueryAsync(cancellationToken);
-            
-            _logger.LogInformation("Created backup operation {OperationId} for user {UserId}", 
+
+            _logger.LogInformation("Created backup operation {OperationId} for user {UserId}",
                 operation.OperationId, operation.UserId);
-            
+
             return operation.OperationId;
         }
         catch (Exception ex)
@@ -481,7 +524,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 UPDATE BackupOperations 
@@ -490,7 +533,7 @@ public class StateManager : IStateManager, IDisposable
                     ErrorCode = @errorCode, ErrorMessage = @errorMessage,
                     RetryCount = @retryCount, ManifestPath = @manifestPath
                 WHERE OperationId = @operationId";
-            
+
             command.Parameters.AddWithValue("@operationId", operation.OperationId);
             command.Parameters.AddWithValue("@status", operation.Status.ToString());
             command.Parameters.AddWithValue("@progress", operation.Progress);
@@ -517,7 +560,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, UserId, OperationId, ProviderName, Category, Status, StartedAt,
@@ -549,7 +592,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, UserId, OperationId, ProviderName, Category, Status, StartedAt,
@@ -580,13 +623,13 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO ProviderResults 
                 (BackupOperationId, Category, Success, ItemCount, SizeMB, Duration, Details, Errors)
                 VALUES (@operationId, @category, @success, @itemCount, @sizeMB, @duration, @details, @errors)";
-            
+
             command.Parameters.AddWithValue("@operationId", result.BackupOperationId);
             command.Parameters.AddWithValue("@category", result.Category);
             command.Parameters.AddWithValue("@success", result.Success);
@@ -615,7 +658,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT OR REPLACE INTO OneDriveSync 
@@ -625,7 +668,7 @@ public class StateManager : IStateManager, IDisposable
                 VALUES (@userId, @isInstalled, @isSignedIn, @accountEmail, @syncFolderPath,
                         @syncStatus, @quotaTotal, @quotaUsed, @quotaAvailable, @lastSyncTime,
                         @lastSyncError, @errorCount, CURRENT_TIMESTAMP)";
-            
+
             command.Parameters.AddWithValue("@userId", status.UserId);
             command.Parameters.AddWithValue("@isInstalled", status.IsInstalled);
             command.Parameters.AddWithValue("@isSignedIn", status.IsSignedIn);
@@ -654,7 +697,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, UserId, IsInstalled, IsSignedIn, AccountEmail, SyncFolderPath,
@@ -688,7 +731,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT DISTINCT o1.Id, o1.UserId, o1.IsInstalled, o1.IsSignedIn, 
@@ -727,14 +770,14 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO ITEscalations 
                 (UserId, TriggerType, TriggerReason, Details, TicketNumber, Status, AutoTriggered)
                 VALUES (@userId, @triggerType, @triggerReason, @details, @ticketNumber, @status, @autoTriggered);
                 SELECT last_insert_rowid();";
-            
+
             command.Parameters.AddWithValue("@userId", escalation.UserId ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("@triggerType", escalation.TriggerType.ToString());
             command.Parameters.AddWithValue("@triggerReason", escalation.TriggerReason);
@@ -744,10 +787,10 @@ public class StateManager : IStateManager, IDisposable
             command.Parameters.AddWithValue("@autoTriggered", escalation.AutoTriggered);
 
             var id = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
-            
-            await RecordSystemEventAsync("ITEscalation", "Warning", 
+
+            await RecordSystemEventAsync("ITEscalation", "Warning",
                 $"IT escalation created: {escalation.TriggerType}", escalation.Details, escalation.UserId, cancellationToken);
-            
+
             return id;
         }
         catch (Exception ex)
@@ -763,14 +806,14 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 UPDATE ITEscalations 
                 SET Status = @status, TicketNumber = @ticketNumber, ResolvedAt = @resolvedAt,
                     ResolutionNotes = @resolutionNotes
                 WHERE Id = @id";
-            
+
             command.Parameters.AddWithValue("@id", escalation.Id);
             command.Parameters.AddWithValue("@status", escalation.Status);
             command.Parameters.AddWithValue("@ticketNumber", escalation.TicketNumber ?? (object)DBNull.Value);
@@ -794,7 +837,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, UserId, TriggerType, TriggerReason, Details, TicketNumber,
@@ -825,7 +868,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, UserId, TriggerType, TriggerReason, Details, TicketNumber,
@@ -859,24 +902,24 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO DelayRequests 
                 (UserId, RequestedDelayHours, Reason, Status)
                 VALUES (@userId, @delayHours, @reason, @status);
                 SELECT last_insert_rowid();";
-            
+
             command.Parameters.AddWithValue("@userId", request.UserId);
             command.Parameters.AddWithValue("@delayHours", request.RequestedDelayHours);
             command.Parameters.AddWithValue("@reason", request.Reason);
             command.Parameters.AddWithValue("@status", request.Status);
 
             var id = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
-            
-            _logger.LogInformation("Delay request created for user {UserId}: {Hours} hours", 
+
+            _logger.LogInformation("Delay request created for user {UserId}: {Hours} hours",
                 request.UserId, request.RequestedDelayHours);
-            
+
             return id;
         }
         catch (Exception ex)
@@ -890,7 +933,7 @@ public class StateManager : IStateManager, IDisposable
     {
         using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
-        
+
         using var transaction = connection.BeginTransaction();
         try
         {
@@ -901,17 +944,17 @@ public class StateManager : IStateManager, IDisposable
                 UPDATE DelayRequests 
                 SET Status = 'Approved', ApprovedAt = CURRENT_TIMESTAMP, NewDeadline = @newDeadline
                 WHERE Id = @id";
-            
+
             updateCommand.Parameters.AddWithValue("@id", requestId);
             updateCommand.Parameters.AddWithValue("@newDeadline", newDeadline);
             await updateCommand.ExecuteNonQueryAsync(cancellationToken);
-            
+
             // Get user ID and update migration state
             using var selectCommand = connection.CreateCommand();
             selectCommand.Transaction = transaction;
             selectCommand.CommandText = "SELECT UserId FROM DelayRequests WHERE Id = @id";
             selectCommand.Parameters.AddWithValue("@id", requestId);
-            
+
             var userId = (string?)await selectCommand.ExecuteScalarAsync(cancellationToken);
             if (userId != null)
             {
@@ -921,15 +964,15 @@ public class StateManager : IStateManager, IDisposable
                     UPDATE MigrationStates 
                     SET Deadline = @newDeadline, DelayCount = DelayCount + 1
                     WHERE UserId = @userId";
-                
+
                 updateStateCommand.Parameters.AddWithValue("@userId", userId);
                 updateStateCommand.Parameters.AddWithValue("@newDeadline", newDeadline);
                 await updateStateCommand.ExecuteNonQueryAsync(cancellationToken);
             }
-            
+
             transaction.Commit();
-            
-            _logger.LogInformation("Approved delay request {RequestId} with new deadline {Deadline}", 
+
+            _logger.LogInformation("Approved delay request {RequestId} with new deadline {Deadline}",
                 requestId, newDeadline);
         }
         catch (Exception ex)
@@ -948,7 +991,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, UserId, RequestedAt, RequestedDelayHours, Reason, Status,
@@ -977,7 +1020,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT COUNT(*) 
@@ -1007,7 +1050,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, UserId, OldState, NewState, Reason, ChangedBy, ChangedAt, Details
@@ -1040,19 +1083,19 @@ public class StateManager : IStateManager, IDisposable
         return history;
     }
 
-    public async Task RecordSystemEventAsync(string eventType, string severity, string message, 
+    public async Task RecordSystemEventAsync(string eventType, string severity, string message,
         string? details = null, string? userId = null, CancellationToken cancellationToken = default)
     {
         try
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO SystemEvents (EventType, Severity, Source, Message, Details, UserId)
                 VALUES (@eventType, @severity, 'StateManager', @message, @details, @userId)";
-            
+
             command.Parameters.AddWithValue("@eventType", eventType);
             command.Parameters.AddWithValue("@severity", severity);
             command.Parameters.AddWithValue("@message", message);
@@ -1078,7 +1121,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT COUNT(*) 
@@ -1105,7 +1148,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             // Get user counts
             using var countCommand = connection.CreateCommand();
             countCommand.CommandText = @"
@@ -1127,7 +1170,7 @@ public class StateManager : IStateManager, IDisposable
                 status.CompletedUsers = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
                 status.BlockingUsers = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
             }
-            
+
             // Get blocking user names
             using var blockingCommand = connection.CreateCommand();
             blockingCommand.CommandText = @"
@@ -1143,9 +1186,9 @@ public class StateManager : IStateManager, IDisposable
             {
                 status.BlockingUserNames.Add(blockingReader.GetString(0));
             }
-            
+
             status.CanReset = status.BlockingUsers == 0;
-            
+
             // Estimate ready time based on average completion rate
             if (status.BlockingUsers > 0)
             {
@@ -1169,7 +1212,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             // Get user and migration info
             using var userCommand = connection.CreateCommand();
             userCommand.CommandText = @"
@@ -1194,7 +1237,7 @@ public class StateManager : IStateManager, IDisposable
                 };
                 summaries[summary.UserId] = summary;
             }
-            
+
             // Get backup operation details
             using var backupCommand = connection.CreateCommand();
             backupCommand.CommandText = @"
@@ -1233,7 +1276,7 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 SELECT DISTINCT UserId FROM (
@@ -1284,9 +1327,9 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             var cutoffTime = DateTime.UtcNow - staleThreshold;
-            
+
             // Mark stale migrations
             using var migrationCommand = connection.CreateCommand();
             migrationCommand.CommandText = @"
@@ -1294,10 +1337,10 @@ public class StateManager : IStateManager, IDisposable
                 SET AttentionReason = 'Operation timed out - marked as stale'
                 WHERE State IN ('Initializing', 'BackupInProgress', 'SyncInProgress')
                 AND LastUpdated < @cutoffTime";
-            
+
             migrationCommand.Parameters.AddWithValue("@cutoffTime", cutoffTime);
             var migrationsAffected = await migrationCommand.ExecuteNonQueryAsync(cancellationToken);
-            
+
             // Mark stale backup operations
             using var backupCommand = connection.CreateCommand();
             backupCommand.CommandText = @"
@@ -1308,17 +1351,17 @@ public class StateManager : IStateManager, IDisposable
                     CompletedAt = CURRENT_TIMESTAMP
                 WHERE Status = 'InProgress' 
                 AND StartedAt < @cutoffTime";
-            
+
             backupCommand.Parameters.AddWithValue("@cutoffTime", cutoffTime);
             var backupsAffected = await backupCommand.ExecuteNonQueryAsync(cancellationToken);
-            
+
             if (migrationsAffected > 0 || backupsAffected > 0)
             {
-                _logger.LogWarning("Cleanup: {Migrations} migrations and {Backups} backups marked as stale", 
+                _logger.LogWarning("Cleanup: {Migrations} migrations and {Backups} backups marked as stale",
                     migrationsAffected, backupsAffected);
-                
-                await RecordSystemEventAsync("Cleanup", "Warning", 
-                    $"Marked {migrationsAffected} migrations and {backupsAffected} backups as stale", 
+
+                await RecordSystemEventAsync("Cleanup", "Warning",
+                    $"Marked {migrationsAffected} migrations and {backupsAffected} backups as stale",
                     cancellationToken: cancellationToken);
             }
         }
@@ -1334,19 +1377,19 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             var cutoffDate = DateTime.UtcNow.AddDays(-daysToKeep);
-            
+
             // Archive old system events
             using var command = connection.CreateCommand();
             command.CommandText = @"
                 DELETE FROM SystemEvents 
                 WHERE Timestamp < @cutoffDate
                 AND EventType NOT IN ('ITEscalation', 'MigrationCompleted')";
-            
+
             command.Parameters.AddWithValue("@cutoffDate", cutoffDate);
             var eventsDeleted = await command.ExecuteNonQueryAsync(cancellationToken);
-            
+
             if (eventsDeleted > 0)
             {
                 _logger.LogInformation("Archived {Count} old system events", eventsDeleted);
@@ -1366,11 +1409,11 @@ public class StateManager : IStateManager, IDisposable
         {
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync(cancellationToken);
-            
+
             // Get table row counts
-            var tables = new[] { "UserProfiles", "MigrationStates", "BackupOperations", 
+            var tables = new[] { "UserProfiles", "MigrationStates", "BackupOperations",
                                  "OneDriveSync", "ITEscalations", "SystemEvents" };
-            
+
             foreach (var table in tables)
             {
                 using var command = connection.CreateCommand();
@@ -1378,7 +1421,7 @@ public class StateManager : IStateManager, IDisposable
                 var count = await command.ExecuteScalarAsync(cancellationToken);
                 stats[$"{table}_Count"] = count ?? 0;
             }
-            
+
             // Get database file size
             var dbPath = Path.Combine(_configuration.DataPath, "migration.db");
             if (File.Exists(dbPath))
@@ -1386,12 +1429,12 @@ public class StateManager : IStateManager, IDisposable
                 var fileInfo = new FileInfo(dbPath);
                 stats["DatabaseSizeMB"] = fileInfo.Length / (1024.0 * 1024.0);
             }
-            
+
             // Get active migration count
             using var activeCommand = connection.CreateCommand();
             activeCommand.CommandText = "SELECT COUNT(*) FROM MigrationStates WHERE Status = 'Active'";
             stats["ActiveMigrations"] = await activeCommand.ExecuteScalarAsync(cancellationToken) ?? 0;
-            
+
             // Get open escalation count
             using var escalationCommand = connection.CreateCommand();
             escalationCommand.CommandText = "SELECT COUNT(*) FROM ITEscalations WHERE Status = 'Open'";

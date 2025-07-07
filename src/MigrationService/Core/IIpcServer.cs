@@ -4,9 +4,9 @@ public interface IIpcServer
 {
     Task StartAsync(CancellationToken cancellationToken);
     Task StopAsync(CancellationToken cancellationToken);
-    
+
     event EventHandler<IpcMessageReceivedEventArgs>? MessageReceived;
-    
+
     Task SendMessageAsync(string clientId, IpcMessage message, CancellationToken cancellationToken);
     Task BroadcastMessageAsync(IpcMessage message, CancellationToken cancellationToken);
 }
@@ -15,7 +15,7 @@ public class IpcMessageReceivedEventArgs : EventArgs
 {
     public string ClientId { get; }
     public IpcMessage Message { get; }
-    
+
     public IpcMessageReceivedEventArgs(string clientId, IpcMessage message)
     {
         ClientId = clientId;

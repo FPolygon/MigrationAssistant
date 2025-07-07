@@ -80,11 +80,11 @@ public class ServiceManager : IServiceManager
 
             // Get all active migrations
             var activeMigrations = await _stateManager.GetActiveMigrationsAsync(cancellationToken);
-            
+
             foreach (var migration in activeMigrations)
             {
                 _logger.LogDebug("Processing migration for user: {UserId}", migration.UserId);
-                
+
                 // Check if migration needs attention
                 if (migration.RequiresAttention())
                 {
@@ -131,10 +131,10 @@ public class ServiceManager : IServiceManager
     {
         // Initialize any resources needed by the service
         _logger.LogDebug("Initializing service resources");
-        
+
         // Ensure registry keys exist
         EnsureRegistryKeys();
-        
+
         // Set up performance counters if needed
         await SetupPerformanceCountersAsync(cancellationToken);
     }
@@ -142,7 +142,7 @@ public class ServiceManager : IServiceManager
     private async Task ConfigureScheduledTasksAsync(CancellationToken cancellationToken)
     {
         _logger.LogDebug("Configuring scheduled tasks");
-        
+
         // This is where we'd set up any Windows scheduled tasks
         // For now, the service handles its own scheduling
         await Task.CompletedTask;
@@ -154,7 +154,7 @@ public class ServiceManager : IServiceManager
         {
             var drive = new DriveInfo(Path.GetPathRoot(_configuration.DataPath) ?? "C:\\");
             var freeSpaceGB = drive.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0);
-            
+
             if (freeSpaceGB < 1.0)
             {
                 _logger.LogWarning("Low disk space: {FreeSpaceGB:F2} GB available", freeSpaceGB);
@@ -179,9 +179,9 @@ public class ServiceManager : IServiceManager
 
     private async Task HandleMigrationAttentionAsync(MigrationState migration, CancellationToken cancellationToken)
     {
-        _logger.LogWarning("Migration requires attention for user: {UserId}, Reason: {Reason}", 
+        _logger.LogWarning("Migration requires attention for user: {UserId}, Reason: {Reason}",
             migration.UserId, migration.AttentionReason);
-        
+
         // TODO: Implement IT escalation logic here
         await Task.CompletedTask;
     }
@@ -196,7 +196,7 @@ public class ServiceManager : IServiceManager
     private async Task CheckResetReadinessAsync(CancellationToken cancellationToken)
     {
         var isReady = await _stateManager.AreAllUsersReadyForResetAsync(cancellationToken);
-        
+
         if (isReady)
         {
             _logger.LogInformation("All users are ready for system reset");
@@ -213,7 +213,7 @@ public class ServiceManager : IServiceManager
             {
                 var files = Directory.GetFiles(tempPath, "*", SearchOption.AllDirectories)
                     .Where(f => File.GetLastWriteTime(f) < DateTime.Now.AddDays(-7));
-                
+
                 foreach (var file in files)
                 {
                     try

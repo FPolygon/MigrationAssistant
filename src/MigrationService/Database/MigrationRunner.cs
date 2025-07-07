@@ -48,7 +48,7 @@ public class MigrationRunner
         // Run migrations
         foreach (var migration in pendingMigrations)
         {
-            _logger.LogInformation("Applying migration {Version}: {Description}", 
+            _logger.LogInformation("Applying migration {Version}: {Description}",
                 migration.Version, migration.Description);
 
             using var transaction = connection.BeginTransaction();
@@ -95,12 +95,12 @@ public class MigrationRunner
 
         using var command = connection.CreateCommand();
         command.CommandText = sql;
-        
+
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return result == DBNull.Value || result == null ? 0 : Convert.ToInt32(result);
     }
 
-    private async Task RecordMigrationAsync(SqliteConnection connection, SqliteTransaction transaction, 
+    private async Task RecordMigrationAsync(SqliteConnection connection, SqliteTransaction transaction,
         IMigration migration, CancellationToken cancellationToken)
     {
         const string sql = @"
@@ -162,10 +162,10 @@ public class MigrationRunner
             command.Transaction = _transaction;
             command.CommandText = sql;
             var result = await command.ExecuteScalarAsync(cancellationToken);
-            
+
             if (result == null || result == DBNull.Value)
                 return default;
-                
+
             return (T)Convert.ChangeType(result, typeof(T));
         }
     }

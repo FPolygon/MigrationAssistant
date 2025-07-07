@@ -14,27 +14,27 @@ public class BufferedLogProvider : ILoggingProvider
     private readonly ILoggingProvider _innerProvider;
     private readonly AsyncLogWriter _asyncWriter;
     private bool _disposed;
-    
+
     /// <summary>
     /// Gets the name of the buffered provider.
     /// </summary>
     public string Name => $"Buffered({_innerProvider.Name})";
-    
+
     /// <summary>
     /// Gets whether the provider is enabled.
     /// </summary>
     public bool IsEnabled => _innerProvider.IsEnabled && !_disposed;
-    
+
     /// <summary>
     /// Gets the underlying provider.
     /// </summary>
     public ILoggingProvider InnerProvider => _innerProvider;
-    
+
     /// <summary>
     /// Gets the async writer statistics.
     /// </summary>
     public AsyncLogWriterStatistics Statistics => _asyncWriter.GetStatistics();
-    
+
     /// <summary>
     /// Event raised when the buffer queue experiences pressure.
     /// </summary>
@@ -43,7 +43,7 @@ public class BufferedLogProvider : ILoggingProvider
         add => _asyncWriter.QueuePressure += value;
         remove => _asyncWriter.QueuePressure -= value;
     }
-    
+
     /// <summary>
     /// Initializes a new instance of the BufferedLogProvider.
     /// </summary>
@@ -54,7 +54,7 @@ public class BufferedLogProvider : ILoggingProvider
         _innerProvider = innerProvider ?? throw new ArgumentNullException(nameof(innerProvider));
         _asyncWriter = new AsyncLogWriter(_innerProvider, options);
     }
-    
+
     /// <summary>
     /// Configures the buffered provider.
     /// </summary>
@@ -63,7 +63,7 @@ public class BufferedLogProvider : ILoggingProvider
     {
         _innerProvider.Configure(settings);
     }
-    
+
     /// <summary>
     /// Checks if the specified log level is enabled.
     /// </summary>
@@ -73,7 +73,7 @@ public class BufferedLogProvider : ILoggingProvider
     {
         return _innerProvider.IsLevelEnabled(level);
     }
-    
+
     /// <summary>
     /// Writes a log entry asynchronously by queuing it for background processing.
     /// </summary>
@@ -83,20 +83,20 @@ public class BufferedLogProvider : ILoggingProvider
     public Task WriteLogAsync(LogEntry entry, CancellationToken cancellationToken = default)
     {
         if (_disposed) return Task.CompletedTask;
-        
+
         // Queue the entry for asynchronous processing
         var queued = _asyncWriter.QueueLogEntry(entry);
-        
+
         if (!queued)
         {
             // If queueing failed, we could optionally fall back to synchronous writing
             // For now, we'll just complete the task
             Console.Error.WriteLine($"Failed to queue log entry for provider '{Name}'");
         }
-        
+
         return Task.CompletedTask;
     }
-    
+
     /// <summary>
     /// Flushes all buffered log entries.
     /// </summary>
@@ -105,10 +105,10 @@ public class BufferedLogProvider : ILoggingProvider
     public async Task FlushAsync(CancellationToken cancellationToken = default)
     {
         if (_disposed) return;
-        
+
         await _asyncWriter.FlushAsync(TimeSpan.FromSeconds(30));
     }
-    
+
     /// <summary>
     /// Creates a buffered version of an existing provider.
     /// </summary>
@@ -122,10 +122,10 @@ public class BufferedLogProvider : ILoggingProvider
             // Already buffered, return as-is
             return buffered;
         }
-        
+
         return new BufferedLogProvider(provider, options);
     }
-    
+
     /// <summary>
     /// Creates buffering options optimized for high-throughput scenarios.
     /// </summary>
@@ -141,7 +141,7 @@ public class BufferedLogProvider : ILoggingProvider
             OverflowPolicy = OverflowPolicy.DropOldest
         };
     }
-    
+
     /// <summary>
     /// Creates buffering options optimized for low-latency scenarios.
     /// </summary>
@@ -157,7 +157,7 @@ public class BufferedLogProvider : ILoggingProvider
             OverflowPolicy = OverflowPolicy.Block
         };
     }
-    
+
     /// <summary>
     /// Creates buffering options optimized for memory-constrained scenarios.
     /// </summary>
@@ -173,18 +173,18 @@ public class BufferedLogProvider : ILoggingProvider
             OverflowPolicy = OverflowPolicy.DropOldest
         };
     }
-    
+
     public void Dispose()
     {
         if (_disposed) return;
-        
+
         _disposed = true;
-        
+
         try
         {
             // Flush and dispose the async writer
             _asyncWriter.Dispose();
-            
+
             // Dispose the inner provider
             _innerProvider.Dispose();
         }
