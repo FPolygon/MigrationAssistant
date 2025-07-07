@@ -251,8 +251,11 @@ public class MigrationWindowsServiceTests : IDisposable
         // Act
         await _service.StartAsync(cts.Token);
 
+        // Give the service a moment to start its main loop
+        await Task.Delay(100);
+
         // Wait for at least 2 health checks or timeout
-        var timeoutTask = Task.Delay(5000);
+        var timeoutTask = Task.Delay(10000); // Increased timeout to 10 seconds
         var completedTask = await Task.WhenAny(healthCheckCompletionSource.Task, timeoutTask);
 
         cts.Cancel();

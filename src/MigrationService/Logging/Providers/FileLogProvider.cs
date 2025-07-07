@@ -209,7 +209,10 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
         }
         else
         {
-            return $"{_fileSettings.FilePrefix}_{timestamp:yyyyMMdd}.log";
+            // When rotating due to size, we need a unique filename
+            // Use a hash of current ticks to ensure uniqueness
+            var uniqueId = timestamp.Ticks.GetHashCode().ToString("X");
+            return $"{_fileSettings.FilePrefix}_{uniqueId:X7}_{timestamp:yyyyMMdd}.log";
         }
     }
 

@@ -98,7 +98,6 @@ public class PlainTextFormatter : ILogFormatter
         if (_includeProperties && entry.Properties.Count > 0)
         {
             var props = entry.Properties
-                .Where(p => !IsInternalProperty(p.Key))
                 .Select(p => $"{p.Key}={p.Value}")
                 .Take(10); // Limit to prevent excessive output
 
@@ -162,16 +161,6 @@ public class PlainTextFormatter : ILogFormatter
         return sb.ToString().TrimEnd();
     }
 
-    private bool IsInternalProperty(string key)
-    {
-        return key switch
-        {
-            "CorrelationId" => true,
-            "UserId" => true,
-            "SessionId" => true,
-            _ => false
-        };
-    }
 
     private string FormatBytes(long bytes)
     {

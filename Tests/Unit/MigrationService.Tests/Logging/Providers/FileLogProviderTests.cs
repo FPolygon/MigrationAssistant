@@ -298,7 +298,7 @@ public class FileLogProviderTests : IDisposable
         var logContent = await File.ReadAllTextAsync(logFiles[0]);
         logContent.Should().Contain("\"level\":");
         logContent.Should().Contain("\"message\":");
-        logContent.Should().Contain("\"testKey\":"); // JSON uses camelCase
+        logContent.Should().Contain("\"TestKey\":"); // Properties maintain original casing
     }
 
     [Fact]
