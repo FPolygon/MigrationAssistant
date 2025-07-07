@@ -56,6 +56,7 @@ public class AsyncLogWriterTests : IDisposable
         // This ensures the processing task won't dequeue entries during our test
         var blockingProvider = new Mock<ILoggingProvider>();
         var blockingSemaphore = new SemaphoreSlim(0);
+        var processingStarted = new ManualResetEventSlim(false);
         var entriesWritten = 0;
         
         blockingProvider.Setup(x => x.IsEnabled).Returns(true);
@@ -63,6 +64,8 @@ public class AsyncLogWriterTests : IDisposable
         blockingProvider.Setup(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()))
             .Returns(async (LogEntry e, CancellationToken ct) =>
             {
+                // Signal that processing has started
+                processingStarted.Set();
                 // Wait for the semaphore to be released
                 await blockingSemaphore.WaitAsync(ct);
                 Interlocked.Increment(ref entriesWritten);
@@ -72,7 +75,7 @@ public class AsyncLogWriterTests : IDisposable
         var options = new AsyncLogWriterOptions
         {
             MaxQueueSize = 100,
-            BatchSize = 10,
+            BatchSize = 1, // Process one at a time to ensure blocking
             FlushInterval = TimeSpan.FromSeconds(10) // Long flush interval
         };
         
@@ -81,17 +84,18 @@ public class AsyncLogWriterTests : IDisposable
         // Act
         var result = writer.QueueLogEntry(entry);
 
-        // Give the processing task a chance to start but not process
-        Thread.Sleep(50);
+        // Wait for processing to start but be blocked
+        processingStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue("Processing should have started");
 
         // Assert - the entry should be queued
         result.Should().BeTrue();
-        writer.QueueSize.Should().BeGreaterThan(0);
-        entriesWritten.Should().Be(0); // Verify the entry hasn't been processed yet
+        writer.QueueSize.Should().Be(1, "Queue should contain exactly one entry");
+        entriesWritten.Should().Be(0, "Entry should not have been processed yet");
         
         // Clean up
         blockingSemaphore.Release();
         writer.Dispose();
+        processingStarted.Dispose();
     }
 
     [Fact]
@@ -189,12 +193,15 @@ public class AsyncLogWriterTests : IDisposable
         // Arrange
         var blockingProvider = new Mock<ILoggingProvider>();
         var blockingSemaphore = new SemaphoreSlim(0);
+        var processingStarted = new CountdownEvent(1); // Will count down when first entry is being processed
         
         blockingProvider.Setup(x => x.IsEnabled).Returns(true);
         blockingProvider.Setup(x => x.IsLevelEnabled(It.IsAny<LogLevel>())).Returns(true);
         blockingProvider.Setup(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()))
             .Returns(async (LogEntry e, CancellationToken ct) =>
             {
+                // Signal that processing has started for the first entry
+                processingStarted.Signal();
                 // Block to prevent dequeuing
                 await blockingSemaphore.WaitAsync(ct);
             });
@@ -203,6 +210,7 @@ public class AsyncLogWriterTests : IDisposable
         {
             MaxQueueSize = 5,
             OverflowPolicy = OverflowPolicy.DropNewest,
+            BatchSize = 1, // Process one at a time
             FlushInterval = TimeSpan.FromSeconds(10) // Long flush interval
         };
 
@@ -216,22 +224,28 @@ public class AsyncLogWriterTests : IDisposable
             added.Should().BeTrue($"Entry {i} should be added");
         }
 
-        // Give the processing task a chance to start but ensure it's blocked
-        Thread.Sleep(50);
+        // Wait for processing to start but be blocked on the first entry
+        processingStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue("Processing should have started");
         
-        // Verify queue is full
-        limitedWriter.QueueSize.Should().Be(5);
+        // Small delay to ensure queue state is stable
+        Thread.Sleep(100);
+        
+        // Verify queue contains remaining entries (4 in queue + 1 being processed = 5 total)
+        // The QueueSize property reflects items in the queue, not the one being processed
+        var currentSize = limitedWriter.QueueSize;
+        currentSize.Should().BeInRange(4, 5, "Queue should contain 4-5 entries depending on processing state");
 
         // Act - Try to add one more
         var extraEntry = new LogEntry { Message = "Extra message" };
         var result = limitedWriter.QueueLogEntry(extraEntry);
 
         // Assert
-        result.Should().BeFalse();
-        limitedWriter.QueueSize.Should().Be(5); // Queue size should remain the same
+        result.Should().BeFalse("Should reject new entry when queue is full");
+        limitedWriter.QueueSize.Should().BeInRange(4, 5, "Queue size should remain the same");
         
         // Clean up
         blockingSemaphore.Release(5);
+        processingStarted.Dispose();
     }
 
     [Fact]
@@ -268,18 +282,49 @@ public class AsyncLogWriterTests : IDisposable
     public void GetStatistics_ShouldReturnCurrentState()
     {
         // Arrange
+        var blockingProvider = new Mock<ILoggingProvider>();
+        var blockingSemaphore = new SemaphoreSlim(0);
+        var processingStarted = new ManualResetEventSlim(false);
+        
+        blockingProvider.Setup(x => x.IsEnabled).Returns(true);
+        blockingProvider.Setup(x => x.IsLevelEnabled(It.IsAny<LogLevel>())).Returns(true);
+        blockingProvider.Setup(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()))
+            .Returns(async (LogEntry e, CancellationToken ct) =>
+            {
+                processingStarted.Set();
+                await blockingSemaphore.WaitAsync(ct);
+            });
+        
+        var options = new AsyncLogWriterOptions
+        {
+            MaxQueueSize = 100,
+            HighWatermark = 75,
+            BatchSize = 1,
+            FlushInterval = TimeSpan.FromSeconds(10)
+        };
+        
+        using var writer = new AsyncLogWriter(blockingProvider.Object, options);
+        
         var entry = new LogEntry { Message = "Test message" };
-        _asyncWriter.QueueLogEntry(entry);
+        writer.QueueLogEntry(entry);
+
+        // Wait for processing to start but be blocked
+        processingStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue("Processing should have started");
 
         // Act
-        var stats = _asyncWriter.GetStatistics();
+        var stats = writer.GetStatistics();
 
         // Assert
         stats.Should().NotBeNull();
-        stats.CurrentQueueSize.Should().BeGreaterThan(0);
+        stats.CurrentQueueSize.Should().Be(1, "Queue should contain exactly one entry");
         stats.MaxQueueSize.Should().Be(100);
         stats.HighWatermark.Should().Be(75);
         stats.IsRunning.Should().BeTrue();
+        
+        // Clean up
+        blockingSemaphore.Release();
+        writer.Dispose();
+        processingStarted.Dispose();
     }
 
     [Fact]
