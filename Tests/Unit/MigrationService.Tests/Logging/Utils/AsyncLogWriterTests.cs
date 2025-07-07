@@ -84,12 +84,15 @@ public class AsyncLogWriterTests : IDisposable
         // Act
         var result = writer.QueueLogEntry(entry);
 
-        // Wait for processing to start but be blocked
-        processingStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue("Processing should have started");
-
-        // Assert - the entry should be queued
+        // Assert immediately after queuing, before processing starts
         result.Should().BeTrue();
         writer.QueueSize.Should().Be(1, "Queue should contain exactly one entry");
+
+        // Now wait for processing to start
+        processingStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue("Processing should have started");
+
+        // After processing starts, the entry has been dequeued
+        writer.QueueSize.Should().Be(0, "Queue should be empty after entry is dequeued for processing");
         entriesWritten.Should().Be(0, "Entry should not have been processed yet");
         
         // Clean up
@@ -308,18 +311,22 @@ public class AsyncLogWriterTests : IDisposable
         var entry = new LogEntry { Message = "Test message" };
         writer.QueueLogEntry(entry);
 
-        // Wait for processing to start but be blocked
+        // Act - Get statistics immediately after queuing
+        var statsBeforeProcessing = writer.GetStatistics();
+
+        // Assert - Before processing starts
+        statsBeforeProcessing.Should().NotBeNull();
+        statsBeforeProcessing.CurrentQueueSize.Should().Be(1, "Queue should contain exactly one entry before processing");
+        statsBeforeProcessing.MaxQueueSize.Should().Be(100);
+        statsBeforeProcessing.HighWatermark.Should().Be(75);
+        statsBeforeProcessing.IsRunning.Should().BeTrue();
+
+        // Wait for processing to start
         processingStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue("Processing should have started");
 
-        // Act
-        var stats = writer.GetStatistics();
-
-        // Assert
-        stats.Should().NotBeNull();
-        stats.CurrentQueueSize.Should().Be(1, "Queue should contain exactly one entry");
-        stats.MaxQueueSize.Should().Be(100);
-        stats.HighWatermark.Should().Be(75);
-        stats.IsRunning.Should().BeTrue();
+        // Get statistics after processing has dequeued the entry
+        var statsAfterProcessing = writer.GetStatistics();
+        statsAfterProcessing.CurrentQueueSize.Should().Be(0, "Queue should be empty after entry is dequeued for processing");
         
         // Clean up
         blockingSemaphore.Release();

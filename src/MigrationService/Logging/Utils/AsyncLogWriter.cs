@@ -74,38 +74,24 @@ public class AsyncLogWriter : IDisposable
             }
         }
 
-        // Try to increment the queue size first
-        var newSize = Interlocked.Increment(ref _queueSize);
-
-        // Check if we've exceeded the limit
-        if (newSize > _options.MaxQueueSize)
+        // Check current size for DropOldest policy
+        if (_options.OverflowPolicy == OverflowPolicy.DropOldest)
         {
-            // We've exceeded the limit, handle based on policy
-            if (_options.OverflowPolicy == OverflowPolicy.DropOldest)
+            var currentSize = Interlocked.Read(ref _queueSize);
+            if (currentSize >= _options.MaxQueueSize)
             {
-                // Try to remove an old entry
+                // Try to remove an old entry first
                 if (_logQueue.TryDequeue(out var _))
                 {
                     Interlocked.Decrement(ref _queueSize);
                 }
-                // Continue to enqueue the new entry
-            }
-            else if (_options.OverflowPolicy == OverflowPolicy.DropNewest || _options.OverflowPolicy == OverflowPolicy.Block)
-            {
-                // Revert the increment since we're not adding the entry
-                Interlocked.Decrement(ref _queueSize);
-                
-                OnQueuePressure(new QueuePressureEventArgs
-                {
-                    CurrentSize = (int)newSize - 1,
-                    MaxSize = _options.MaxQueueSize,
-                    DroppedEntry = _options.OverflowPolicy == OverflowPolicy.DropNewest ? entry : null
-                });
-                return false;
             }
         }
 
-        // Enqueue the entry
+        // Increment the queue size first to reserve our spot
+        var newSize = Interlocked.Increment(ref _queueSize);
+        
+        // Then enqueue the entry
         _logQueue.Enqueue(entry);
 
         // Signal the processing task
@@ -245,10 +231,21 @@ public class AsyncLogWriter : IDisposable
     {
         try
         {
+            // Process any entries that might be in the queue
+            // These entries haven't been dequeued yet, so we need to decrement as we process
             while (_logQueue.TryDequeue(out var entry))
             {
-                await _provider.WriteLogAsync(entry, cancellationToken);
-                Interlocked.Decrement(ref _queueSize);
+                try
+                {
+                    await _provider.WriteLogAsync(entry, cancellationToken);
+                    Interlocked.Decrement(ref _queueSize);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Failed to write log entry: {ex.Message}");
+                    // Still decrement even on error to maintain accurate count
+                    Interlocked.Decrement(ref _queueSize);
+                }
             }
 
             await _provider.FlushAsync(cancellationToken);
