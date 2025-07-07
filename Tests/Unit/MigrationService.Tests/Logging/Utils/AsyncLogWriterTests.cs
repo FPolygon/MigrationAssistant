@@ -51,24 +51,33 @@ public class AsyncLogWriterTests : IDisposable
     {
         // Arrange
         var entry = new LogEntry { Message = "Test message" };
-        var processingBlocker = new SemaphoreSlim(0, 1);
         
-        // Block the provider from processing entries immediately
-        _mockProvider.Setup(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()))
+        // Create a new writer with a provider that blocks indefinitely
+        // This ensures the processing task won't dequeue entries during our test
+        var blockingProvider = new Mock<ILoggingProvider>();
+        var manualResetEvent = new ManualResetEventSlim(false);
+        
+        blockingProvider.Setup(x => x.IsEnabled).Returns(true);
+        blockingProvider.Setup(x => x.IsLevelEnabled(It.IsAny<LogLevel>())).Returns(true);
+        blockingProvider.Setup(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()))
             .Returns(async (LogEntry e, CancellationToken ct) =>
             {
-                await processingBlocker.WaitAsync(ct);
+                // Block indefinitely until the test is done
+                await Task.Run(() => manualResetEvent.Wait(ct), ct);
             });
+        
+        using var writer = new AsyncLogWriter(blockingProvider.Object);
 
         // Act
-        var result = _asyncWriter.QueueLogEntry(entry);
+        var result = writer.QueueLogEntry(entry);
 
-        // Assert
+        // Assert - immediately after queuing, before processing
         result.Should().BeTrue();
-        _asyncWriter.QueueSize.Should().Be(1);
+        writer.QueueSize.Should().Be(1);
         
         // Clean up
-        processingBlocker.Release();
+        manualResetEvent.Set();
+        writer.Dispose();
     }
 
     [Fact]
