@@ -58,21 +58,11 @@ public class AsyncLogWriter : IDisposable
     {
         if (_disposed) return false;
 
-        var currentSize = Interlocked.Read(ref _queueSize);
-
-        // Check if queue is full
-        if (currentSize >= _options.MaxQueueSize)
+        // For DropNewest policy, we need to check size before attempting to add
+        if (_options.OverflowPolicy == OverflowPolicy.DropNewest)
         {
-            // Handle queue overflow based on policy
-            if (_options.OverflowPolicy == OverflowPolicy.DropOldest)
-            {
-                // Try to remove an old entry
-                if (_logQueue.TryDequeue(out var _))
-                {
-                    Interlocked.Decrement(ref _queueSize);
-                }
-            }
-            else if (_options.OverflowPolicy == OverflowPolicy.DropNewest)
+            var currentSize = Interlocked.Read(ref _queueSize);
+            if (currentSize >= _options.MaxQueueSize)
             {
                 OnQueuePressure(new QueuePressureEventArgs
                 {
@@ -82,27 +72,46 @@ public class AsyncLogWriter : IDisposable
                 });
                 return false;
             }
-            else if (_options.OverflowPolicy == OverflowPolicy.Block)
+        }
+
+        // Try to increment the queue size first
+        var newSize = Interlocked.Increment(ref _queueSize);
+
+        // Check if we've exceeded the limit
+        if (newSize > _options.MaxQueueSize)
+        {
+            // We've exceeded the limit, handle based on policy
+            if (_options.OverflowPolicy == OverflowPolicy.DropOldest)
             {
-                // This is a simplification - in a real implementation, you might want to implement backpressure
+                // Try to remove an old entry
+                if (_logQueue.TryDequeue(out var _))
+                {
+                    Interlocked.Decrement(ref _queueSize);
+                }
+                // Continue to enqueue the new entry
+            }
+            else if (_options.OverflowPolicy == OverflowPolicy.DropNewest || _options.OverflowPolicy == OverflowPolicy.Block)
+            {
+                // Revert the increment since we're not adding the entry
+                Interlocked.Decrement(ref _queueSize);
+                
                 OnQueuePressure(new QueuePressureEventArgs
                 {
-                    CurrentSize = (int)currentSize,
+                    CurrentSize = (int)newSize - 1,
                     MaxSize = _options.MaxQueueSize,
-                    DroppedEntry = null
+                    DroppedEntry = _options.OverflowPolicy == OverflowPolicy.DropNewest ? entry : null
                 });
                 return false;
             }
         }
 
+        // Enqueue the entry
         _logQueue.Enqueue(entry);
-        Interlocked.Increment(ref _queueSize);
 
         // Signal the processing task
         _processingSignal.Release();
 
         // Check for queue pressure
-        var newSize = Interlocked.Read(ref _queueSize);
         if (newSize >= _options.HighWatermark)
         {
             OnQueuePressure(new QueuePressureEventArgs

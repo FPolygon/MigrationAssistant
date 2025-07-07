@@ -55,28 +55,42 @@ public class AsyncLogWriterTests : IDisposable
         // Create a new writer with a provider that blocks indefinitely
         // This ensures the processing task won't dequeue entries during our test
         var blockingProvider = new Mock<ILoggingProvider>();
-        var manualResetEvent = new ManualResetEventSlim(false);
+        var blockingSemaphore = new SemaphoreSlim(0);
+        var entriesWritten = 0;
         
         blockingProvider.Setup(x => x.IsEnabled).Returns(true);
         blockingProvider.Setup(x => x.IsLevelEnabled(It.IsAny<LogLevel>())).Returns(true);
         blockingProvider.Setup(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()))
             .Returns(async (LogEntry e, CancellationToken ct) =>
             {
-                // Block indefinitely until the test is done
-                await Task.Run(() => manualResetEvent.Wait(ct), ct);
+                // Wait for the semaphore to be released
+                await blockingSemaphore.WaitAsync(ct);
+                Interlocked.Increment(ref entriesWritten);
             });
         
-        using var writer = new AsyncLogWriter(blockingProvider.Object);
+        // Use a custom options to ensure the processing doesn't start immediately
+        var options = new AsyncLogWriterOptions
+        {
+            MaxQueueSize = 100,
+            BatchSize = 10,
+            FlushInterval = TimeSpan.FromSeconds(10) // Long flush interval
+        };
+        
+        using var writer = new AsyncLogWriter(blockingProvider.Object, options);
 
         // Act
         var result = writer.QueueLogEntry(entry);
 
-        // Assert - immediately after queuing, before processing
+        // Give the processing task a chance to start but not process
+        Thread.Sleep(50);
+
+        // Assert - the entry should be queued
         result.Should().BeTrue();
-        writer.QueueSize.Should().Be(1);
+        writer.QueueSize.Should().BeGreaterThan(0);
+        entriesWritten.Should().Be(0); // Verify the entry hasn't been processed yet
         
         // Clean up
-        manualResetEvent.Set();
+        blockingSemaphore.Release();
         writer.Dispose();
     }
 
@@ -173,20 +187,40 @@ public class AsyncLogWriterTests : IDisposable
     public void QueueLogEntry_WhenQueueFull_WithDropNewestPolicy_ShouldRejectNewEntries()
     {
         // Arrange
+        var blockingProvider = new Mock<ILoggingProvider>();
+        var blockingSemaphore = new SemaphoreSlim(0);
+        
+        blockingProvider.Setup(x => x.IsEnabled).Returns(true);
+        blockingProvider.Setup(x => x.IsLevelEnabled(It.IsAny<LogLevel>())).Returns(true);
+        blockingProvider.Setup(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()))
+            .Returns(async (LogEntry e, CancellationToken ct) =>
+            {
+                // Block to prevent dequeuing
+                await blockingSemaphore.WaitAsync(ct);
+            });
+        
         var options = new AsyncLogWriterOptions
         {
             MaxQueueSize = 5,
-            OverflowPolicy = OverflowPolicy.DropNewest
+            OverflowPolicy = OverflowPolicy.DropNewest,
+            FlushInterval = TimeSpan.FromSeconds(10) // Long flush interval
         };
 
-        using var limitedWriter = new AsyncLogWriter(_mockProvider.Object, options);
+        using var limitedWriter = new AsyncLogWriter(blockingProvider.Object, options);
 
         // Fill queue to capacity
         for (int i = 0; i < 5; i++)
         {
             var entry = new LogEntry { Message = $"Message {i}" };
-            limitedWriter.QueueLogEntry(entry);
+            var added = limitedWriter.QueueLogEntry(entry);
+            added.Should().BeTrue($"Entry {i} should be added");
         }
+
+        // Give the processing task a chance to start but ensure it's blocked
+        Thread.Sleep(50);
+        
+        // Verify queue is full
+        limitedWriter.QueueSize.Should().Be(5);
 
         // Act - Try to add one more
         var extraEntry = new LogEntry { Message = "Extra message" };
@@ -194,6 +228,10 @@ public class AsyncLogWriterTests : IDisposable
 
         // Assert
         result.Should().BeFalse();
+        limitedWriter.QueueSize.Should().Be(5); // Queue size should remain the same
+        
+        // Clean up
+        blockingSemaphore.Release(5);
     }
 
     [Fact]
