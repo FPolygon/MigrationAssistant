@@ -51,6 +51,14 @@ public class AsyncLogWriterTests : IDisposable
     {
         // Arrange
         var entry = new LogEntry { Message = "Test message" };
+        var processingBlocker = new SemaphoreSlim(0, 1);
+        
+        // Block the provider from processing entries immediately
+        _mockProvider.Setup(x => x.WriteLogAsync(It.IsAny<LogEntry>(), It.IsAny<CancellationToken>()))
+            .Returns(async (LogEntry e, CancellationToken ct) =>
+            {
+                await processingBlocker.WaitAsync(ct);
+            });
 
         // Act
         var result = _asyncWriter.QueueLogEntry(entry);
@@ -58,6 +66,9 @@ public class AsyncLogWriterTests : IDisposable
         // Assert
         result.Should().BeTrue();
         _asyncWriter.QueueSize.Should().Be(1);
+        
+        // Clean up
+        processingBlocker.Release();
     }
 
     [Fact]

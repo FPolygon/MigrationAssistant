@@ -19,7 +19,9 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
     private ILogFormatter _formatter;
     private StreamWriter? _currentWriter;
     private string? _currentFilePath;
+    private string? _currentFileKey;
     private long _currentFileSize;
+    private int _rotationCounter;
     private bool _disposed;
 
     public string Name => "FileLogger";
@@ -126,12 +128,16 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
     {
         if (_currentWriter != null && _currentFilePath != null)
         {
-            // Check if we need to rotate based on date
-            var currentFileName = GenerateFileName();
-            var expectedPath = Path.Combine(_fileSettings.LogDirectory, currentFileName);
-
-            if (_currentFilePath != expectedPath)
+            // Check if we need to rotate based on date change
+            var timestamp = _fileSettings.UseUtc ? DateTime.UtcNow : DateTime.Now;
+            var currentDateKey = timestamp.ToString("yyyyMMdd");
+            
+            // Only check for date-based rotation if we're not using timestamps
+            if (!_fileSettings.IncludeTimestamp && _currentFileKey != null && !_currentFileKey.StartsWith(currentDateKey))
             {
+                // Reset for new day
+                _currentFileKey = null;
+                _rotationCounter = 0;
                 await RotateFileAsync(cancellationToken);
             }
         }
@@ -147,7 +153,8 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
         // Ensure directory exists
         Directory.CreateDirectory(_fileSettings.LogDirectory);
 
-        var fileName = GenerateFileName();
+        // Use forceNewFile=true if we have a rotation counter > 0 (indicating rotation)
+        var fileName = GenerateFileName(_rotationCounter > 0);
         _currentFilePath = Path.Combine(_fileSettings.LogDirectory, fileName);
 
         // Open file for append, create if doesn't exist
@@ -197,22 +204,41 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
 
         _currentFilePath = null;
         _currentFileSize = 0;
+        _rotationCounter++;
     }
 
-    private string GenerateFileName()
+    private string GenerateFileName(bool forceNewFile = false)
     {
         var timestamp = _fileSettings.UseUtc ? DateTime.UtcNow : DateTime.Now;
 
         if (_fileSettings.IncludeTimestamp)
         {
+            // When rotating, add rotation counter to ensure uniqueness
+            if (forceNewFile && _rotationCounter > 0)
+            {
+                return $"{_fileSettings.FilePrefix}_{timestamp:yyyyMMdd_HHmmss}_{_rotationCounter:D3}.log";
+            }
             return $"{_fileSettings.FilePrefix}_{timestamp:yyyyMMdd_HHmmss}.log";
         }
         else
         {
-            // When rotating due to size, we need a unique filename
-            // Use a hash of current ticks to ensure uniqueness
-            var uniqueId = timestamp.Ticks.GetHashCode().ToString("X");
-            return $"{_fileSettings.FilePrefix}_{uniqueId:X7}_{timestamp:yyyyMMdd}.log";
+            // Generate a unique key for the current log session (per day)
+            var dateKey = timestamp.ToString("yyyyMMdd");
+            
+            // If we don't have a current file key for today, generate one
+            if (_currentFileKey == null || !_currentFileKey.StartsWith(dateKey))
+            {
+                var uniqueId = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
+                _currentFileKey = $"{dateKey}_{uniqueId}";
+            }
+            
+            // When rotating, add rotation counter
+            if (forceNewFile && _rotationCounter > 0)
+            {
+                return $"{_fileSettings.FilePrefix}_{_currentFileKey}_{_rotationCounter:D3}.log";
+            }
+            
+            return $"{_fileSettings.FilePrefix}_{_currentFileKey}.log";
         }
     }
 

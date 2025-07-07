@@ -251,18 +251,18 @@ public class MigrationWindowsServiceTests : IDisposable
         // Act
         await _service.StartAsync(cts.Token);
 
-        // Give the service a moment to start its main loop
-        await Task.Delay(100);
+        // Give the service time to start and hit the first error (which causes a 30-second delay)
+        await Task.Delay(500);
 
         // Wait for at least 2 health checks or timeout
-        var timeoutTask = Task.Delay(10000); // Increased timeout to 10 seconds
-        var completedTask = await Task.WhenAny(healthCheckCompletionSource.Task, timeoutTask);
+        // Note: After an error, the service waits 30 seconds before retrying
+        var completed = await healthCheckCompletionSource.Task.WaitAsync(TimeSpan.FromSeconds(35));
 
         cts.Cancel();
         await _service.StopAsync(CancellationToken.None);
 
         // Assert
-        completedTask.Should().Be(healthCheckCompletionSource.Task, "Health check should have been called multiple times");
+        completed.Should().BeTrue("Health check should have been called multiple times");
         callCount.Should().BeGreaterThan(1);
         _loggerMock.Verify(
             x => x.Log(
