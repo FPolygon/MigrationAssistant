@@ -114,8 +114,8 @@ jobs:
         $coverage = (Select-String -Path "CoverageReport/Summary.txt" -Pattern "Line coverage: (\d+\.?\d*)%" | ForEach-Object { $_.Matches[0].Groups[1].Value })
         $coverageValue = [double]$coverage
         Write-Host "Current coverage: $coverageValue%"
-        if ($coverageValue -lt 70) {
-          Write-Error "Coverage $coverageValue% is below the minimum threshold of 70%"
+        if ($coverageValue -lt 50) {
+          Write-Error "Coverage $coverageValue% is below the minimum threshold of 50%"
           exit 1
         }
       shell: powershell

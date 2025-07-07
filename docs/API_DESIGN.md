@@ -4,13 +4,19 @@
 
 This document defines the interfaces and contracts between the various components of the Migration Tool. All APIs use JSON for data exchange and follow RESTful principles where applicable.
 
-## Inter-Process Communication (IPC)
+## Implementation Status
 
-### Named Pipe Protocol
+- ✅ **Implemented** - Available in current codebase
+- 📅 **Planned** - Scheduled for future phases
+- 🚧 **Partial** - Core structure exists, full implementation pending
+
+## Inter-Process Communication (IPC) ✅
+
+### Named Pipe Protocol ✅
 
 **Pipe Name**: `\\.\pipe\MigrationService_{ComputerName}`
 
-**Message Format**:
+**Message Format** ✅:
 ```json
 {
   "id": "unique-message-id",
@@ -20,11 +26,19 @@ This document defines the interfaces and contracts between the various component
 }
 ```
 
+**Implemented Infrastructure**:
+- `IpcServer` - Named pipe server with connection management
+- `IpcClient` - Basic client implementation
+- `ReconnectingIpcClient` - Client with automatic reconnection
+- `MessageSerializer` - JSON serialization/deserialization
+- `MessageDispatcher` - Routes messages to handlers
+- `IMessageHandler` - Interface for message processing
+
 ### Message Types
 
-#### Service → Agent Messages
+#### Service → Agent Messages 📅
 
-**BACKUP_REQUEST**
+**BACKUP_REQUEST** 📅
 ```json
 {
   "type": "BACKUP_REQUEST",
@@ -62,9 +76,22 @@ This document defines the interfaces and contracts between the various component
 }
 ```
 
-#### Agent → Service Messages
+#### Agent → Service Messages 🚧
 
-**BACKUP_STARTED**
+**Note**: Message handlers (`AgentStartedHandler`, `BackupProgressHandler`, `DelayRequestHandler`) are implemented but require Phase 2+ components for full functionality.
+
+**AGENT_STARTED** 🚧 (Handler implemented)
+```json
+{
+  "type": "AGENT_STARTED",
+  "payload": {
+    "userId": "user-sid",
+    "version": "1.0.0"
+  }
+}
+```
+
+**BACKUP_STARTED** 📅
 ```json
 {
   "type": "BACKUP_STARTED",
@@ -76,7 +103,7 @@ This document defines the interfaces and contracts between the various component
 }
 ```
 
-**BACKUP_PROGRESS**
+**BACKUP_PROGRESS** 🚧 (Handler implemented)
 ```json
 {
   "type": "BACKUP_PROGRESS",
@@ -91,7 +118,7 @@ This document defines the interfaces and contracts between the various component
 }
 ```
 
-**BACKUP_COMPLETED**
+**BACKUP_COMPLETED** 📅
 ```json
 {
   "type": "BACKUP_COMPLETED",
@@ -108,7 +135,7 @@ This document defines the interfaces and contracts between the various component
 }
 ```
 
-**DELAY_REQUEST**
+**DELAY_REQUEST** 🚧 (Handler implemented)
 ```json
 {
   "type": "DELAY_REQUEST",
@@ -123,7 +150,46 @@ This document defines the interfaces and contracts between the various component
 
 ## Service Interfaces
 
-### IUserProfileManager
+### Core Service Interfaces ✅
+
+**IServiceManager** ✅
+```csharp
+public interface IServiceManager
+{
+    Task StartAsync(CancellationToken cancellationToken = default);
+    Task StopAsync(CancellationToken cancellationToken = default);
+    ServiceStatus GetStatus();
+}
+```
+
+**IStateManager** ✅
+```csharp
+public interface IStateManager
+{
+    Task<MigrationState> GetStateAsync();
+    Task UpdateStateAsync(MigrationState state);
+    Task<UserBackupState?> GetUserStateAsync(string userId);
+    Task UpdateUserStateAsync(string userId, UserBackupState state);
+    Task<List<UserBackupState>> GetAllUserStatesAsync();
+}
+```
+
+**IIpcServer** ✅
+```csharp
+public interface IIpcServer
+{
+    event EventHandler<MessageReceivedEventArgs> MessageReceived;
+    event EventHandler<ConnectionEventArgs> ClientConnected;
+    event EventHandler<ConnectionEventArgs> ClientDisconnected;
+    
+    Task StartAsync(CancellationToken cancellationToken = default);
+    Task StopAsync();
+    Task BroadcastAsync(IpcMessage message);
+    Task SendToClientAsync(string clientId, IpcMessage message);
+}
+```
+
+### IUserProfileManager 📅 Phase 2
 
 ```csharp
 public interface IUserProfileManager
@@ -165,7 +231,9 @@ public enum ProfileStatus
 }
 ```
 
-### IMigrationOrchestrator
+### IMigrationOrchestrator 🚧 Phase 1-7
+
+**Note**: Basic orchestrator exists as `MigrationStateOrchestrator`, full implementation across phases.
 
 ```csharp
 public interface IMigrationOrchestrator
@@ -201,7 +269,7 @@ public enum MigrationState
 }
 ```
 
-### IBackupProvider
+### IBackupProvider 📅 Phase 5-6
 
 ```csharp
 public interface IBackupProvider
@@ -248,7 +316,7 @@ public class BackupProgress
 }
 ```
 
-### IOneDriveManager
+### IOneDriveManager 📅 Phase 3
 
 ```csharp
 public interface IOneDriveManager
@@ -281,7 +349,7 @@ public enum OneDriveSyncStatus
 }
 ```
 
-### INotificationManager
+### INotificationManager 📅 Phase 4
 
 ```csharp
 public interface INotificationManager
@@ -313,7 +381,7 @@ public class SmartDetectionResult
 }
 ```
 
-## Backup Manifest Schema
+## Backup Manifest Schema 📅 Phase 5-6
 
 ```json
 {
@@ -426,7 +494,7 @@ public class SmartDetectionResult
 }
 ```
 
-## REST API (Future Enhancement)
+## REST API (Future Enhancement) 📅 Post-Phase 10
 
 ### Endpoints
 

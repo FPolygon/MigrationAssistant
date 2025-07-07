@@ -11,7 +11,7 @@ This guide provides step-by-step instructions for deploying the Windows Migratio
 
 ### System Requirements
 - Windows 10 version 1809+ or Windows 11 (x86_64 only)
-- .NET Framework 4.8
+- .NET 8.0 Runtime (included in deployment package)
 - PowerShell 5.1 or higher
 - OneDrive for Business client installed
 - SCCM client installed and functioning
@@ -27,25 +27,26 @@ This guide provides step-by-step instructions for deploying the Windows Migratio
 MigrationTool_Package/
 ├── Binaries/
 │   ├── MigrationService.exe
-│   ├── MigrationService.exe.config
-│   ├── MigrationAgent.exe
-│   ├── MigrationBackup.dll
-│   ├── MigrationRestore.exe
+│   ├── MigrationService.dll
+│   ├── MigrationService.deps.json
+│   ├── MigrationService.runtimeconfig.json
+│   ├── appsettings.json
 │   └── Dependencies/
 │       ├── Newtonsoft.Json.dll
 │       ├── System.Data.SQLite.dll
-│       └── [Other dependencies]
+│       ├── Microsoft.Extensions.*.dll
+│       └── [Other .NET dependencies]
+├── PowerShell/
+│   └── Deploy-Migration.ps1
 ├── Scripts/
-│   ├── Install.ps1
-│   ├── Uninstall.ps1
-│   ├── Detection.ps1
-│   └── Repair.ps1
-├── Config/
-│   ├── ServiceConfig.json
-│   └── LogConfig.json
-└── Tools/
-    └── InstallUtil.exe
+│   ├── Manage-Service.ps1
+│   ├── Install-Service.ps1
+│   └── Uninstall-Service.ps1
+└── Config/
+    └── appsettings.json
 ```
+
+**Note**: MigrationAgent.exe, MigrationBackup.dll, and MigrationRestore.exe will be added in Phase 2 and later phases.
 
 ## SCCM Application Creation
 
@@ -71,12 +72,12 @@ MigrationTool_Package/
 
 **Installation Program**:
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File ".\Scripts\Install.ps1" -LogPath "C:\Windows\Logs\MigrationTool"
+powershell.exe -ExecutionPolicy Bypass -File ".\PowerShell\Deploy-Migration.ps1" -Action Install -LogPath "C:\Windows\Logs\MigrationTool"
 ```
 
 **Uninstall Program**:
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File ".\Scripts\Uninstall.ps1" -LogPath "C:\Windows\Logs\MigrationTool"
+powershell.exe -ExecutionPolicy Bypass -File ".\PowerShell\Deploy-Migration.ps1" -Action Uninstall -LogPath "C:\Windows\Logs\MigrationTool"
 ```
 
 ### Step 4: Detection Method
@@ -86,17 +87,24 @@ Use the custom detection script:
 # Detection.ps1
 $ServiceName = "MigrationService"
 $MinVersion = "1.0.0"
+$InstallPath = "C:\Program Files\MigrationAssistant"
 
 try {
+    # Check if service exists
     $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     if ($null -eq $service) {
         Write-Host "Service not found"
         exit 1
     }
 
-    $servicePath = (Get-WmiObject Win32_Service | Where-Object {$_.Name -eq $ServiceName}).PathName
-    $serviceExe = $servicePath.Trim('"').Split(' ')[0]
-    
+    # Check installation directory
+    if (!(Test-Path $InstallPath)) {
+        Write-Host "Installation directory not found"
+        exit 1
+    }
+
+    # Check service executable
+    $serviceExe = Join-Path $InstallPath "MigrationService.exe"
     if (Test-Path $serviceExe) {
         $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($serviceExe).FileVersion
         if ([Version]$version -ge [Version]$MinVersion) {
@@ -130,163 +138,71 @@ Add requirements rules:
 ### Step 7: Dependencies
 
 Add dependencies:
-- .NET Framework 4.8
+- .NET 8.0 Desktop Runtime (Windows)
 - Visual C++ Redistributables 2019
 - OneDrive for Business (detection script provided)
 
 ## Installation Scripts
 
-### Install.ps1
+The deployment is handled by the master deployment script `Deploy-Migration.ps1` which supports multiple actions:
+
+### Deploy-Migration.ps1 Usage
+
 ```powershell
-[CmdletBinding()]
-param(
-    [string]$LogPath = "C:\Windows\Logs\MigrationTool"
-)
+# Install the Migration Tool
+.\Deploy-Migration.ps1 -Action Install
 
-# Start logging
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$logFile = Join-Path $LogPath "Install_$timestamp.log"
-New-Item -ItemType Directory -Path $LogPath -Force | Out-Null
-Start-Transcript -Path $logFile
+# Install with custom log path
+.\Deploy-Migration.ps1 -Action Install -LogPath "C:\CustomLogs"
 
-try {
-    Write-Host "Starting Migration Tool installation..."
-    
-    # Set variables
-    $installPath = "C:\Program Files\MigrationTool"
-    $serviceName = "MigrationService"
-    $serviceDisplayName = "Windows Migration Service"
-    $serviceDescription = "Manages user data migration to cloud"
-    
-    # Create installation directory
-    Write-Host "Creating installation directory..."
-    New-Item -ItemType Directory -Path $installPath -Force | Out-Null
-    
-    # Copy files
-    Write-Host "Copying files..."
-    Copy-Item -Path ".\Binaries\*" -Destination $installPath -Recurse -Force
-    Copy-Item -Path ".\Config\*" -Destination "$installPath\Config" -Recurse -Force
-    
-    # Install service
-    Write-Host "Installing Windows service..."
-    $servicePath = Join-Path $installPath "MigrationService.exe"
-    
-    # Use InstallUtil to install the service
-    $installUtil = Join-Path $installPath "Tools\InstallUtil.exe"
-    & $installUtil /LogFile="$LogPath\ServiceInstall.log" $servicePath
-    
-    if ($LASTEXITCODE -ne 0) {
-        throw "Service installation failed with exit code $LASTEXITCODE"
-    }
-    
-    # Configure service
-    Write-Host "Configuring service..."
-    $service = Get-Service -Name $serviceName
-    Set-Service -Name $serviceName -StartupType Automatic
-    Set-Service -Name $serviceName -Description $serviceDescription
-    
-    # Configure service recovery
-    sc.exe failure $serviceName reset= 86400 actions= restart/60000/restart/60000/restart/60000
-    
-    # Create scheduled task for agent
-    Write-Host "Creating user agent scheduled task..."
-    $taskName = "MigrationAgent"
-    $agentPath = Join-Path $installPath "MigrationAgent.exe"
-    
-    $action = New-ScheduledTaskAction -Execute $agentPath
-    $trigger = New-ScheduledTaskTrigger -AtLogOn
-    $principal = New-ScheduledTaskPrincipal -GroupId "BUILTIN\Users" -RunLevel Limited
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-    
-    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
-    
-    # Set permissions
-    Write-Host "Setting permissions..."
-    $acl = Get-Acl $installPath
-    $permission = "BUILTIN\Users","ReadAndExecute","Allow"
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
-    $acl.SetAccessRule($accessRule)
-    Set-Acl $installPath $acl
-    
-    # Create registry entries
-    Write-Host "Creating registry entries..."
-    $regPath = "HKLM:\SOFTWARE\MigrationTool"
-    New-Item -Path $regPath -Force | Out-Null
-    New-ItemProperty -Path $regPath -Name "Version" -Value "1.0.0" -PropertyType String -Force
-    New-ItemProperty -Path $regPath -Name "InstallPath" -Value $installPath -PropertyType String -Force
-    New-ItemProperty -Path $regPath -Name "InstallDate" -Value (Get-Date -Format "yyyy-MM-dd") -PropertyType String -Force
-    
-    # Start service
-    Write-Host "Starting service..."
-    Start-Service -Name $serviceName
-    
-    Write-Host "Installation completed successfully!"
-    exit 0
-}
-catch {
-    Write-Error "Installation failed: $_"
-    exit 1
-}
-finally {
-    Stop-Transcript
-}
+# Install in test mode (doesn't start service)
+.\Deploy-Migration.ps1 -Action Install -TestMode
+
+# Uninstall the Migration Tool
+.\Deploy-Migration.ps1 -Action Uninstall
+
+# Repair installation
+.\Deploy-Migration.ps1 -Action Repair
+
+# Force action without prompts
+.\Deploy-Migration.ps1 -Action Uninstall -Force
 ```
 
-### Uninstall.ps1
-```powershell
-[CmdletBinding()]
-param(
-    [string]$LogPath = "C:\Windows\Logs\MigrationTool"
-)
+### Key Features of Deploy-Migration.ps1
 
-# Start logging
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$logFile = Join-Path $LogPath "Uninstall_$timestamp.log"
-Start-Transcript -Path $logFile
+1. **Prerequisite Checking**:
+   - Validates Windows version (10 1809+)
+   - Checks .NET 8.0 runtime
+   - Verifies PowerShell version
+   - Ensures admin privileges
 
-try {
-    Write-Host "Starting Migration Tool uninstallation..."
-    
-    $installPath = "C:\Program Files\MigrationTool"
-    $serviceName = "MigrationService"
-    $taskName = "MigrationAgent"
-    
-    # Stop service
-    Write-Host "Stopping service..."
-    Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-    
-    # Uninstall service
-    Write-Host "Uninstalling service..."
-    $servicePath = Join-Path $installPath "MigrationService.exe"
-    $installUtil = Join-Path $installPath "Tools\InstallUtil.exe"
-    
-    if (Test-Path $installUtil) {
-        & $installUtil /u /LogFile="$LogPath\ServiceUninstall.log" $servicePath
-    }
-    
-    # Remove scheduled task
-    Write-Host "Removing scheduled task..."
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-    
-    # Remove files
-    Write-Host "Removing files..."
-    Remove-Item -Path $installPath -Recurse -Force -ErrorAction SilentlyContinue
-    
-    # Remove registry entries
-    Write-Host "Removing registry entries..."
-    Remove-Item -Path "HKLM:\SOFTWARE\MigrationTool" -Recurse -Force -ErrorAction SilentlyContinue
-    
-    Write-Host "Uninstallation completed successfully!"
-    exit 0
-}
-catch {
-    Write-Error "Uninstallation failed: $_"
-    exit 1
-}
-finally {
-    Stop-Transcript
-}
-```
+2. **Installation Process**:
+   - Creates installation directory at `C:\Program Files\MigrationAssistant`
+   - Copies all binaries and dependencies
+   - Registers Windows service using service installer
+   - Configures service recovery options
+   - Creates scheduled task for agent (Phase 2)
+   - Sets appropriate permissions
+   - Creates registry entries for tracking
+
+3. **Uninstallation Process**:
+   - Stops running service
+   - Unregisters Windows service
+   - Removes scheduled tasks
+   - Cleans up files and directories
+   - Removes registry entries
+
+4. **Logging**:
+   - Comprehensive logging to specified path
+   - Timestamped log files
+   - Console output with color coding
+   - Separate logs for each action
+
+5. **Error Handling**:
+   - Transaction-based operations
+   - Rollback on failure
+   - Detailed error reporting
+   - Exit codes for SCCM integration
 
 ## Deployment Configuration
 
@@ -375,9 +291,9 @@ ORDER BY SYS.Name0
 
 ### Log Locations
 
-- Installation logs: `C:\Windows\Logs\MigrationTool\`
-- Service logs: `C:\ProgramData\MigrationTool\Logs\`
-- Agent logs: `%APPDATA%\MigrationTool\Logs\`
+- Installation logs: `C:\Windows\Logs\MigrationAssistant\`
+- Service logs: `C:\ProgramData\MigrationAssistant\Logs\`
+- Agent logs: `%APPDATA%\MigrationAssistant\Logs\` (Phase 2)
 - SCCM logs: `C:\Windows\CCM\Logs\`
 
 ### Support Process

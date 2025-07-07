@@ -1,5 +1,7 @@
 # Migration Assistant
 
+> **Note**: GitHub repository URLs in badges below are placeholders and will be updated when the repository is published.
+
 [![CI](https://github.com/YOUR_USERNAME/MigrationAssistant/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/MigrationAssistant/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/YOUR_USERNAME/MigrationAssistant/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/MigrationAssistant)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -14,6 +16,8 @@ This migration tool is designed to:
 - Backup user data, application settings, and system configurations to OneDrive
 - Block system reset until all active users have completed their backups
 - Provide a post-reset restore wizard to help users recover their data
+
+**Current Implementation**: The core service framework (Phase 1) is complete, providing the foundation for Windows service lifecycle management, state persistence, inter-process communication, and logging. User-facing features will be implemented in subsequent phases.
 
 ## Key Features
 
@@ -50,15 +54,23 @@ This migration tool is designed to:
 
 ## Project Status
 
-**Current Phase**: Phase 1 - Core Service Implementation
-- ✅ Windows Service framework
-- ✅ SQLite state management  
-- ✅ Named pipe IPC framework
-- ✅ Unit test infrastructure
-- 🚧 User profile detection logic
-- ⏳ Agent UI implementation
-- ⏳ Backup providers
-- ⏳ Restore wizard
+**Phase 1: Core Service Framework** ✅ COMPLETED
+- ✅ Windows Service framework with lifecycle management
+- ✅ SQLite state management with migration system
+- ✅ Named pipe IPC framework with JSON protocol
+- ✅ Structured logging with multiple providers
+- ✅ PowerShell deployment and installation scripts
+- ✅ Unit test infrastructure (53.2% coverage)
+
+**Upcoming Phases**:
+- 📅 Phase 2: User Detection and Profile Management
+- 📅 Phase 3: OneDrive Integration  
+- 📅 Phase 4: Notification System (Agent UI)
+- 📅 Phase 5-6: Backup System
+- 📅 Phase 7: Multi-User Coordination
+- 📅 Phase 8: IT Escalation System
+- 📅 Phase 9: Restore Wizard
+- 📅 Phase 10: Testing and Hardening
 
 ## System Requirements
 
@@ -68,7 +80,7 @@ This migration tool is designed to:
 ### Software Requirements
 - Windows 10/11 (x64)
 - .NET 8.0 SDK (for development)
-- .NET Framework 4.8 (runtime)
+- .NET 8.0 Desktop Runtime (for production)
 - PowerShell 5.1+
 - OneDrive for Business
 - SCCM for deployment
@@ -94,7 +106,7 @@ dotnet test MigrationAssistant.sln
 dotnet build MigrationAssistant.sln -c Release
 
 # Or use the build script
-./build.ps1 -Configuration Release -Test -Coverage
+./build.ps1 -Configuration Release -Runtime win-x64 -Test
 ```
 
 ## Installation
@@ -174,16 +186,28 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduc
 
 ```
 MigrationAssistant/
-├── src/                    # Source code
-│   ├── MigrationService/   # Windows service
-│   ├── MigrationAgent/     # User notification agent
-│   ├── MigrationBackup/    # Backup engine library
-│   ├── MigrationRestore/   # Restore wizard
-│   └── Common/            # Shared components
-├── PowerShell/            # PowerShell scripts
-├── SCCM/                  # SCCM package files
-├── Tests/                 # Unit and integration tests
-└── docs/                  # Documentation
+├── src/                     # Source code
+│   ├── MigrationService/    # Windows service ✅
+│   │   ├── Core/           # Service management, state, IPC
+│   │   ├── Database/       # SQLite and migrations
+│   │   ├── IPC/            # Named pipe framework
+│   │   ├── Logging/        # Structured logging system
+│   │   └── Scripts/        # Service management scripts
+│   ├── MigrationAgent/     # User notification agent (Phase 4) 📅
+│   ├── MigrationBackup/    # Backup engine library (Phase 5-6) 📅
+│   ├── MigrationRestore/   # Restore wizard (Phase 9) 📅
+│   └── Common/             # Shared components 📅
+├── PowerShell/             # Deployment scripts ✅
+├── Tests/                  # Unit and integration tests ✅
+│   └── Unit/
+│       └── MigrationService.Tests/
+├── docs/                   # Documentation ✅
+│   ├── ARCHITECTURE.md
+│   ├── API_DESIGN.md
+│   ├── DEPLOYMENT_GUIDE.md
+│   └── IMPLEMENTATION_PLAN.md
+├── .github/                # GitHub Actions workflows ✅
+└── CLAUDE.md              # Development guidance ✅
 ```
 
 ## Documentation
@@ -199,4 +223,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For issues and feature requests, please use the [GitHub issue tracker](https://github.com/YOUR_USERNAME/MigrationAssistant/issues).
+For issues and feature requests, please use the [GitHub issue tracker](https://github.com/YOUR_USERNAME/MigrationAssistant/issues) (URL to be updated when repository is published).
