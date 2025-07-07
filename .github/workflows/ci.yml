@@ -95,7 +95,7 @@ jobs:
         reportgenerator `
           -reports:TestResults/**/coverage.opencover.xml `
           -targetdir:CoverageReport `
-          -reporttypes:Html;Badges;TextSummary
+          -reporttypes:"Html;Badges;TextSummary"
         Get-Content CoverageReport/Summary.txt
       shell: powershell
 
