@@ -5,6 +5,8 @@ using Microsoft.Extensions.Configuration;
 using Serilog;
 using System.Diagnostics;
 using MigrationTool.Service.Core;
+using MigrationTool.Service.ProfileManagement;
+using MigrationTool.Service.ProfileManagement.Native;
 
 namespace MigrationTool.Service;
 
@@ -77,6 +79,26 @@ public class Program
                 services.AddSingleton<IServiceManager, ServiceManager>();
                 services.AddSingleton<IStateManager, StateManager>();
                 services.AddSingleton<IIpcServer, IpcServer>();
+                services.AddSingleton<MigrationStateOrchestrator>();
+                
+                // Add profile management services
+                services.AddSingleton<WindowsProfileRegistry>();
+                services.AddSingleton<WindowsProfileDetector>();
+                
+                // Add activity detection services
+                services.AddSingleton<WindowsActivityDetector>();
+                services.AddSingleton<ProcessOwnershipDetector>();
+                services.AddSingleton<FileActivityScanner>();
+                services.AddSingleton<ActivityScoreCalculator>();
+                
+                // Add profile analysis services
+                services.AddSingleton<ProfileActivityAnalyzer>();
+                services.AddSingleton<ProfileClassifier>();
+                services.AddSingleton<IUserProfileManager, UserProfileManager>();
+                
+                // Add classification services
+                services.AddSingleton<ClassificationRuleEngine>();
+                services.AddSingleton<ClassificationOverrideManager>();
             });
 
             // Build and run the host

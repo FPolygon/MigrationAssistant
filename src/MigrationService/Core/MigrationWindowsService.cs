@@ -10,6 +10,7 @@ public class MigrationWindowsService : BackgroundService
     private readonly IServiceManager _serviceManager;
     private readonly IStateManager _stateManager;
     private readonly IIpcServer _ipcServer;
+    private readonly MigrationStateOrchestrator _orchestrator;
     private readonly ServiceConfiguration _configuration;
     private readonly IHostApplicationLifetime _lifetime;
 
@@ -18,6 +19,7 @@ public class MigrationWindowsService : BackgroundService
         IServiceManager serviceManager,
         IStateManager stateManager,
         IIpcServer ipcServer,
+        MigrationStateOrchestrator orchestrator,
         IOptions<ServiceConfiguration> configuration,
         IHostApplicationLifetime lifetime)
     {
@@ -25,6 +27,7 @@ public class MigrationWindowsService : BackgroundService
         _serviceManager = serviceManager;
         _stateManager = stateManager;
         _ipcServer = ipcServer;
+        _orchestrator = orchestrator;
         _configuration = configuration.Value;
         _lifetime = lifetime;
     }
@@ -42,6 +45,8 @@ public class MigrationWindowsService : BackgroundService
             await _ipcServer.StartAsync(stoppingToken);
 
             // Main service loop
+            var lastProfileRefresh = DateTime.UtcNow;
+            
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
@@ -49,6 +54,17 @@ public class MigrationWindowsService : BackgroundService
                     // Perform periodic tasks
                     await _serviceManager.PerformHealthCheckAsync(stoppingToken);
                     await _serviceManager.CheckMigrationStatusAsync(stoppingToken);
+
+                    // Process automatic state transitions
+                    await _orchestrator.ProcessAutomaticTransitionsAsync(stoppingToken);
+
+                    // Refresh profiles periodically (every hour)
+                    if (DateTime.UtcNow - lastProfileRefresh > TimeSpan.FromHours(1))
+                    {
+                        await _orchestrator.RefreshUserProfilesAsync(stoppingToken);
+                        lastProfileRefresh = DateTime.UtcNow;
+                        _logger.LogInformation("Periodic profile refresh completed");
+                    }
 
                     // Wait for the configured interval
                     await Task.Delay(TimeSpan.FromSeconds(_configuration.StateCheckIntervalSeconds), stoppingToken);
@@ -121,6 +137,10 @@ public class MigrationWindowsService : BackgroundService
             // Initialize service manager
             await _serviceManager.InitializeAsync(cancellationToken);
             _logger.LogInformation("Service manager initialized");
+
+            // Refresh user profiles and initialize migration states
+            await _orchestrator.RefreshUserProfilesAsync(cancellationToken);
+            _logger.LogInformation("User profiles refreshed");
 
             // Log system information
             LogSystemInformation();

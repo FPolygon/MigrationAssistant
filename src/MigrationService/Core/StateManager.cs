@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MigrationTool.Service.Database;
 using MigrationTool.Service.Models;
+using MigrationTool.Service.ProfileManagement;
 using System.Text.Json;
 
 namespace MigrationTool.Service.Core;
@@ -1113,6 +1114,368 @@ public class StateManager : IStateManager, IDisposable
 
     #endregion
 
+    #region Classification Management
+
+    public async Task SaveUserClassificationAsync(string userId, ProfileClassification classification, double confidence, string reason, string? ruleSetName = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT OR REPLACE INTO UserClassifications 
+                (UserId, Classification, ClassificationDate, Confidence, Reason, RuleSetName, RuleSetVersion, IsOverridden, ActivityScore)
+                VALUES (@userId, @classification, @classificationDate, @confidence, @reason, @ruleSetName, @ruleSetVersion, @isOverridden, @activityScore)";
+
+            command.Parameters.AddWithValue("@userId", userId);
+            command.Parameters.AddWithValue("@classification", classification.ToString());
+            command.Parameters.AddWithValue("@classificationDate", DateTime.UtcNow);
+            command.Parameters.AddWithValue("@confidence", confidence);
+            command.Parameters.AddWithValue("@reason", reason);
+            command.Parameters.AddWithValue("@ruleSetName", ruleSetName ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@ruleSetVersion", (object)DBNull.Value); // TODO: Add version tracking
+            command.Parameters.AddWithValue("@isOverridden", false);
+            command.Parameters.AddWithValue("@activityScore", (object)DBNull.Value); // TODO: Pass from caller
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+
+            await RecordSystemEventAsync("UserClassified", "Information",
+                $"User {userId} classified as {classification}", reason, userId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save user classification for {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<UserClassificationRecord?> GetUserClassificationAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, Classification, ClassificationDate, Confidence, Reason, 
+                       RuleSetName, RuleSetVersion, IsOverridden, ActivityScore, CreatedAt, UpdatedAt
+                FROM UserClassifications
+                WHERE UserId = @userId";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return ReadUserClassificationRecord(reader);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get user classification for {UserId}", userId);
+        }
+
+        return null;
+    }
+
+    public async Task<IEnumerable<UserClassificationRecord>> GetAllClassificationsAsync(CancellationToken cancellationToken = default)
+    {
+        var classifications = new List<UserClassificationRecord>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, Classification, ClassificationDate, Confidence, Reason, 
+                       RuleSetName, RuleSetVersion, IsOverridden, ActivityScore, CreatedAt, UpdatedAt
+                FROM UserClassifications
+                ORDER BY ClassificationDate DESC";
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                classifications.Add(ReadUserClassificationRecord(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all user classifications");
+        }
+
+        return classifications;
+    }
+
+    public async Task SaveClassificationHistoryAsync(string userId, ProfileClassification? oldClassification, ProfileClassification newClassification, string reason, Dictionary<string, object>? activitySnapshot = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO ClassificationHistory 
+                (UserId, OldClassification, NewClassification, ChangeDate, Reason, ActivitySnapshot)
+                VALUES (@userId, @oldClassification, @newClassification, @changeDate, @reason, @activitySnapshot)";
+
+            command.Parameters.AddWithValue("@userId", userId);
+            command.Parameters.AddWithValue("@oldClassification", oldClassification?.ToString() ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@newClassification", newClassification.ToString());
+            command.Parameters.AddWithValue("@changeDate", DateTime.UtcNow);
+            command.Parameters.AddWithValue("@reason", reason);
+            command.Parameters.AddWithValue("@activitySnapshot", 
+                activitySnapshot != null ? JsonSerializer.Serialize(activitySnapshot) : (object)DBNull.Value);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save classification history for {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<ClassificationHistoryEntry>> GetClassificationHistoryAsync(string userId, int? limit = null, CancellationToken cancellationToken = default)
+    {
+        var history = new List<ClassificationHistoryEntry>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, OldClassification, NewClassification, ChangeDate, Reason, ActivitySnapshot, CreatedAt
+                FROM ClassificationHistory
+                WHERE UserId = @userId
+                ORDER BY ChangeDate DESC";
+
+            if (limit.HasValue)
+            {
+                command.CommandText += " LIMIT @limit";
+                command.Parameters.AddWithValue("@limit", limit.Value);
+            }
+
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                history.Add(ReadClassificationHistoryEntry(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get classification history for {UserId}", userId);
+        }
+
+        return history;
+    }
+
+    public async Task SaveClassificationOverrideAsync(ClassificationOverride override_, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT OR REPLACE INTO ClassificationOverrides 
+                (UserId, OverrideClassification, OverrideDate, OverrideBy, Reason, ExpiryDate, IsActive)
+                VALUES (@userId, @overrideClassification, @overrideDate, @overrideBy, @reason, @expiryDate, @isActive)";
+
+            command.Parameters.AddWithValue("@userId", override_.UserId);
+            command.Parameters.AddWithValue("@overrideClassification", override_.OverrideClassification.ToString());
+            command.Parameters.AddWithValue("@overrideDate", override_.OverrideDate);
+            command.Parameters.AddWithValue("@overrideBy", override_.OverrideBy);
+            command.Parameters.AddWithValue("@reason", override_.Reason);
+            command.Parameters.AddWithValue("@expiryDate", override_.ExpiryDate ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@isActive", override_.IsActive);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+
+            // Update the override ID if this was an insert
+            if (override_.Id == 0)
+            {
+                // Get the last inserted ID
+                using var idCommand = connection.CreateCommand();
+                idCommand.CommandText = "SELECT last_insert_rowid()";
+                var lastId = await idCommand.ExecuteScalarAsync(cancellationToken);
+                override_.Id = Convert.ToInt32(lastId);
+            }
+
+            // Also mark the user classification as overridden
+            using var updateCommand = connection.CreateCommand();
+            updateCommand.CommandText = @"
+                UPDATE UserClassifications 
+                SET IsOverridden = 1 
+                WHERE UserId = @userId";
+            updateCommand.Parameters.AddWithValue("@userId", override_.UserId);
+            await updateCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save classification override for {UserId}", override_.UserId);
+            throw;
+        }
+    }
+
+    public async Task<ClassificationOverride?> GetClassificationOverrideAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, OverrideClassification, OverrideDate, OverrideBy, Reason, ExpiryDate, IsActive
+                FROM ClassificationOverrides
+                WHERE UserId = @userId AND IsActive = 1";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return ReadClassificationOverride(reader);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get classification override for {UserId}", userId);
+        }
+
+        return null;
+    }
+
+    public async Task<IEnumerable<ClassificationOverride>> GetAllClassificationOverridesAsync(CancellationToken cancellationToken = default)
+    {
+        var overrides = new List<ClassificationOverride>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, OverrideClassification, OverrideDate, OverrideBy, Reason, ExpiryDate, IsActive
+                FROM ClassificationOverrides
+                ORDER BY OverrideDate DESC";
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                overrides.Add(ReadClassificationOverride(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all classification overrides");
+        }
+
+        return overrides;
+    }
+
+    public async Task ExpireClassificationOverrideAsync(int overrideId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                UPDATE ClassificationOverrides 
+                SET IsActive = 0 
+                WHERE Id = @id";
+            command.Parameters.AddWithValue("@id", overrideId);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to expire classification override {OverrideId}", overrideId);
+            throw;
+        }
+    }
+
+    public async Task SaveClassificationOverrideHistoryAsync(ClassificationOverrideHistory history, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO ClassificationOverrideHistory 
+                (UserId, OldClassification, NewClassification, ChangeDate, ChangedBy, Reason)
+                VALUES (@userId, @oldClassification, @newClassification, @changeDate, @changedBy, @reason)";
+
+            command.Parameters.AddWithValue("@userId", history.UserId);
+            command.Parameters.AddWithValue("@oldClassification", history.OldClassification ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@newClassification", history.NewClassification ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@changeDate", history.ChangeDate);
+            command.Parameters.AddWithValue("@changedBy", history.ChangedBy);
+            command.Parameters.AddWithValue("@reason", history.Reason);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save classification override history for {UserId}", history.UserId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<ClassificationOverrideHistory>> GetClassificationOverrideHistoryAsync(string userId, int? limit = null, CancellationToken cancellationToken = default)
+    {
+        var history = new List<ClassificationOverrideHistory>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, OldClassification, NewClassification, ChangeDate, ChangedBy, Reason
+                FROM ClassificationOverrideHistory
+                WHERE UserId = @userId
+                ORDER BY ChangeDate DESC";
+
+            if (limit.HasValue)
+            {
+                command.CommandText += " LIMIT @limit";
+                command.Parameters.AddWithValue("@limit", limit.Value);
+            }
+
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                history.Add(ReadClassificationOverrideHistory(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get classification override history for {UserId}", userId);
+        }
+
+        return history;
+    }
+
+    #endregion
+
     #region Aggregated Queries
 
     public async Task<bool> AreAllUsersReadyForResetAsync(CancellationToken cancellationToken)
@@ -1564,6 +1927,69 @@ public class StateManager : IStateManager, IDisposable
             Status = reader.GetString(5),
             ApprovedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
             NewDeadline = reader.IsDBNull(7) ? null : reader.GetDateTime(7)
+        };
+    }
+
+    private UserClassificationRecord ReadUserClassificationRecord(SqliteDataReader reader)
+    {
+        return new UserClassificationRecord
+        {
+            Id = reader.GetInt32(0),
+            UserId = reader.GetString(1),
+            Classification = Enum.Parse<ProfileClassification>(reader.GetString(2)),
+            ClassificationDate = reader.GetDateTime(3),
+            Confidence = reader.GetDouble(4),
+            Reason = reader.GetString(5),
+            RuleSetName = reader.IsDBNull(6) ? null : reader.GetString(6),
+            RuleSetVersion = reader.IsDBNull(7) ? null : reader.GetString(7),
+            IsOverridden = reader.GetBoolean(8),
+            ActivityScore = reader.IsDBNull(9) ? null : reader.GetInt32(9),
+            CreatedAt = reader.GetDateTime(10),
+            UpdatedAt = reader.GetDateTime(11)
+        };
+    }
+
+    private ClassificationHistoryEntry ReadClassificationHistoryEntry(SqliteDataReader reader)
+    {
+        return new ClassificationHistoryEntry
+        {
+            Id = reader.GetInt32(0),
+            UserId = reader.GetString(1),
+            OldClassification = reader.IsDBNull(2) ? null : Enum.Parse<ProfileClassification>(reader.GetString(2)),
+            NewClassification = Enum.Parse<ProfileClassification>(reader.GetString(3)),
+            ChangeDate = reader.GetDateTime(4),
+            Reason = reader.GetString(5),
+            ActivitySnapshot = reader.IsDBNull(6) ? null : reader.GetString(6),
+            CreatedAt = reader.GetDateTime(7)
+        };
+    }
+
+    private ClassificationOverride ReadClassificationOverride(SqliteDataReader reader)
+    {
+        return new ClassificationOverride
+        {
+            Id = reader.GetInt32(0),
+            UserId = reader.GetString(1),
+            OverrideClassification = Enum.Parse<ProfileClassification>(reader.GetString(2)),
+            OverrideDate = reader.GetDateTime(3),
+            OverrideBy = reader.GetString(4),
+            Reason = reader.GetString(5),
+            ExpiryDate = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
+            IsActive = reader.GetBoolean(7)
+        };
+    }
+
+    private ClassificationOverrideHistory ReadClassificationOverrideHistory(SqliteDataReader reader)
+    {
+        return new ClassificationOverrideHistory
+        {
+            Id = reader.GetInt32(0),
+            UserId = reader.GetString(1),
+            OldClassification = reader.IsDBNull(2) ? null : reader.GetString(2),
+            NewClassification = reader.IsDBNull(3) ? null : reader.GetString(3),
+            ChangeDate = reader.GetDateTime(4),
+            ChangedBy = reader.GetString(5),
+            Reason = reader.GetString(6)
         };
     }
 

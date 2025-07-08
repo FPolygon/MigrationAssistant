@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MigrationTool.Service.Models;
+using MigrationTool.Service.ProfileManagement;
 
 namespace MigrationTool.Service.Core;
 
@@ -7,13 +8,16 @@ public class MigrationStateOrchestrator
 {
     private readonly ILogger<MigrationStateOrchestrator> _logger;
     private readonly IStateManager _stateManager;
+    private readonly IUserProfileManager _profileManager;
 
     public MigrationStateOrchestrator(
         ILogger<MigrationStateOrchestrator> logger,
-        IStateManager stateManager)
+        IStateManager stateManager,
+        IUserProfileManager profileManager)
     {
         _logger = logger;
         _stateManager = stateManager;
+        _profileManager = profileManager;
     }
 
     /// <summary>
@@ -388,6 +392,135 @@ public class MigrationStateOrchestrator
         }
 
         return stats;
+    }
+
+    /// <summary>
+    /// Refresh user profiles and initialize migration states for new users
+    /// </summary>
+    public async Task RefreshUserProfilesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Starting user profile refresh");
+
+            // Refresh profiles from Windows
+            var updatedCount = await _profileManager.RefreshProfilesAsync(cancellationToken);
+            _logger.LogInformation("Updated {Count} user profiles", updatedCount);
+
+            // Get all active profiles that require backup
+            var activeProfiles = await _profileManager.GetActiveProfilesRequiringBackupAsync(cancellationToken);
+            _logger.LogInformation("Found {Count} active profiles requiring backup", activeProfiles.Count);
+
+            // Initialize migration states for new users
+            foreach (var profile in activeProfiles)
+            {
+                var existingState = await _stateManager.GetMigrationStateAsync(profile.UserId, cancellationToken);
+                if (existingState == null)
+                {
+                    // Create initial migration state for new user
+                    var migrationState = new MigrationState
+                    {
+                        UserId = profile.UserId,
+                        State = MigrationStateType.NotStarted,
+                        Status = "Active",
+                        Progress = 0,
+                        StartedAt = DateTime.UtcNow,
+                        LastUpdated = DateTime.UtcNow,
+                        Deadline = DateTime.UtcNow.AddDays(7), // Default 7-day deadline
+                        IsBlocking = true // Active users block reset by default
+                    };
+
+                    await _stateManager.UpdateMigrationStateAsync(migrationState, cancellationToken);
+                    _logger.LogInformation("Initialized migration state for new user: {UserName} ({UserId})", 
+                        profile.UserName, profile.UserId);
+                }
+            }
+
+            // Check for users who are no longer active
+            var allMigrations = await _stateManager.GetActiveMigrationsAsync(cancellationToken);
+            var activeUserIds = new HashSet<string>(activeProfiles.Select(p => p.UserId));
+
+            foreach (var migration in allMigrations)
+            {
+                if (!activeUserIds.Contains(migration.UserId) && migration.IsBlocking)
+                {
+                    // User is no longer active but still blocking
+                    var profile = await _profileManager.GetProfileAsync(migration.UserId, cancellationToken);
+                    if (profile != null && !profile.IsActive)
+                    {
+                        migration.IsBlocking = false;
+                        migration.AttentionReason = "User profile is no longer active";
+                        await _stateManager.UpdateMigrationStateAsync(migration, cancellationToken);
+                        _logger.LogInformation("User {UserId} is no longer active and will not block reset", 
+                            migration.UserId);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refreshing user profiles");
+        }
+    }
+
+    /// <summary>
+    /// Initialize migration for all active users
+    /// </summary>
+    public async Task InitializeMigrationAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Initializing migration for all active users");
+
+            // First refresh profiles to ensure we have latest data
+            await RefreshUserProfilesAsync(cancellationToken);
+
+            // Get all active profiles requiring backup
+            var activeProfiles = await _profileManager.GetActiveProfilesRequiringBackupAsync(cancellationToken);
+
+            // Transition all users to WaitingForUser state
+            foreach (var profile in activeProfiles)
+            {
+                var state = await _stateManager.GetMigrationStateAsync(profile.UserId, cancellationToken);
+                if (state != null && state.State == MigrationStateType.NotStarted)
+                {
+                    await _stateManager.TransitionStateAsync(
+                        profile.UserId, 
+                        MigrationStateType.WaitingForUser,
+                        "Migration initialized - waiting for user to start backup",
+                        cancellationToken);
+                }
+            }
+
+            _logger.LogInformation("Migration initialized for {Count} users", activeProfiles.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initializing migration");
+        }
+    }
+
+    /// <summary>
+    /// Check if all active users have completed their backups
+    /// </summary>
+    public async Task<MigrationReadinessStatus> GetReadinessStatusAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Get readiness from state manager which tracks migration states
+            var readiness = await _stateManager.GetMigrationReadinessAsync(cancellationToken);
+
+            // Enhance with profile information
+            var activeProfiles = await _profileManager.GetActiveProfilesRequiringBackupAsync(cancellationToken);
+            readiness.ActiveUsers = activeProfiles.Count;
+
+            return readiness;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting migration readiness status");
+            return new MigrationReadinessStatus { CanReset = false };
+        }
     }
 }
 
