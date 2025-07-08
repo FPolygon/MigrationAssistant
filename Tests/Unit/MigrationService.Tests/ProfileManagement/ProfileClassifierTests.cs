@@ -11,6 +11,7 @@ public class ProfileClassifierTests
 {
     private readonly Mock<ILogger<ProfileClassifier>> _loggerMock;
     private readonly Mock<ProfileActivityAnalyzer> _activityAnalyzerMock;
+    private readonly Mock<ActivityScoreCalculator> _scoreCalculatorMock;
     private readonly ProfileClassifier _classifier;
     private readonly ProfileClassificationConfig _config;
 
@@ -21,6 +22,7 @@ public class ProfileClassifierTests
             new Mock<ILogger<ProfileActivityAnalyzer>>().Object,
             null,
             null);
+        _scoreCalculatorMock = new Mock<ActivityScoreCalculator>();
 
         _config = new ProfileClassificationConfig
         {
@@ -31,7 +33,7 @@ public class ProfileClassifierTests
             BackupInactiveProfiles = true
         };
 
-        _classifier = new ProfileClassifier(_loggerMock.Object, _activityAnalyzerMock.Object, _config);
+        _classifier = new ProfileClassifier(_loggerMock.Object, _activityAnalyzerMock.Object, _scoreCalculatorMock.Object, null, null, null, _config);
     }
 
     [Fact]
@@ -178,7 +180,7 @@ public class ProfileClassifierTests
     {
         // Arrange
         var config = new ProfileClassificationConfig { BackupInactiveProfiles = false };
-        var classifier = new ProfileClassifier(_loggerMock.Object, _activityAnalyzerMock.Object, config);
+        var classifier = new ProfileClassifier(_loggerMock.Object, _activityAnalyzerMock.Object, _scoreCalculatorMock.Object, null, null, null, config);
         
         var profile = CreateProfile("S-1-5-21-1234-5678-9012-1001", "user1", ProfileType.Local);
         var metrics = CreateMetrics(

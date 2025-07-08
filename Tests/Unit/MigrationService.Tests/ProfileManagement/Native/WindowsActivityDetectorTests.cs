@@ -106,8 +106,8 @@ public class WindowsActivityDetectorTests
         var result = await _detector.GetUserActivityAsync(userSid);
 
         // Assert
-        // Result depends on actual registry state
-        result.IsRegistryLoaded.Should().BeOneOf(true, false);
+        // Result depends on actual registry state - IsRegistryLoaded can be either true or false
+        result.Should().NotBeNull();
     }
 
     [Fact]

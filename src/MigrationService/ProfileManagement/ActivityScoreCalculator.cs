@@ -25,7 +25,7 @@ public class ActivityScoreCalculator
     /// <summary>
     /// Calculates a comprehensive activity score for a user profile
     /// </summary>
-    public async Task<ActivityScoreResult> CalculateScoreAsync(
+    public Task<ActivityScoreResult> CalculateScoreAsync(
         UserProfile profile,
         ProfileMetrics metrics,
         UserActivityData? activityData = null,
@@ -80,7 +80,7 @@ public class ActivityScoreCalculator
             result.Errors.Add($"Score calculation failed: {ex.Message}");
         }
 
-        return result;
+        return Task.FromResult(result);
     }
 
     /// <summary>

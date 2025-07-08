@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using MigrationTool.Service.Core;
 using MigrationTool.Service.Models;
+using MigrationTool.Service.ProfileManagement;
 using Moq;
 using Xunit;
 
@@ -11,13 +12,15 @@ public class MigrationStateOrchestratorTests
 {
     private readonly Mock<ILogger<MigrationStateOrchestrator>> _loggerMock;
     private readonly Mock<IStateManager> _stateManagerMock;
+    private readonly Mock<IUserProfileManager> _profileManagerMock;
     private readonly MigrationStateOrchestrator _orchestrator;
 
     public MigrationStateOrchestratorTests()
     {
         _loggerMock = new Mock<ILogger<MigrationStateOrchestrator>>();
         _stateManagerMock = new Mock<IStateManager>();
-        _orchestrator = new MigrationStateOrchestrator(_loggerMock.Object, _stateManagerMock.Object);
+        _profileManagerMock = new Mock<IUserProfileManager>();
+        _orchestrator = new MigrationStateOrchestrator(_loggerMock.Object, _stateManagerMock.Object, _profileManagerMock.Object);
     }
 
     [Fact]

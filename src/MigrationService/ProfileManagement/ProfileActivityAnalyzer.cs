@@ -492,7 +492,7 @@ public class ProfileActivityAnalyzer
     /// <summary>
     /// Gets activity score for a profile (0-100)
     /// </summary>
-    public async Task<int> GetActivityScoreAsync(UserProfile profile, ProfileMetrics metrics, CancellationToken cancellationToken = default)
+    public Task<int> GetActivityScoreAsync(UserProfile profile, ProfileMetrics metrics, CancellationToken cancellationToken = default)
     {
         var score = 0;
 
@@ -533,6 +533,6 @@ public class ProfileActivityAnalyzer
             _logger.LogWarning(ex, "Failed to calculate activity score for user: {UserName}", profile.UserName);
         }
 
-        return Math.Min(score, 100);
+        return Task.FromResult(Math.Min(score, 100));
     }
 }

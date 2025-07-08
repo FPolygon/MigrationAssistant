@@ -86,7 +86,7 @@ public class WindowsActivityDetector
     /// <summary>
     /// Detects logon events from Windows Security Event Log
     /// </summary>
-    private async Task DetectLogonEventsAsync(string userSid, UserActivityData activityData, CancellationToken cancellationToken)
+    private void DetectLogonEventsAsync(string userSid, UserActivityData activityData, CancellationToken cancellationToken)
     {
         try
         {

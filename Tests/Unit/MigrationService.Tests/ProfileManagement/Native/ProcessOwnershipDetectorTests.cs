@@ -76,10 +76,9 @@ public class ProcessOwnershipDetectorTests : IDisposable
         var result = await _detector.GetUserProcessesAsync(userSid);
 
         // Assert
-        // These are boolean flags, so they should be either true or false
-        result.HasExplorerProcess.Should().BeOneOf(true, false);
-        result.HasBrowserProcess.Should().BeOneOf(true, false);
-        result.HasProductivityProcess.Should().BeOneOf(true, false);
+        // These are boolean flags that should be set based on process detection
+        result.Should().NotBeNull();
+        result.TotalProcessCount.Should().BeGreaterThanOrEqualTo(0);
     }
 
     [Fact]
@@ -136,7 +135,7 @@ public class ProcessOwnershipDetectorTests : IDisposable
         var isRunning = await _detector.IsProcessRunningForUserAsync(userSid, processName);
 
         // Assert
-        isRunning.Should().BeOneOf(true, false);
+        // Method should complete without throwing
     }
 
     [Fact]
@@ -201,11 +200,11 @@ public class ProcessOwnershipDetectorTests : IDisposable
         // or make it internal and use InternalsVisibleTo
         
         // The test verifies our process categorization logic is sound
-        expectedType.Should().BeOneOf(
-            ProcessType.Shell, ProcessType.Browser, ProcessType.Productivity,
-            ProcessType.Communication, ProcessType.Development, ProcessType.Background);
+        expectedType.Should().Match(t => 
+            t == ProcessType.Shell || t == ProcessType.Browser || t == ProcessType.Productivity ||
+            t == ProcessType.Communication || t == ProcessType.Development || t == ProcessType.Background);
         
-        expectedInteractive.Should().BeOneOf(true, false);
+        // expectedInteractive is a boolean value based on process detection
     }
 
     public void Dispose()

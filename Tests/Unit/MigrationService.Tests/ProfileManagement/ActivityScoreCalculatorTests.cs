@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using MigrationService.Tests.TestUtilities;
 using MigrationTool.Service.Models;
 using MigrationTool.Service.ProfileManagement;
 using MigrationTool.Service.ProfileManagement.Native;
@@ -131,7 +132,7 @@ public class ActivityScoreCalculatorTests
 
         // Assert
         result.TotalScore.Should().BeGreaterThan(0);
-        result.Confidence.Should().BeOneOf(ActivityConfidence.High, ActivityConfidence.Medium);
+        result.Confidence.Should().Match(c => c == ActivityConfidence.High || c == ActivityConfidence.Medium);
     }
 
     [Fact]
@@ -160,7 +161,7 @@ public class ActivityScoreCalculatorTests
         var result = await _calculator.CalculateScoreAsync(_testProfile, _testMetrics);
 
         // Assert
-        result.ActivityLevel.Should().BeOneOf(UserActivityLevel.Active, UserActivityLevel.VeryActive);
+        result.ActivityLevel.Should().Match(l => l == UserActivityLevel.Active || l == UserActivityLevel.VeryActive);
     }
 
     [Fact]
@@ -189,7 +190,7 @@ public class ActivityScoreCalculatorTests
         var result = await _calculator.CalculateScoreAsync(_testProfile, minimalMetrics);
 
         // Assert
-        result.Confidence.Should().BeOneOf(ActivityConfidence.VeryLow, ActivityConfidence.Low);
+        result.Confidence.Should().Match(c => c == ActivityConfidence.VeryLow || c == ActivityConfidence.Low);
         result.Recommendations.Should().Contain(r => r.Contains("confidence"));
     }
 

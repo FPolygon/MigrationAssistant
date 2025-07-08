@@ -156,7 +156,7 @@ public class UserProfileManagerTests
         result.RequiresBackup.Should().BeTrue();
         result.BackupPriority.Should().Be(100);
         
-        _stateManagerMock.Verify(x => x.UpdateUserProfileAsync(It.Is<UserProfile>(p => p.UserId == targetSid)), Times.Once);
+        _stateManagerMock.Verify(x => x.UpdateUserProfileAsync(It.Is<UserProfile>(p => p.UserId == targetSid), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -220,7 +220,8 @@ public class UserProfileManagerTests
             It.Is<UserProfile>(p => 
                 p.UserId == targetSid && 
                 p.IsActive == true && 
-                p.RequiresBackup == true)), 
+                p.RequiresBackup == true), 
+            It.IsAny<CancellationToken>()), 
             Times.Once);
     }
 
@@ -268,7 +269,7 @@ public class UserProfileManagerTests
 
         // Assert
         result.Should().Be(2); // Both profiles updated
-        _stateManagerMock.Verify(x => x.UpdateUserProfileAsync(It.IsAny<UserProfile>()), Times.Exactly(2));
+        _stateManagerMock.Verify(x => x.UpdateUserProfileAsync(It.IsAny<UserProfile>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -318,7 +319,7 @@ public class UserProfileManagerTests
 
         // Assert
         result.Should().Be(0); // No updates needed
-        _stateManagerMock.Verify(x => x.UpdateUserProfileAsync(It.IsAny<UserProfile>()), Times.Never);
+        _stateManagerMock.Verify(x => x.UpdateUserProfileAsync(It.IsAny<UserProfile>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

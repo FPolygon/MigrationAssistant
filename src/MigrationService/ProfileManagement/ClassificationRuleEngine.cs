@@ -188,14 +188,14 @@ public class ClassificationRuleEngine
     /// <summary>
     /// Evaluates a single condition
     /// </summary>
-    private async Task<bool> EvaluateConditionAsync(
+    private Task<bool> EvaluateConditionAsync(
         RuleCondition condition, 
         RuleEvaluationContext context,
         CancellationToken cancellationToken)
     {
         var actualValue = GetPropertyValue(condition.Property, context);
         
-        return condition.Operator switch
+        return Task.FromResult(condition.Operator switch
         {
             ComparisonOperator.Equals => CompareValues(actualValue, condition.Value) == 0,
             ComparisonOperator.NotEquals => CompareValues(actualValue, condition.Value) != 0,
@@ -212,7 +212,7 @@ public class ClassificationRuleEngine
             ComparisonOperator.IsNull => actualValue == null,
             ComparisonOperator.IsNotNull => actualValue != null,
             _ => false
-        };
+        });
     }
 
     /// <summary>
