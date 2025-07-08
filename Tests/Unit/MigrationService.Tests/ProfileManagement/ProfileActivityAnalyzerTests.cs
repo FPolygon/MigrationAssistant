@@ -139,8 +139,8 @@ public class ProfileActivityAnalyzerTests : IDisposable
         // Assert
         result.Should().NotBeNull();
         result.HasRecentActivity.Should().BeTrue();
-        // Use the actual file time instead of the expected time to handle timezone issues
-        result.LastActivityTime.Should().BeCloseTo(fileInfo.LastWriteTimeUtc, TimeSpan.FromMinutes(5));
+        // ProfileActivityAnalyzer returns UTC times, so we should verify UTC times
+        result.LastActivityTime.Should().BeCloseTo(recentTime, TimeSpan.FromMinutes(5));
     }
 
     [Fact]
@@ -276,19 +276,45 @@ public class ProfileActivityAnalyzerTests : IDisposable
         
         // Create a file in a regular folder
         var regularFile = Path.Combine(_testProfilePath, "regular.txt");
-        await CreateTestFile(regularFile, 1024);
+        await CreateTestFile(regularFile, 1024); // 1KB
 
         // Create files in excluded folders
         var tempDir = Path.Combine(_testProfilePath, @"AppData\Local\Temp");
         Directory.CreateDirectory(tempDir);
         await CreateTestFile(Path.Combine(tempDir, "temp.txt"), 10 * 1024 * 1024); // 10MB - should be excluded
+        
+        // Get baseline size before running the analyzer
+        var baselineSize = GetDirectorySize(_testProfilePath, excludeTemp: true);
 
         // Act
         var result = await _analyzer.AnalyzeProfileAsync(profile);
 
         // Assert
         result.Should().NotBeNull();
+        result.IsAccessible.Should().BeTrue();
+        
+        // The result should be close to our baseline calculation (allowing some variance)
+        var tolerance = (long)(baselineSize * 0.1); // Allow 10% variance
+        result.ProfileSizeBytes.Should().BeInRange(baselineSize - tolerance, baselineSize + tolerance);
+        
+        // And definitely should not include the 10MB temp file
         result.ProfileSizeBytes.Should().BeLessThan(5 * 1024 * 1024); // Should be much less than 10MB
+    }
+    
+    private long GetDirectorySize(string path, bool excludeTemp)
+    {
+        long size = 0;
+        var dir = new DirectoryInfo(path);
+        
+        foreach (var file in dir.GetFiles("*", SearchOption.AllDirectories))
+        {
+            if (excludeTemp && file.FullName.Contains(@"AppData\Local\Temp", StringComparison.OrdinalIgnoreCase))
+                continue;
+                
+            size += file.Length;
+        }
+        
+        return size;
     }
 
     [Fact]

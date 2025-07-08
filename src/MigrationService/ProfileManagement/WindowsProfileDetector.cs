@@ -25,7 +25,7 @@ public class WindowsProfileDetector
     /// <summary>
     /// Discovers all Windows user profiles on the system
     /// </summary>
-    public async Task<List<UserProfile>> DiscoverProfilesAsync(bool includeSystemAccounts = false, CancellationToken cancellationToken = default)
+    public virtual async Task<List<UserProfile>> DiscoverProfilesAsync(bool includeSystemAccounts = false, CancellationToken cancellationToken = default)
     {
         return await Task.Run(() => DiscoverProfiles(includeSystemAccounts), cancellationToken);
     }
@@ -181,7 +181,7 @@ public class WindowsProfileDetector
     /// <summary>
     /// Gets detailed information about a specific profile
     /// </summary>
-    public async Task<UserProfile?> GetProfileBySidAsync(string sid, CancellationToken cancellationToken = default)
+    public virtual async Task<UserProfile?> GetProfileBySidAsync(string sid, CancellationToken cancellationToken = default)
     {
         return await Task.Run(() =>
         {
