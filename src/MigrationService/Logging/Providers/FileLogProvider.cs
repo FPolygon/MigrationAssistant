@@ -131,7 +131,7 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
             // Check if we need to rotate based on date change
             var timestamp = _fileSettings.UseUtc ? DateTime.UtcNow : DateTime.Now;
             var currentDateKey = timestamp.ToString("yyyyMMdd");
-            
+
             // Only check for date-based rotation if we're not using timestamps
             if (!_fileSettings.IncludeTimestamp && _currentFileKey != null && !_currentFileKey.StartsWith(currentDateKey))
             {
@@ -224,20 +224,20 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
         {
             // Generate a unique key for the current log session (per day)
             var dateKey = timestamp.ToString("yyyyMMdd");
-            
+
             // If we don't have a current file key for today, generate one
             if (_currentFileKey == null || !_currentFileKey.StartsWith(dateKey))
             {
                 var uniqueId = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
                 _currentFileKey = $"{dateKey}_{uniqueId}";
             }
-            
+
             // When rotating, add rotation counter
             if (forceNewFile && _rotationCounter > 0)
             {
                 return $"{_fileSettings.FilePrefix}_{_currentFileKey}_{_rotationCounter:D3}.log";
             }
-            
+
             return $"{_fileSettings.FilePrefix}_{_currentFileKey}.log";
         }
     }

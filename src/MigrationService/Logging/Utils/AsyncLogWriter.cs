@@ -110,7 +110,7 @@ public class AsyncLogWriter : IDisposable
 
         // Increment the queue size first to reserve our spot
         var newSize = Interlocked.Increment(ref _queueSize);
-        
+
         // Then enqueue the entry
         _logQueue.Enqueue(entry);
 
@@ -257,7 +257,7 @@ public class AsyncLogWriter : IDisposable
             {
                 // Decrement immediately after dequeue to maintain accurate count
                 Interlocked.Decrement(ref _queueSize);
-                
+
                 try
                 {
                     await _provider.WriteLogAsync(entry, cancellationToken);
