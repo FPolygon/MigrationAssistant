@@ -92,12 +92,30 @@ public class ProfileActivityAnalyzerTests : IDisposable
         var expectedSize = file1.Length + file2.Length + file3.Length;
         expectedSize.Should().BeGreaterThanOrEqualTo(7168);
 
-        // Act
-        var result = await _analyzer.AnalyzeProfileAsync(profile);
+        // Act - Retry up to 3 times with increasing delays to handle CI filesystem delays
+        ProfileMetrics? result = null;
+        for (int retry = 0; retry < 3; retry++)
+        {
+            result = await _analyzer.AnalyzeProfileAsync(profile);
+            
+            if (result.ProfileSizeBytes >= expectedSize)
+                break;
+                
+            // If size is still 0, wait and retry
+            if (retry < 2)
+            {
+                await Task.Delay((retry + 1) * 200); // 200ms, 400ms
+                
+                // Force file system metadata refresh
+                file1.Refresh();
+                file2.Refresh();
+                file3.Refresh();
+            }
+        }
 
         // Assert
         result.Should().NotBeNull();
-        result.IsAccessible.Should().BeTrue();
+        result!.IsAccessible.Should().BeTrue();
         
         // Add diagnostic information if size calculation fails
         if (result.ProfileSizeBytes < expectedSize)

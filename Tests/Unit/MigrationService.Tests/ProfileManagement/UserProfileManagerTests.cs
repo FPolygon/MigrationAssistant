@@ -299,6 +299,8 @@ public class UserProfileManagerTests
 
         var metrics = CreateMetrics();
         metrics.ProfileSizeBytes = 1000 * 1024 * 1024;
+        // Ensure metrics LastLoginTime matches the profile's LastLoginTime to avoid triggering an update
+        metrics.LastLoginTime = fixedTime;
         
         var classification = new ProfileClassificationResult
         {
