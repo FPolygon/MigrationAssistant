@@ -28,7 +28,7 @@ public class ProfileActivityAnalyzerTests
         Directory.CreateDirectory(_testProfilePath);
     }
 
-    public void Dispose()
+    private void Dispose()
     {
         // Cleanup
         if (Directory.Exists(_testProfilePath))

@@ -160,7 +160,7 @@ public class WindowsActivityDetectorTests
         // Act
         var result = await _detector.GetUserActivityAsync(sid);
 
-        // Assert
+        // Assert - Well-known SID: {description}
         result.Should().NotBeNull();
         result.UserSid.Should().Be(sid);
         // System accounts may have limited activity data

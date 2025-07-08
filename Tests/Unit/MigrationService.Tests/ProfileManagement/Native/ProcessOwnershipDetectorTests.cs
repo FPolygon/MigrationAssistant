@@ -200,6 +200,7 @@ public class ProcessOwnershipDetectorTests : IDisposable
         // or make it internal and use InternalsVisibleTo
         
         // The test verifies our process categorization logic is sound
+        // Process: {processName}, Expected: {expectedType}, Interactive: {expectedInteractive}
         expectedType.Should().Match(t => 
             t == ProcessType.Shell || t == ProcessType.Browser || t == ProcessType.Productivity ||
             t == ProcessType.Communication || t == ProcessType.Development || t == ProcessType.Background);

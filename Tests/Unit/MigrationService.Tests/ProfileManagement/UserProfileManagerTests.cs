@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MigrationTool.Service.Core;
 using MigrationTool.Service.Models;
 using MigrationTool.Service.ProfileManagement;
+using MigrationTool.Service.ProfileManagement.Native;
 using Moq;
 using Xunit;
 
@@ -31,7 +32,7 @@ public class UserProfileManagerTests
         _profileClassifierMock = new Mock<ProfileClassifier>(
             new Mock<ILogger<ProfileClassifier>>().Object,
             _activityAnalyzerMock.Object,
-            null);
+            new Mock<ClassificationOverrideManager>().Object);
 
         _manager = new UserProfileManager(
             _loggerMock.Object,
