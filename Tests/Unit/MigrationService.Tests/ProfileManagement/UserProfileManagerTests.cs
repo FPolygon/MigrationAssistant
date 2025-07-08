@@ -15,7 +15,7 @@ public class UserProfileManagerTests
     private readonly Mock<IStateManager> _stateManagerMock;
     private readonly Mock<WindowsProfileDetector> _profileDetectorMock;
     private readonly Mock<IProfileActivityAnalyzer> _activityAnalyzerMock;
-    private readonly Mock<ProfileClassifier> _profileClassifierMock;
+    private readonly Mock<IProfileClassifier> _profileClassifierMock;
     private readonly UserProfileManager _manager;
 
     public UserProfileManagerTests()
@@ -29,12 +29,7 @@ public class UserProfileManagerTests
         
         _activityAnalyzerMock = new Mock<IProfileActivityAnalyzer>();
         
-        _profileClassifierMock = new Mock<ProfileClassifier>(
-            new Mock<ILogger<ProfileClassifier>>().Object,
-            _activityAnalyzerMock.Object,
-            new Mock<IActivityScoreCalculator>().Object,
-            null, // ClassificationRuleEngine
-            new Mock<IClassificationOverrideManager>().Object);
+        _profileClassifierMock = new Mock<IProfileClassifier>();
 
         _manager = new UserProfileManager(
             _loggerMock.Object,

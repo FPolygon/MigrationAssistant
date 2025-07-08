@@ -15,7 +15,7 @@ public class UserProfileManager : IUserProfileManager
     private readonly IStateManager _stateManager;
     private readonly WindowsProfileDetector _profileDetector;
     private readonly IProfileActivityAnalyzer _activityAnalyzer;
-    private readonly ProfileClassifier _profileClassifier;
+    private readonly IProfileClassifier _profileClassifier;
     private readonly object _refreshLock = new();
     private DateTime _lastRefresh = DateTime.MinValue;
     private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(5);
@@ -25,7 +25,7 @@ public class UserProfileManager : IUserProfileManager
         IStateManager stateManager,
         WindowsProfileDetector profileDetector,
         IProfileActivityAnalyzer activityAnalyzer,
-        ProfileClassifier profileClassifier)
+        IProfileClassifier profileClassifier)
     {
         _logger = logger;
         _stateManager = stateManager;

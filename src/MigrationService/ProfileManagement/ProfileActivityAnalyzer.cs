@@ -198,7 +198,13 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             // Check if this directory should be excluded
             foreach (var excluded in excludedFolders)
             {
-                if (directory.FullName.Contains(excluded, StringComparison.OrdinalIgnoreCase))
+                // Use Path.DirectorySeparatorChar to ensure proper path matching
+                var excludedPath = excluded.Replace('\\', Path.DirectorySeparatorChar);
+                var normalizedPath = directory.FullName.Replace('\\', Path.DirectorySeparatorChar);
+                
+                // Check if the directory path ends with the excluded path to avoid false positives
+                if (normalizedPath.EndsWith(Path.DirectorySeparatorChar + excludedPath, StringComparison.OrdinalIgnoreCase) ||
+                    normalizedPath.EndsWith(excludedPath, StringComparison.OrdinalIgnoreCase))
                     return 0;
             }
 

@@ -10,7 +10,7 @@ namespace MigrationTool.Service.ProfileManagement;
 /// Classifies user profiles based on activity, size, and other criteria
 /// </summary>
 [SupportedOSPlatform("windows")]
-public class ProfileClassifier
+public class ProfileClassifier : IProfileClassifier
 {
     private readonly ILogger<ProfileClassifier> _logger;
     private readonly IProfileActivityAnalyzer _activityAnalyzer;

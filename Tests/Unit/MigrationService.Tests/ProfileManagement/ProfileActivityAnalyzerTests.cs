@@ -7,7 +7,7 @@ using Xunit;
 
 namespace MigrationService.Tests.ProfileManagement;
 
-public class ProfileActivityAnalyzerTests
+public class ProfileActivityAnalyzerTests : IDisposable
 {
     private readonly Mock<ILogger<ProfileActivityAnalyzer>> _loggerMock;
     private readonly ProfileActivityAnalyzer _analyzer;
@@ -23,17 +23,27 @@ public class ProfileActivityAnalyzerTests
             recentActivityThreshold: TimeSpan.FromDays(30),
             minimumActiveSizeBytes: 100 * 1024 * 1024); // 100MB
         
-        // Create a temporary test directory
-        _testProfilePath = Path.Combine(Path.GetTempPath(), "TestProfile_" + Guid.NewGuid());
+        // Create a temporary test directory (avoid using system temp path that might be excluded)
+        var tempBase = Path.GetTempPath();
+        var testDirName = "MigrationTestProfile_" + Guid.NewGuid().ToString("N")[..8];
+        _testProfilePath = Path.Combine(tempBase, testDirName);
         Directory.CreateDirectory(_testProfilePath);
     }
 
-    private void Dispose()
+    public void Dispose()
     {
         // Cleanup
         if (Directory.Exists(_testProfilePath))
         {
-            Directory.Delete(_testProfilePath, recursive: true);
+            try
+            {
+                Directory.Delete(_testProfilePath, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't throw to avoid masking test failures
+                System.Diagnostics.Debug.WriteLine($"Failed to cleanup test directory {_testProfilePath}: {ex.Message}");
+            }
         }
     }
 
@@ -88,6 +98,18 @@ public class ProfileActivityAnalyzerTests
         // Assert
         result.Should().NotBeNull();
         result.IsAccessible.Should().BeTrue();
+        
+        // Add diagnostic information if size calculation fails
+        if (result.ProfileSizeBytes < expectedSize)
+        {
+            var diagnostics = $"Profile size mismatch. Expected: >={expectedSize}, Actual: {result.ProfileSizeBytes}. " +
+                             $"Profile path: {_testProfilePath}. " +
+                             $"Files exist: f1={file1.Exists}, f2={file2.Exists}, f3={file3.Exists}. " +
+                             $"Actual sizes: f1={file1.Length}, f2={file2.Length}, f3={file3.Length}. " +
+                             $"Errors: {string.Join(", ", result.Errors)}";
+            throw new Exception(diagnostics);
+        }
+        
         result.ProfileSizeBytes.Should().BeGreaterThanOrEqualTo(expectedSize);
     }
 
@@ -103,9 +125,13 @@ public class ProfileActivityAnalyzerTests
         var recentFile = Path.Combine(documentsDir, "recent.txt");
         await CreateTestFile(recentFile, 1024);
         
-        // Set file modification time to 1 hour ago
+        // Set file modification time to 1 hour ago and verify it was set correctly
         var recentTime = DateTime.UtcNow.AddHours(-1);
         File.SetLastWriteTimeUtc(recentFile, recentTime);
+        
+        // Verify the file time was set correctly to avoid timezone issues
+        var fileInfo = new FileInfo(recentFile);
+        fileInfo.LastWriteTimeUtc.Should().BeCloseTo(recentTime, TimeSpan.FromSeconds(5));
 
         // Act
         var result = await _analyzer.AnalyzeProfileAsync(profile);
@@ -113,7 +139,8 @@ public class ProfileActivityAnalyzerTests
         // Assert
         result.Should().NotBeNull();
         result.HasRecentActivity.Should().BeTrue();
-        result.LastActivityTime.Should().BeCloseTo(recentTime, TimeSpan.FromMinutes(5));
+        // Use the actual file time instead of the expected time to handle timezone issues
+        result.LastActivityTime.Should().BeCloseTo(fileInfo.LastWriteTimeUtc, TimeSpan.FromMinutes(5));
     }
 
     [Fact]

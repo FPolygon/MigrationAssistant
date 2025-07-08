@@ -93,7 +93,7 @@ public class Program
                 
                 // Add profile analysis services
                 services.AddSingleton<IProfileActivityAnalyzer, ProfileActivityAnalyzer>();
-                services.AddSingleton<ProfileClassifier>();
+                services.AddSingleton<IProfileClassifier, ProfileClassifier>();
                 services.AddSingleton<IUserProfileManager, UserProfileManager>();
                 
                 // Add classification services
