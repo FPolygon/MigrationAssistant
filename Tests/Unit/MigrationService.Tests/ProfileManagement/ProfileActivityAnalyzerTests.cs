@@ -21,7 +21,7 @@ public class ProfileActivityAnalyzerTests : IDisposable
             activityDetector: null,
             processDetector: null,
             recentActivityThreshold: TimeSpan.FromDays(30),
-            minimumActiveSizeBytes: 100 * 1024 * 1024); // 100MB
+            minimumActiveSizeBytes: 10 * 1024); // Lower to 10KB for testing
         
         // Create a temporary test directory (avoid using system temp path that might be excluded)
         var tempBase = Path.GetTempPath();
@@ -117,7 +117,10 @@ public class ProfileActivityAnalyzerTests : IDisposable
     public async Task AnalyzeProfileAsync_DetectsRecentActivity_WhenFilesRecentlyModified()
     {
         // Arrange
+        var recentTime = DateTime.UtcNow.AddHours(-1);
         var profile = CreateTestProfile("S-1-5-21-1234", "testuser", _testProfilePath);
+        // Ensure profile's LastLoginTime is older than the file we're about to create
+        profile.LastLoginTime = DateTime.UtcNow.AddDays(-10);
         
         // Create a recently modified file in Documents folder (which is monitored)
         var documentsDir = Path.Combine(_testProfilePath, "Documents");
@@ -126,8 +129,10 @@ public class ProfileActivityAnalyzerTests : IDisposable
         await CreateTestFile(recentFile, 1024);
         
         // Set file modification time to 1 hour ago and verify it was set correctly
-        var recentTime = DateTime.UtcNow.AddHours(-1);
         File.SetLastWriteTimeUtc(recentFile, recentTime);
+        
+        // Also set the directory time to ensure it's considered
+        Directory.SetLastWriteTimeUtc(documentsDir, recentTime);
         
         // Verify the file time was set correctly to avoid timezone issues
         var fileInfo = new FileInfo(recentFile);
@@ -376,5 +381,8 @@ public class ProfileActivityAnalyzerTests : IDisposable
         await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
         await stream.WriteAsync(buffer);
         await stream.FlushAsync();
+        
+        // Ensure the file has normal attributes (not system or hidden)
+        File.SetAttributes(path, FileAttributes.Normal);
     }
 }

@@ -31,6 +31,11 @@ public class UserProfileManagerTests
         
         _profileClassifierMock = new Mock<IProfileClassifier>();
 
+        // Default mock setup to prevent NullReferenceException
+        _profileDetectorMock
+            .Setup(x => x.DiscoverProfilesAsync(It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<UserProfile>());
+
         _manager = new UserProfileManager(
             _loggerMock.Object,
             _stateManagerMock.Object,
@@ -270,17 +275,20 @@ public class UserProfileManagerTests
     public async Task RefreshProfilesAsync_SkipsUnchangedProfiles()
     {
         // Arrange
+        var fixedTime = DateTime.UtcNow.AddDays(-10);
         var existingProfile = CreateProfile("S-1-5-21-1234-5678-9012-1001", "user1", ProfileType.Local);
         existingProfile.IsActive = true;
         existingProfile.RequiresBackup = true;
         existingProfile.BackupPriority = 100;
         existingProfile.ProfileSizeBytes = 1000 * 1024 * 1024;
+        existingProfile.LastLoginTime = fixedTime;
 
         var discoveredProfile = CreateProfile("S-1-5-21-1234-5678-9012-1001", "user1", ProfileType.Local);
         discoveredProfile.IsActive = true;
         discoveredProfile.RequiresBackup = true;
         discoveredProfile.BackupPriority = 100;
         discoveredProfile.ProfileSizeBytes = 1000 * 1024 * 1024;
+        discoveredProfile.LastLoginTime = fixedTime;
 
         var metrics = CreateMetrics();
         metrics.ProfileSizeBytes = 1000 * 1024 * 1024;
