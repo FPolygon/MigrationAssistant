@@ -14,9 +14,9 @@ public class ProfileClassifier
 {
     private readonly ILogger<ProfileClassifier> _logger;
     private readonly IProfileActivityAnalyzer _activityAnalyzer;
-    private readonly ActivityScoreCalculator? _scoreCalculator;
+    private readonly IActivityScoreCalculator? _scoreCalculator;
     private readonly ClassificationRuleEngine? _ruleEngine;
-    private readonly ClassificationOverrideManager? _overrideManager;
+    private readonly IClassificationOverrideManager? _overrideManager;
     private readonly IStateManager? _stateManager;
     
     // Configuration for classification rules
@@ -25,9 +25,9 @@ public class ProfileClassifier
     public ProfileClassifier(
         ILogger<ProfileClassifier> logger,
         IProfileActivityAnalyzer activityAnalyzer,
-        ActivityScoreCalculator? scoreCalculator = null,
+        IActivityScoreCalculator? scoreCalculator = null,
         ClassificationRuleEngine? ruleEngine = null,
-        ClassificationOverrideManager? overrideManager = null,
+        IClassificationOverrideManager? overrideManager = null,
         IStateManager? stateManager = null,
         ProfileClassificationConfig? config = null)
     {

@@ -9,7 +9,7 @@ namespace MigrationTool.Service.ProfileManagement;
 /// Calculates comprehensive activity scores for user profiles using weighted algorithms
 /// </summary>
 [SupportedOSPlatform("windows")]
-public class ActivityScoreCalculator
+public class ActivityScoreCalculator : IActivityScoreCalculator
 {
     private readonly ILogger<ActivityScoreCalculator> _logger;
     private readonly ActivityScoringConfiguration _configuration;

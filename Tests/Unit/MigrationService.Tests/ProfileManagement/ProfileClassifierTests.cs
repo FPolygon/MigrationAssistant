@@ -11,7 +11,7 @@ public class ProfileClassifierTests
 {
     private readonly Mock<ILogger<ProfileClassifier>> _loggerMock;
     private readonly Mock<IProfileActivityAnalyzer> _activityAnalyzerMock;
-    private readonly Mock<ActivityScoreCalculator> _scoreCalculatorMock;
+    private readonly Mock<IActivityScoreCalculator> _scoreCalculatorMock;
     private readonly ProfileClassifier _classifier;
     private readonly ProfileClassificationConfig _config;
 
@@ -19,7 +19,7 @@ public class ProfileClassifierTests
     {
         _loggerMock = new Mock<ILogger<ProfileClassifier>>();
         _activityAnalyzerMock = new Mock<IProfileActivityAnalyzer>();
-        _scoreCalculatorMock = new Mock<ActivityScoreCalculator>();
+        _scoreCalculatorMock = new Mock<IActivityScoreCalculator>();
 
         _config = new ProfileClassificationConfig
         {

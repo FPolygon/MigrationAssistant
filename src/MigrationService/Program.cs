@@ -89,7 +89,7 @@ public class Program
                 services.AddSingleton<WindowsActivityDetector>();
                 services.AddSingleton<ProcessOwnershipDetector>();
                 services.AddSingleton<FileActivityScanner>();
-                services.AddSingleton<ActivityScoreCalculator>();
+                services.AddSingleton<IActivityScoreCalculator, ActivityScoreCalculator>();
                 
                 // Add profile analysis services
                 services.AddSingleton<IProfileActivityAnalyzer, ProfileActivityAnalyzer>();
@@ -98,7 +98,7 @@ public class Program
                 
                 // Add classification services
                 services.AddSingleton<ClassificationRuleEngine>();
-                services.AddSingleton<ClassificationOverrideManager>();
+                services.AddSingleton<IClassificationOverrideManager, ClassificationOverrideManager>();
             });
 
             // Build and run the host

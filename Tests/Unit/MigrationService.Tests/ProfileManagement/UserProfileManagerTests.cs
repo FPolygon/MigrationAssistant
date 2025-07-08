@@ -32,7 +32,9 @@ public class UserProfileManagerTests
         _profileClassifierMock = new Mock<ProfileClassifier>(
             new Mock<ILogger<ProfileClassifier>>().Object,
             _activityAnalyzerMock.Object,
-            new Mock<ClassificationOverrideManager>().Object);
+            new Mock<IActivityScoreCalculator>().Object,
+            null, // ClassificationRuleEngine
+            new Mock<IClassificationOverrideManager>().Object);
 
         _manager = new UserProfileManager(
             _loggerMock.Object,

@@ -59,7 +59,7 @@ public class ProfileActivityAnalyzerTests
         // Arrange
         var profile = CreateTestProfile("S-1-5-21-1234", "testuser", _testProfilePath);
         
-        // Create some test files
+        // Create some test files with specific content to ensure proper size
         await CreateTestFile(Path.Combine(_testProfilePath, "test1.txt"), 1024); // 1KB
         await CreateTestFile(Path.Combine(_testProfilePath, "test2.txt"), 2048); // 2KB
         
@@ -67,13 +67,28 @@ public class ProfileActivityAnalyzerTests
         Directory.CreateDirectory(subDir);
         await CreateTestFile(Path.Combine(subDir, "doc1.txt"), 4096); // 4KB
 
+        // Ensure files are properly written by waiting a bit
+        await Task.Delay(100);
+        
+        // Verify files exist and have expected sizes
+        var file1 = new FileInfo(Path.Combine(_testProfilePath, "test1.txt"));
+        var file2 = new FileInfo(Path.Combine(_testProfilePath, "test2.txt"));
+        var file3 = new FileInfo(Path.Combine(subDir, "doc1.txt"));
+        
+        file1.Exists.Should().BeTrue();
+        file2.Exists.Should().BeTrue();
+        file3.Exists.Should().BeTrue();
+        
+        var expectedSize = file1.Length + file2.Length + file3.Length;
+        expectedSize.Should().BeGreaterThanOrEqualTo(7168);
+
         // Act
         var result = await _analyzer.AnalyzeProfileAsync(profile);
 
         // Assert
         result.Should().NotBeNull();
         result.IsAccessible.Should().BeTrue();
-        result.ProfileSizeBytes.Should().BeGreaterThanOrEqualTo(7168); // At least 7KB
+        result.ProfileSizeBytes.Should().BeGreaterThanOrEqualTo(expectedSize);
     }
 
     [Fact]
@@ -82,10 +97,15 @@ public class ProfileActivityAnalyzerTests
         // Arrange
         var profile = CreateTestProfile("S-1-5-21-1234", "testuser", _testProfilePath);
         
-        // Create a recently modified file
-        var recentFile = Path.Combine(_testProfilePath, "recent.txt");
+        // Create a recently modified file in Documents folder (which is monitored)
+        var documentsDir = Path.Combine(_testProfilePath, "Documents");
+        Directory.CreateDirectory(documentsDir);
+        var recentFile = Path.Combine(documentsDir, "recent.txt");
         await CreateTestFile(recentFile, 1024);
-        File.SetLastWriteTimeUtc(recentFile, DateTime.UtcNow.AddHours(-1));
+        
+        // Set file modification time to 1 hour ago
+        var recentTime = DateTime.UtcNow.AddHours(-1);
+        File.SetLastWriteTimeUtc(recentFile, recentTime);
 
         // Act
         var result = await _analyzer.AnalyzeProfileAsync(profile);
@@ -93,7 +113,7 @@ public class ProfileActivityAnalyzerTests
         // Assert
         result.Should().NotBeNull();
         result.HasRecentActivity.Should().BeTrue();
-        result.LastActivityTime.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromHours(2));
+        result.LastActivityTime.Should().BeCloseTo(recentTime, TimeSpan.FromMinutes(5));
     }
 
     [Fact]
@@ -292,7 +312,16 @@ public class ProfileActivityAnalyzerTests
             Directory.CreateDirectory(dir);
         }
 
+        // Create a buffer with some recognizable content to ensure proper size
         var buffer = new byte[sizeInBytes];
-        await File.WriteAllBytesAsync(path, buffer);
+        for (int i = 0; i < sizeInBytes; i++)
+        {
+            buffer[i] = (byte)(i % 256);
+        }
+        
+        // Write the file and ensure it's flushed to disk
+        await using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+        await stream.WriteAsync(buffer);
+        await stream.FlushAsync();
     }
 }

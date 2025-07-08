@@ -9,7 +9,7 @@ namespace MigrationTool.Service.ProfileManagement;
 /// Manages manual classification overrides for user profiles
 /// </summary>
 [SupportedOSPlatform("windows")]
-public class ClassificationOverrideManager
+public class ClassificationOverrideManager : IClassificationOverrideManager
 {
     private readonly ILogger<ClassificationOverrideManager> _logger;
     private readonly IStateManager _stateManager;
