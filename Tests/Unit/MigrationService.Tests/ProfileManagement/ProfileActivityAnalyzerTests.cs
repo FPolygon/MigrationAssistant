@@ -240,7 +240,7 @@ public class ProfileActivityAnalyzerTests : IDisposable
         var metrics = new ProfileMetrics
         {
             IsAccessible = true,
-            ProfileSizeBytes = 50 * 1024 * 1024, // 50MB (below 100MB threshold)
+            ProfileSizeBytes = 5 * 1024, // 5KB (below 10KB threshold set in constructor)
             HasRecentActivity = true,
             IsLoaded = true,
             ActiveProcessCount = 1

@@ -276,12 +276,17 @@ public class UserProfileManagerTests
     {
         // Arrange
         var fixedTime = DateTime.UtcNow.AddDays(-10);
+        var fixedCreatedTime = DateTime.UtcNow.AddDays(-30);
+        var fixedUpdatedTime = DateTime.UtcNow.AddDays(-5);
+        
         var existingProfile = CreateProfile("S-1-5-21-1234-5678-9012-1001", "user1", ProfileType.Local);
         existingProfile.IsActive = true;
         existingProfile.RequiresBackup = true;
         existingProfile.BackupPriority = 100;
         existingProfile.ProfileSizeBytes = 1000 * 1024 * 1024;
         existingProfile.LastLoginTime = fixedTime;
+        existingProfile.CreatedAt = fixedCreatedTime;
+        existingProfile.UpdatedAt = fixedUpdatedTime;
 
         var discoveredProfile = CreateProfile("S-1-5-21-1234-5678-9012-1001", "user1", ProfileType.Local);
         discoveredProfile.IsActive = true;
@@ -289,6 +294,8 @@ public class UserProfileManagerTests
         discoveredProfile.BackupPriority = 100;
         discoveredProfile.ProfileSizeBytes = 1000 * 1024 * 1024;
         discoveredProfile.LastLoginTime = fixedTime;
+        discoveredProfile.CreatedAt = fixedCreatedTime;
+        discoveredProfile.UpdatedAt = fixedUpdatedTime;
 
         var metrics = CreateMetrics();
         metrics.ProfileSizeBytes = 1000 * 1024 * 1024;

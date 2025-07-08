@@ -211,7 +211,14 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             }
 
             // Add file sizes
-            foreach (var file in directory.EnumerateFiles("*", options))
+            // Create separate options for file enumeration (without recursion)
+            var fileOptions = new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                AttributesToSkip = options.AttributesToSkip
+            };
+            
+            foreach (var file in directory.EnumerateFiles("*", fileOptions))
             {
                 if (cancellationToken.IsCancellationRequested)
                     break;
