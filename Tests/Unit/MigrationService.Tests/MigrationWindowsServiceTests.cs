@@ -15,7 +15,7 @@ public class MigrationWindowsServiceTests : IDisposable
     private readonly Mock<IServiceManager> _serviceManagerMock;
     private readonly Mock<IStateManager> _stateManagerMock;
     private readonly Mock<IIpcServer> _ipcServerMock;
-    private readonly Mock<MigrationStateOrchestrator> _orchestratorMock;
+    private readonly Mock<IMigrationStateOrchestrator> _orchestratorMock;
     private readonly Mock<IOptions<ServiceConfiguration>> _configMock;
     private readonly Mock<IHostApplicationLifetime> _lifetimeMock;
     private readonly MigrationWindowsService _service;
@@ -27,7 +27,7 @@ public class MigrationWindowsServiceTests : IDisposable
         _loggerMock = new Mock<ILogger<MigrationWindowsService>>();
         _stateManagerMock = new Mock<IStateManager>();
         _ipcServerMock = new Mock<IIpcServer>();
-        _orchestratorMock = new Mock<MigrationStateOrchestrator>();
+        _orchestratorMock = new Mock<IMigrationStateOrchestrator>();
         _configMock = new Mock<IOptions<ServiceConfiguration>>();
         _lifetimeMock = new Mock<IHostApplicationLifetime>();
 

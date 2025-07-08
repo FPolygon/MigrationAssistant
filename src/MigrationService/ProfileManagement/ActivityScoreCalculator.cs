@@ -141,7 +141,7 @@ public class ActivityScoreCalculator
 
         score.Details["DaysSinceLogin"] = daysSinceLogin.ToString("F1");
         score.Details["LastLogin"] = lastLogin.ToString("yyyy-MM-dd HH:mm:ss");
-        score.WeightedScore = score.RawScore * score.Weight / 100;
+        score.WeightedScore = score.RawScore * score.Weight / 100.0;
 
         return score;
     }
@@ -182,7 +182,7 @@ public class ActivityScoreCalculator
             score.Details["DaysSinceActivity"] = daysSinceActivity.ToString("F1");
         }
 
-        score.WeightedScore = score.RawScore * score.Weight / 100;
+        score.WeightedScore = score.RawScore * score.Weight / 100.0;
         return score;
     }
 
@@ -240,7 +240,7 @@ public class ActivityScoreCalculator
             score.Details["ProcessCount"] = metrics.ActiveProcessCount.ToString();
         }
 
-        score.WeightedScore = score.RawScore * score.Weight / 100;
+        score.WeightedScore = score.RawScore * score.Weight / 100.0;
         return score;
     }
 
@@ -273,7 +273,7 @@ public class ActivityScoreCalculator
 
         score.Details["SizeMB"] = sizeMB.ToString();
         score.Details["SizeCategory"] = GetSizeCategory(sizeMB);
-        score.WeightedScore = score.RawScore * score.Weight / 100;
+        score.WeightedScore = score.RawScore * score.Weight / 100.0;
 
         return score;
     }
@@ -318,7 +318,7 @@ public class ActivityScoreCalculator
             score.Details["RecentUnlock"] = "true";
         }
 
-        score.WeightedScore = score.RawScore * score.Weight / 100;
+        score.WeightedScore = score.RawScore * score.Weight / 100.0;
         return score;
     }
 

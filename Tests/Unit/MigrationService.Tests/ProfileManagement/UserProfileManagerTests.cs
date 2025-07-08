@@ -13,7 +13,7 @@ public class UserProfileManagerTests
     private readonly Mock<ILogger<UserProfileManager>> _loggerMock;
     private readonly Mock<IStateManager> _stateManagerMock;
     private readonly Mock<WindowsProfileDetector> _profileDetectorMock;
-    private readonly Mock<ProfileActivityAnalyzer> _activityAnalyzerMock;
+    private readonly Mock<IProfileActivityAnalyzer> _activityAnalyzerMock;
     private readonly Mock<ProfileClassifier> _profileClassifierMock;
     private readonly UserProfileManager _manager;
 
@@ -24,13 +24,9 @@ public class UserProfileManagerTests
         
         _profileDetectorMock = new Mock<WindowsProfileDetector>(
             new Mock<ILogger<WindowsProfileDetector>>().Object,
-            new Mock<MigrationTool.Service.ProfileManagement.Native.WindowsProfileRegistry>(
-                new Mock<ILogger<MigrationTool.Service.ProfileManagement.Native.WindowsProfileRegistry>>().Object).Object);
+            new Mock<IWindowsProfileRegistry>().Object);
         
-        _activityAnalyzerMock = new Mock<ProfileActivityAnalyzer>(
-            new Mock<ILogger<ProfileActivityAnalyzer>>().Object,
-            null,
-            null);
+        _activityAnalyzerMock = new Mock<IProfileActivityAnalyzer>();
         
         _profileClassifierMock = new Mock<ProfileClassifier>(
             new Mock<ILogger<ProfileClassifier>>().Object,

@@ -79,10 +79,10 @@ public class Program
                 services.AddSingleton<IServiceManager, ServiceManager>();
                 services.AddSingleton<IStateManager, StateManager>();
                 services.AddSingleton<IIpcServer, IpcServer>();
-                services.AddSingleton<MigrationStateOrchestrator>();
+                services.AddSingleton<IMigrationStateOrchestrator, MigrationStateOrchestrator>();
                 
                 // Add profile management services
-                services.AddSingleton<WindowsProfileRegistry>();
+                services.AddSingleton<IWindowsProfileRegistry, WindowsProfileRegistry>();
                 services.AddSingleton<WindowsProfileDetector>();
                 
                 // Add activity detection services
@@ -92,7 +92,7 @@ public class Program
                 services.AddSingleton<ActivityScoreCalculator>();
                 
                 // Add profile analysis services
-                services.AddSingleton<ProfileActivityAnalyzer>();
+                services.AddSingleton<IProfileActivityAnalyzer, ProfileActivityAnalyzer>();
                 services.AddSingleton<ProfileClassifier>();
                 services.AddSingleton<IUserProfileManager, UserProfileManager>();
                 

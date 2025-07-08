@@ -4,7 +4,7 @@ using MigrationTool.Service.ProfileManagement;
 
 namespace MigrationTool.Service.Core;
 
-public class MigrationStateOrchestrator
+public class MigrationStateOrchestrator : IMigrationStateOrchestrator
 {
     private readonly ILogger<MigrationStateOrchestrator> _logger;
     private readonly IStateManager _stateManager;

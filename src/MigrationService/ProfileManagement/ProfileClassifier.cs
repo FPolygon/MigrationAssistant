@@ -13,7 +13,7 @@ namespace MigrationTool.Service.ProfileManagement;
 public class ProfileClassifier
 {
     private readonly ILogger<ProfileClassifier> _logger;
-    private readonly ProfileActivityAnalyzer _activityAnalyzer;
+    private readonly IProfileActivityAnalyzer _activityAnalyzer;
     private readonly ActivityScoreCalculator? _scoreCalculator;
     private readonly ClassificationRuleEngine? _ruleEngine;
     private readonly ClassificationOverrideManager? _overrideManager;
@@ -24,7 +24,7 @@ public class ProfileClassifier
 
     public ProfileClassifier(
         ILogger<ProfileClassifier> logger,
-        ProfileActivityAnalyzer activityAnalyzer,
+        IProfileActivityAnalyzer activityAnalyzer,
         ActivityScoreCalculator? scoreCalculator = null,
         ClassificationRuleEngine? ruleEngine = null,
         ClassificationOverrideManager? overrideManager = null,

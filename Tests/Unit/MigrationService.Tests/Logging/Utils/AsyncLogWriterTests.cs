@@ -295,9 +295,11 @@ public class AsyncLogWriterTests : IDisposable
         using var pressureWriter = new AsyncLogWriter(_mockProvider.Object, options);
 
         var pressureEventRaised = false;
+        var eventCount = 0;
         pressureWriter.QueuePressure += (sender, args) =>
         {
             pressureEventRaised = true;
+            eventCount++;
             args.CurrentSize.Should().BeGreaterOrEqualTo(8);
         };
 
@@ -307,6 +309,9 @@ public class AsyncLogWriterTests : IDisposable
             var entry = new LogEntry { Message = $"Message {i}" };
             pressureWriter.QueueLogEntry(entry);
         }
+
+        // Give some time for async processing
+        Thread.Sleep(100);
 
         // Assert
         pressureEventRaised.Should().BeTrue();

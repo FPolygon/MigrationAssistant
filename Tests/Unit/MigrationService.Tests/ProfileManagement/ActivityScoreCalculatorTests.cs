@@ -285,9 +285,19 @@ public class ActivityScoreCalculatorTests
 
     private void AdjustMetricsForTargetScore(ProfileMetrics metrics, int targetScore)
     {
+        // Reset all metrics to low values first
+        metrics.LastLoginTime = DateTime.UtcNow.AddDays(-120);
+        metrics.LastActivityTime = DateTime.UtcNow.AddDays(-120);
+        metrics.ActiveProcessCount = 0;
+        metrics.HasActiveSession = false;
+        metrics.ProfileSizeBytes = 10 * 1024 * 1024; // 10MB
+        metrics.HasRecentActivity = false;
+        
+        // Adjust based on target score
         if (targetScore >= 80)
         {
             metrics.LastLoginTime = DateTime.UtcNow.AddHours(-6);
+            metrics.LastActivityTime = DateTime.UtcNow.AddHours(-12);
             metrics.ActiveProcessCount = 15;
             metrics.HasActiveSession = true;
             metrics.ProfileSizeBytes = 5L * 1024 * 1024 * 1024;
@@ -295,6 +305,7 @@ public class ActivityScoreCalculatorTests
         else if (targetScore >= 60)
         {
             metrics.LastLoginTime = DateTime.UtcNow.AddDays(-5);
+            metrics.LastActivityTime = DateTime.UtcNow.AddDays(-5);
             metrics.ActiveProcessCount = 8;
             metrics.HasActiveSession = false;
             metrics.ProfileSizeBytes = 2L * 1024 * 1024 * 1024;
@@ -302,23 +313,50 @@ public class ActivityScoreCalculatorTests
         else if (targetScore >= 40)
         {
             metrics.LastLoginTime = DateTime.UtcNow.AddDays(-20);
+            metrics.LastActivityTime = DateTime.UtcNow.AddDays(-20);
             metrics.ActiveProcessCount = 3;
             metrics.HasActiveSession = false;
             metrics.ProfileSizeBytes = 500L * 1024 * 1024;
         }
         else if (targetScore >= 20)
         {
-            metrics.LastLoginTime = DateTime.UtcNow.AddDays(-60);
-            metrics.ActiveProcessCount = 1;
-            metrics.HasActiveSession = false;
-            metrics.ProfileSizeBytes = 200L * 1024 * 1024;
+            // For score 30: Need careful calibration
+            // Default weights: Login 40%, FileActivity 25%, Processes 20%, Size 10%, Session 5%
+            // Login: 50 days = 30 score * 40% = 12
+            // FileActivity: 8 days = 40 score * 25% = 10  
+            // Processes: 0 = 0 score * 20% = 0
+            // Size: 55MB = 20 score * 10% = 2
+            // Session: none = 0 * 5% = 0
+            // Total = 12 + 10 + 0 + 2 + 0 = 24 (close to Low threshold of 20)
+            if (targetScore == 30)
+            {
+                metrics.LastLoginTime = DateTime.UtcNow.AddDays(-50); // 30 score
+                metrics.LastActivityTime = DateTime.UtcNow.AddDays(-8); // 40 score
+                metrics.ActiveProcessCount = 0; // 0 score
+                metrics.ProfileSizeBytes = 55L * 1024 * 1024; // 20 score
+            }
+            else
+            {
+                metrics.LastLoginTime = DateTime.UtcNow.AddDays(-60);
+                metrics.LastActivityTime = DateTime.UtcNow.AddDays(-60);
+                metrics.ActiveProcessCount = 0;
+                metrics.ProfileSizeBytes = 100L * 1024 * 1024;
+            }
         }
         else
         {
-            metrics.LastLoginTime = DateTime.UtcNow.AddDays(-180);
-            metrics.ActiveProcessCount = 0;
-            metrics.HasActiveSession = false;
-            metrics.ProfileSizeBytes = 50L * 1024 * 1024;
+            // For score 10: Need very low metrics
+            // Login: 180 days = 10 score * 40% = 4
+            // FileActivity: 180 days = 10 score * 25% = 2.5
+            // Processes: 0 = 0 score * 20% = 0
+            // Size: 20MB = 10 score * 10% = 1
+            // Session: none = 0 * 5% = 0
+            // Total = 4 + 2.5 + 0 + 1 + 0 = 7.5 (rounds to 8, under Inactive threshold of 20)
+            metrics.LastLoginTime = DateTime.UtcNow.AddDays(-180); // 10 score
+            metrics.LastActivityTime = DateTime.UtcNow.AddDays(-180); // 10 score
+            metrics.ActiveProcessCount = 0; // 0 score
+            metrics.HasActiveSession = false; // 0 score
+            metrics.ProfileSizeBytes = 20L * 1024 * 1024; // 10 score (< 50MB)
         }
     }
 }

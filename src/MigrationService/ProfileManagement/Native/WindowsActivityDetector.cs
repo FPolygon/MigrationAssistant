@@ -67,7 +67,15 @@ public class WindowsActivityDetector
             Task.Run(() => DetectActiveSessionAsync(userSid, activityData, cancellationToken), cancellationToken)
         };
 
-        await Task.WhenAll(tasks);
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("Activity detection cancelled for user {Sid}, returning partial results", userSid);
+            // Return partial results even if cancelled
+        }
 
         // Update cache
         lock (_cacheLock)

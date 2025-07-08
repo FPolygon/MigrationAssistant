@@ -10,7 +10,7 @@ namespace MigrationTool.Service.ProfileManagement.Native;
 /// Provides low-level access to Windows profile information via the Registry
 /// </summary>
 [SupportedOSPlatform("windows")]
-public class WindowsProfileRegistry
+public class WindowsProfileRegistry : IWindowsProfileRegistry
 {
     private readonly ILogger<WindowsProfileRegistry> _logger;
     private const string ProfileListKey = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList";

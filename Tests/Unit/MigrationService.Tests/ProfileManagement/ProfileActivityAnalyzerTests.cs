@@ -17,7 +17,9 @@ public class ProfileActivityAnalyzerTests
     {
         _loggerMock = new Mock<ILogger<ProfileActivityAnalyzer>>();
         _analyzer = new ProfileActivityAnalyzer(
-            _loggerMock.Object, 
+            _loggerMock.Object,
+            activityDetector: null,
+            processDetector: null,
             recentActivityThreshold: TimeSpan.FromDays(30),
             minimumActiveSizeBytes: 100 * 1024 * 1024); // 100MB
         

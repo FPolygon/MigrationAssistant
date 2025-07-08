@@ -10,7 +10,7 @@ public class MigrationWindowsService : BackgroundService
     private readonly IServiceManager _serviceManager;
     private readonly IStateManager _stateManager;
     private readonly IIpcServer _ipcServer;
-    private readonly MigrationStateOrchestrator _orchestrator;
+    private readonly IMigrationStateOrchestrator _orchestrator;
     private readonly ServiceConfiguration _configuration;
     private readonly IHostApplicationLifetime _lifetime;
 
@@ -19,7 +19,7 @@ public class MigrationWindowsService : BackgroundService
         IServiceManager serviceManager,
         IStateManager stateManager,
         IIpcServer ipcServer,
-        MigrationStateOrchestrator orchestrator,
+        IMigrationStateOrchestrator orchestrator,
         IOptions<ServiceConfiguration> configuration,
         IHostApplicationLifetime lifetime)
     {

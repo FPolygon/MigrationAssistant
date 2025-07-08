@@ -14,7 +14,7 @@ public class UserProfileManager : IUserProfileManager
     private readonly ILogger<UserProfileManager> _logger;
     private readonly IStateManager _stateManager;
     private readonly WindowsProfileDetector _profileDetector;
-    private readonly ProfileActivityAnalyzer _activityAnalyzer;
+    private readonly IProfileActivityAnalyzer _activityAnalyzer;
     private readonly ProfileClassifier _profileClassifier;
     private readonly object _refreshLock = new();
     private DateTime _lastRefresh = DateTime.MinValue;
@@ -24,7 +24,7 @@ public class UserProfileManager : IUserProfileManager
         ILogger<UserProfileManager> logger,
         IStateManager stateManager,
         WindowsProfileDetector profileDetector,
-        ProfileActivityAnalyzer activityAnalyzer,
+        IProfileActivityAnalyzer activityAnalyzer,
         ProfileClassifier profileClassifier)
     {
         _logger = logger;

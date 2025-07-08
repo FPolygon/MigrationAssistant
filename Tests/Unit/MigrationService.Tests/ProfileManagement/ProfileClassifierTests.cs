@@ -10,7 +10,7 @@ namespace MigrationService.Tests.ProfileManagement;
 public class ProfileClassifierTests
 {
     private readonly Mock<ILogger<ProfileClassifier>> _loggerMock;
-    private readonly Mock<ProfileActivityAnalyzer> _activityAnalyzerMock;
+    private readonly Mock<IProfileActivityAnalyzer> _activityAnalyzerMock;
     private readonly Mock<ActivityScoreCalculator> _scoreCalculatorMock;
     private readonly ProfileClassifier _classifier;
     private readonly ProfileClassificationConfig _config;
@@ -18,10 +18,7 @@ public class ProfileClassifierTests
     public ProfileClassifierTests()
     {
         _loggerMock = new Mock<ILogger<ProfileClassifier>>();
-        _activityAnalyzerMock = new Mock<ProfileActivityAnalyzer>(
-            new Mock<ILogger<ProfileActivityAnalyzer>>().Object,
-            null,
-            null);
+        _activityAnalyzerMock = new Mock<IProfileActivityAnalyzer>();
         _scoreCalculatorMock = new Mock<ActivityScoreCalculator>();
 
         _config = new ProfileClassificationConfig

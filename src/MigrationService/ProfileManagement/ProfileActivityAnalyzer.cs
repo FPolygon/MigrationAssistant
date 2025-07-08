@@ -10,7 +10,7 @@ namespace MigrationTool.Service.ProfileManagement;
 /// Analyzes user profile activity and calculates metrics
 /// </summary>
 [SupportedOSPlatform("windows")]
-public class ProfileActivityAnalyzer
+public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
 {
     private readonly ILogger<ProfileActivityAnalyzer> _logger;
     private readonly TimeSpan _recentActivityThreshold;

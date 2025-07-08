@@ -12,11 +12,11 @@ namespace MigrationTool.Service.ProfileManagement;
 public class WindowsProfileDetector
 {
     private readonly ILogger<WindowsProfileDetector> _logger;
-    private readonly WindowsProfileRegistry _profileRegistry;
+    private readonly IWindowsProfileRegistry _profileRegistry;
 
     public WindowsProfileDetector(
         ILogger<WindowsProfileDetector> logger,
-        WindowsProfileRegistry profileRegistry)
+        IWindowsProfileRegistry profileRegistry)
     {
         _logger = logger;
         _profileRegistry = profileRegistry;

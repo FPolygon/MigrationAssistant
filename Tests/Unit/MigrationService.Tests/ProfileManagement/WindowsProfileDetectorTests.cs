@@ -11,13 +11,13 @@ namespace MigrationService.Tests.ProfileManagement;
 public class WindowsProfileDetectorTests
 {
     private readonly Mock<ILogger<WindowsProfileDetector>> _loggerMock;
-    private readonly Mock<WindowsProfileRegistry> _profileRegistryMock;
+    private readonly Mock<IWindowsProfileRegistry> _profileRegistryMock;
     private readonly WindowsProfileDetector _detector;
 
     public WindowsProfileDetectorTests()
     {
         _loggerMock = new Mock<ILogger<WindowsProfileDetector>>();
-        _profileRegistryMock = new Mock<WindowsProfileRegistry>(new Mock<ILogger<WindowsProfileRegistry>>().Object);
+        _profileRegistryMock = new Mock<IWindowsProfileRegistry>();
         _detector = new WindowsProfileDetector(_loggerMock.Object, _profileRegistryMock.Object);
     }
 
