@@ -23,7 +23,11 @@ public class ProfileActivityAnalyzerTests : IDisposable
             recentActivityThreshold: TimeSpan.FromDays(30),
             minimumActiveSizeBytes: 10 * 1024); // Lower to 10KB for testing
         
-        // Create a temporary test directory (avoid using system temp path that might be excluded)
+        // Create a temporary test directory in the system temp path
+        // NOTE: We intentionally use the temp path to test that the ProfileActivityAnalyzer
+        // correctly handles profiles located in paths that contain excluded folder names.
+        // The analyzer should only exclude subdirectories matching excluded patterns,
+        // not profile roots that happen to be in such paths.
         var tempBase = Path.GetTempPath();
         var testDirName = "MigrationTestProfile_" + Guid.NewGuid().ToString("N")[..8];
         _testProfilePath = Path.Combine(tempBase, testDirName);
@@ -66,6 +70,12 @@ public class ProfileActivityAnalyzerTests : IDisposable
     [Fact]
     public async Task AnalyzeProfileAsync_CalculatesProfileSize_WhenAccessible()
     {
+        // IMPORTANT: This test intentionally creates a profile in the system temp directory
+        // to verify that profiles located in paths containing excluded folder names
+        // (like "Temp") are not incorrectly excluded from size calculations.
+        // The ProfileActivityAnalyzer should only exclude actual subdirectories that match
+        // excluded patterns, not profile roots that happen to be in paths containing those patterns.
+        
         // Arrange
         var profile = CreateTestProfile("S-1-5-21-1234", "testuser", _testProfilePath);
         
@@ -378,6 +388,78 @@ public class ProfileActivityAnalyzerTests : IDisposable
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
+    }
+
+    [Fact]
+    public async Task AnalyzeProfileAsync_ProfileInTempPath_ShouldCalculateSizeCorrectly()
+    {
+        // This test specifically validates the fix for the bug where profiles in paths
+        // containing excluded folder names (like Temp) were incorrectly excluded entirely
+        
+        // Arrange - Profile is in temp path but should still calculate size
+        var profile = CreateTestProfile("S-1-5-21-1234", "testuser", _testProfilePath);
+        
+        // Create test files
+        await CreateTestFile(Path.Combine(_testProfilePath, "file1.txt"), 1024); // 1KB
+        await CreateTestFile(Path.Combine(_testProfilePath, "file2.txt"), 2048); // 2KB
+        
+        // Create a file in an actually excluded subdirectory
+        var tempSubDir = Path.Combine(_testProfilePath, @"AppData\Local\Temp");
+        Directory.CreateDirectory(tempSubDir);
+        await CreateTestFile(Path.Combine(tempSubDir, "temp.txt"), 4096); // 4KB - should be excluded
+        
+        // Act
+        var result = await _analyzer.AnalyzeProfileAsync(profile);
+        
+        // Assert
+        result.Should().NotBeNull();
+        result.IsAccessible.Should().BeTrue();
+        // Should include file1 and file2 (3KB) but NOT temp.txt
+        result.ProfileSizeBytes.Should().BeGreaterThanOrEqualTo(3072);
+        result.ProfileSizeBytes.Should().BeLessThan(7168); // Should not include the 4KB temp file
+    }
+
+    [Fact]
+    public async Task AnalyzeProfileAsync_ExcludedSubdirectories_ShouldBeExcludedCorrectly()
+    {
+        // Test that actual subdirectories matching excluded patterns are properly excluded
+        
+        // Arrange
+        var profile = CreateTestProfile("S-1-5-21-1234", "testuser", _testProfilePath);
+        
+        // Create files in profile root
+        await CreateTestFile(Path.Combine(_testProfilePath, "root1.txt"), 1024); // 1KB
+        
+        // Create files in various excluded subdirectories
+        var excludedPaths = new[]
+        {
+            @"AppData\Local\Temp",
+            @"AppData\Local\Microsoft\Windows\INetCache",
+            @"AppData\Local\Microsoft\Windows\WebCache",
+            @"AppData\Local\Packages"
+        };
+        
+        foreach (var excludedPath in excludedPaths)
+        {
+            var dir = Path.Combine(_testProfilePath, excludedPath);
+            Directory.CreateDirectory(dir);
+            await CreateTestFile(Path.Combine(dir, "excluded.dat"), 10240); // 10KB each
+        }
+        
+        // Create a file in a non-excluded subdirectory
+        var includedDir = Path.Combine(_testProfilePath, @"AppData\Roaming\Microsoft");
+        Directory.CreateDirectory(includedDir);
+        await CreateTestFile(Path.Combine(includedDir, "included.txt"), 2048); // 2KB
+        
+        // Act
+        var result = await _analyzer.AnalyzeProfileAsync(profile);
+        
+        // Assert
+        result.Should().NotBeNull();
+        result.IsAccessible.Should().BeTrue();
+        // Should only include root1.txt (1KB) and included.txt (2KB) = 3KB total
+        result.ProfileSizeBytes.Should().BeGreaterThanOrEqualTo(3072);
+        result.ProfileSizeBytes.Should().BeLessThan(5120); // Should not include any of the 10KB excluded files
     }
 
     private static async Task CreateTestFile(string path, int sizeInBytes)

@@ -171,7 +171,8 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             var profileDir = new DirectoryInfo(profilePath);
             
             // Calculate size recursively, excluding certain folders
-            totalSize = CalculateDirectorySize(profileDir, ExcludedFolders, options, cancellationToken);
+            // Pass the profile root path to properly handle exclusions
+            totalSize = CalculateDirectorySize(profileDir, profilePath, ExcludedFolders, options, cancellationToken);
 
             metrics.ProfileSizeBytes = totalSize;
             _logger.LogDebug("Profile size calculated: {SizeMB}MB for {Path}", totalSize / (1024 * 1024), profilePath);
@@ -186,7 +187,7 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
     /// <summary>
     /// Recursively calculates directory size with exclusions
     /// </summary>
-    private long CalculateDirectorySize(DirectoryInfo directory, string[] excludedFolders, EnumerationOptions options, CancellationToken cancellationToken)
+    private long CalculateDirectorySize(DirectoryInfo directory, string profileRootPath, string[] excludedFolders, EnumerationOptions options, CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
             return 0;
@@ -196,18 +197,11 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
         try
         {
             // Check if this directory should be excluded
-            foreach (var excluded in excludedFolders)
+            // Only exclude if this is a subdirectory of an excluded path relative to the profile root
+            if (ShouldExcludeDirectory(directory.FullName, profileRootPath, excludedFolders))
             {
-                // Normalize paths for comparison
-                var excludedPath = excluded.Replace('/', '\\');
-                var dirPath = directory.FullName;
-                
-                // Check if the directory path contains the excluded path
-                if (dirPath.Contains(excludedPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogTrace("Excluding directory from size calculation: {Directory}", dirPath);
-                    return 0;
-                }
+                _logger.LogTrace("Excluding directory from size calculation: {Directory}", directory.FullName);
+                return 0;
             }
 
             // Add file sizes
@@ -239,7 +233,7 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
                 if (cancellationToken.IsCancellationRequested)
                     break;
 
-                size += CalculateDirectorySize(subDir, excludedFolders, options, cancellationToken);
+                size += CalculateDirectorySize(subDir, profileRootPath, excludedFolders, options, cancellationToken);
             }
         }
         catch (Exception ex)
@@ -549,5 +543,56 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
         }
 
         return Task.FromResult(Math.Min(score, 100));
+    }
+
+    /// <summary>
+    /// Determines if a directory should be excluded from size calculation
+    /// </summary>
+    /// <param name="directoryPath">The full path of the directory to check</param>
+    /// <param name="profileRootPath">The root path of the profile</param>
+    /// <param name="excludedFolders">Array of folder paths to exclude</param>
+    /// <returns>True if the directory should be excluded, false otherwise</returns>
+    private bool ShouldExcludeDirectory(string directoryPath, string profileRootPath, string[] excludedFolders)
+    {
+        // Never exclude the profile root itself
+        if (string.Equals(directoryPath, profileRootPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        try
+        {
+            // Get the relative path from the profile root
+            var relativePath = Path.GetRelativePath(profileRootPath, directoryPath);
+            
+            // Check if the relative path starts with any excluded folder
+            foreach (var excluded in excludedFolders)
+            {
+                // Normalize the excluded path
+                var normalizedExcluded = excluded.Replace('/', Path.DirectorySeparatorChar);
+                
+                // Check if the relative path starts with the excluded path
+                if (relativePath.StartsWith(normalizedExcluded, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                
+                // Also check with backslash normalization for cross-platform compatibility
+                var normalizedRelative = relativePath.Replace('/', '\\');
+                var normalizedExcludedBackslash = normalizedExcluded.Replace('/', '\\');
+                if (normalizedRelative.StartsWith(normalizedExcludedBackslash, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogTrace(ex, "Error determining if directory should be excluded: {Directory}", directoryPath);
+            // If we can't determine the relative path, don't exclude
+            return false;
+        }
+
+        return false;
     }
 }
