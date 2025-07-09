@@ -185,27 +185,37 @@ public class ProcessOwnershipDetectorTests : IDisposable
     }
 
     [Theory]
-    [InlineData("chrome", true)]
-    [InlineData("firefox", true)]
-    [InlineData("msedge", true)]
-    [InlineData("winword", true)]
-    [InlineData("excel", true)]
-    [InlineData("teams", true)]
-    [InlineData("explorer", true)]
-    [InlineData("svchost", false)]
+    [InlineData("chrome", ProcessType.Browser, true)]
+    [InlineData("firefox", ProcessType.Browser, true)]
+    [InlineData("msedge", ProcessType.Browser, true)]
+    [InlineData("winword", ProcessType.Productivity, true)]
+    [InlineData("excel", ProcessType.Productivity, true)]
+    [InlineData("teams", ProcessType.Communication, true)]
+    [InlineData("explorer", ProcessType.Shell, true)]
+    [InlineData("svchost", ProcessType.Background, false)]
+    [InlineData("vscode", ProcessType.Development, true)]
+    [InlineData("devenv", ProcessType.Development, true)]
     public void ProcessTypeDetection_CategorizesCorrectly(
-ProcessType expectedType)
+        string processName, 
+        ProcessType expectedType, 
+        bool expectedInteractive)
     {
         // This is a conceptual test - in reality we'd need to test the private method
         // or make it internal and use InternalsVisibleTo
 
         // The test verifies our process categorization logic is sound
         // Process: {processName}, Expected: {expectedType}, Interactive: {expectedInteractive}
-        expectedType.Should().Match(t =>
-            t == ProcessType.Shell || t == ProcessType.Browser || t == ProcessType.Productivity ||
-            t == ProcessType.Communication || t == ProcessType.Development || t == ProcessType.Background);
+        processName.Should().NotBeNullOrEmpty();
+        expectedType.Should().BeOneOf(
+            ProcessType.Shell, ProcessType.Browser, ProcessType.Productivity,
+            ProcessType.Communication, ProcessType.Development, ProcessType.Background,
+            ProcessType.Media, ProcessType.Game, ProcessType.Service, ProcessType.Unknown);
 
         // expectedInteractive is a boolean value based on process detection
+        if (expectedType == ProcessType.Background || expectedType == ProcessType.Service)
+        {
+            expectedInteractive.Should().BeFalse();
+        }
     }
 
     public void Dispose()
