@@ -312,6 +312,10 @@ public class ProfileActivityAnalyzerTests : IDisposable
         await CreateTestFile(regularFile, 1024); // 1KB
 
         // Create files in excluded folders
+        // NOTE: This test verifies that ProfileActivityAnalyzer correctly excludes only subdirectories
+        // that match the exclusion patterns relative to the profile root. Even though the test profile
+        // may be located in a temp directory, the analyzer should not exclude files based on the
+        // profile's absolute location - only based on relative paths within the profile.
         var tempDir = Path.Combine(_testProfilePath, @"AppData\Local\Temp");
         Directory.CreateDirectory(tempDir);
         await CreateTestFile(Path.Combine(tempDir, "temp.txt"), 10 * 1024 * 1024); // 10MB - should be excluded
@@ -336,13 +340,37 @@ public class ProfileActivityAnalyzerTests : IDisposable
     
     private long GetDirectorySize(string path, bool excludeTemp)
     {
+        // Match the exact exclusion logic from ProfileActivityAnalyzer
+        var excludedFolders = new[]
+        {
+            @"AppData\Local\Microsoft\Windows\INetCache",
+            @"AppData\Local\Microsoft\Windows\WebCache",
+            @"AppData\Local\Temp",
+            @"AppData\Local\Microsoft\Windows\Temporary Internet Files",
+            @"AppData\Local\Packages",
+            @"AppData\Local\Microsoft\WindowsApps"
+        };
+        
         long size = 0;
         var dir = new DirectoryInfo(path);
         
         foreach (var file in dir.GetFiles("*", SearchOption.AllDirectories))
         {
-            if (excludeTemp && file.FullName.Contains(@"AppData\Local\Temp", StringComparison.OrdinalIgnoreCase))
-                continue;
+            if (excludeTemp)
+            {
+                // Calculate relative path from profile root, matching ProfileActivityAnalyzer logic
+                var relativePath = Path.GetRelativePath(path, file.FullName);
+                
+                // Check if the relative path starts with any excluded folder
+                var shouldExclude = excludedFolders.Any(excludedFolder => 
+                {
+                    var normalizedExcluded = excludedFolder.Replace('/', Path.DirectorySeparatorChar);
+                    return relativePath.StartsWith(normalizedExcluded, StringComparison.OrdinalIgnoreCase);
+                });
+                
+                if (shouldExclude)
+                    continue;
+            }
                 
             size += file.Length;
         }
