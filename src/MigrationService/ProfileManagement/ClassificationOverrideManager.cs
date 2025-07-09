@@ -99,7 +99,7 @@ public class ClassificationOverrideManager : IClassificationOverrideManager
             }
 
             // Log the override for audit
-            await LogOverrideHistoryAsync(userId, existingOverride?.OverrideClassification, 
+            await LogOverrideHistoryAsync(userId, existingOverride?.OverrideClassification,
                 classification, overrideBy, reason, cancellationToken);
 
             result.Success = true;
@@ -148,7 +148,7 @@ public class ClassificationOverrideManager : IClassificationOverrideManager
             }
 
             // Log removal
-            await LogOverrideHistoryAsync(userId, override_.OverrideClassification, 
+            await LogOverrideHistoryAsync(userId, override_.OverrideClassification,
                 null, removedBy, $"Override removed: {reason}", cancellationToken);
 
             return true;
@@ -175,8 +175,10 @@ public class ClassificationOverrideManager : IClassificationOverrideManager
             {
                 // Check if override is still valid
                 if (IsOverrideValid(cachedOverride))
+                {
                     return cachedOverride;
-                
+                }
+
                 // Remove expired override from cache
                 _overrideCache.Remove(userId);
             }
@@ -186,7 +188,7 @@ public class ClassificationOverrideManager : IClassificationOverrideManager
         try
         {
             var override_ = await _stateManager.GetClassificationOverrideAsync(userId, cancellationToken);
-            
+
             if (override_ != null && IsOverrideValid(override_))
             {
                 // Update cache
@@ -272,7 +274,7 @@ public class ClassificationOverrideManager : IClassificationOverrideManager
         try
         {
             var override_ = await GetOverrideAsync(userId, cancellationToken);
-            
+
             if (override_ != null)
             {
                 result.HasOverride = true;
@@ -307,7 +309,7 @@ public class ClassificationOverrideManager : IClassificationOverrideManager
         try
         {
             var history = await _stateManager.GetClassificationOverrideHistoryAsync(userId, limit, cancellationToken);
-        return history.ToList();
+            return history.ToList();
         }
         catch (Exception ex)
         {
@@ -326,15 +328,15 @@ public class ClassificationOverrideManager : IClassificationOverrideManager
     {
         // In a real implementation, this would check against AD groups, roles, etc.
         // For now, simple validation
-        
+
         // Check if user is in authorized groups
         var authorizedGroups = new[] { "Domain Admins", "Migration Admins", "IT Support" };
-        
+
         // TODO: Implement actual authorization check
         // This is a placeholder that always returns true
-        _logger.LogDebug("Validating authorization for {User} to set classification {Classification}", 
+        _logger.LogDebug("Validating authorization for {User} to set classification {Classification}",
             overrideBy, targetClassification);
-        
+
         return await Task.FromResult(true);
     }
 
@@ -344,10 +346,14 @@ public class ClassificationOverrideManager : IClassificationOverrideManager
     private bool IsOverrideValid(ClassificationOverride override_)
     {
         if (!override_.IsActive)
+        {
             return false;
+        }
 
         if (override_.ExpiryDate.HasValue && override_.ExpiryDate.Value <= DateTime.UtcNow)
+        {
             return false;
+        }
 
         return true;
     }

@@ -56,10 +56,10 @@ public class WindowsActivityDetectorTests
 
         // Act
         var result1 = await _detector.GetUserActivityAsync(userSid);
-        
+
         // Clear cache to simulate expiry
         _detector.ClearCache();
-        
+
         var result2 = await _detector.GetUserActivityAsync(userSid);
 
         // Assert
@@ -152,10 +152,10 @@ public class WindowsActivityDetectorTests
     }
 
     [Theory]
-    [InlineData("S-1-5-18", "SYSTEM")]
-    [InlineData("S-1-5-19", "LOCAL SERVICE")]
-    [InlineData("S-1-5-20", "NETWORK SERVICE")]
-    public async Task GetUserActivityAsync_HandlesWellKnownSids(string sid, string description)
+    [InlineData("S-1-5-18")]
+    [InlineData("S-1-5-19")]
+    [InlineData("S-1-5-20")]
+    public async Task GetUserActivityAsync_HandlesWellKnownSids(string sid)
     {
         // Act
         var result = await _detector.GetUserActivityAsync(sid);

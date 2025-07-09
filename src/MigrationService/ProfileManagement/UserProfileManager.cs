@@ -53,10 +53,10 @@ public class UserProfileManager : IUserProfileManager
             // Filter out system accounts if requested
             if (!includeSystemAccounts)
             {
-                profiles = profiles.Where(p => 
-                    p.ProfileType != ProfileType.Local || 
-                    !p.UserId.StartsWith("S-1-5-18") && 
-                    !p.UserId.StartsWith("S-1-5-19") && 
+                profiles = profiles.Where(p =>
+                    p.ProfileType != ProfileType.Local ||
+                    !p.UserId.StartsWith("S-1-5-18") &&
+                    !p.UserId.StartsWith("S-1-5-19") &&
                     !p.UserId.StartsWith("S-1-5-20"))
                     .ToList();
             }
@@ -87,18 +87,18 @@ public class UserProfileManager : IUserProfileManager
                 _logger.LogDebug("Profile not found in state, checking Windows registry");
                 // Try to discover from Windows
                 profile = await _profileDetector.GetProfileBySidAsync(userSid, cancellationToken);
-                
+
                 if (profile != null)
                 {
                     // Analyze and save the newly discovered profile
                     var metrics = await _activityAnalyzer.AnalyzeProfileAsync(profile, cancellationToken);
                     var classification = await _profileClassifier.ClassifyProfileAsync(profile, metrics, cancellationToken);
-                    
+
                     profile.IsActive = classification.Classification == ProfileClassification.Active;
                     profile.RequiresBackup = classification.RequiresBackup;
                     profile.BackupPriority = classification.BackupPriority;
                     profile.ProfileSizeBytes = metrics.ProfileSizeBytes;
-                    
+
                     await _stateManager.UpdateUserProfileAsync(profile, cancellationToken);
                 }
             }
@@ -146,7 +146,7 @@ public class UserProfileManager : IUserProfileManager
     /// <inheritdoc/>
     public async Task UpdateProfileStatusAsync(string userSid, bool isActive, bool requiresBackup, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Updating profile status for {Sid}: Active={IsActive}, RequiresBackup={RequiresBackup}", 
+        _logger.LogInformation("Updating profile status for {Sid}: Active={IsActive}, RequiresBackup={RequiresBackup}",
             userSid, isActive, requiresBackup);
 
         try
@@ -201,16 +201,18 @@ public class UserProfileManager : IUserProfileManager
             foreach (var profile in windowsProfiles)
             {
                 if (cancellationToken.IsCancellationRequested)
+                {
                     break;
+                }
 
                 try
                 {
                     // Analyze profile metrics
                     var metrics = await _activityAnalyzer.AnalyzeProfileAsync(profile, cancellationToken);
-                    
+
                     // Classify profile
                     var classification = await _profileClassifier.ClassifyProfileAsync(profile, metrics, cancellationToken);
-                    
+
                     // Update profile properties
                     profile.IsActive = classification.Classification == ProfileClassification.Active;
                     profile.RequiresBackup = classification.RequiresBackup;
@@ -253,7 +255,7 @@ public class UserProfileManager : IUserProfileManager
             {
                 if (!windowsProfileSids.Contains(existingProfile.UserId))
                 {
-                    _logger.LogWarning("Profile no longer exists in Windows: {UserName} ({UserId})", 
+                    _logger.LogWarning("Profile no longer exists in Windows: {UserName} ({UserId})",
                         existingProfile.UserName, existingProfile.UserId);
                     // Note: We don't delete profiles, but you might want to mark them as deleted
                 }

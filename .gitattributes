@@ -1,0 +1,56 @@
+# Set default behavior to automatically normalize line endings.
+* text=auto
+
+# Force Windows line endings for C# and other source files
+*.cs text eol=crlf
+*.csproj text eol=crlf
+*.sln text eol=crlf
+*.xaml text eol=crlf
+*.config text eol=crlf
+*.props text eol=crlf
+*.targets text eol=crlf
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Force LF for bash scripts
+*.sh text eol=lf
+
+# Documents
+*.md text eol=crlf
+*.txt text eol=crlf
+*.rtf text eol=crlf
+*.doc diff=astextplain
+*.docx diff=astextplain
+
+# Graphics
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+
+# Scripts
+*.sql text eol=crlf
+
+# Serialization
+*.json text eol=crlf
+*.xml text eol=crlf
+*.yml text eol=crlf
+*.yaml text eol=crlf
+
+# Archives
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+
+# Executables
+*.exe binary
+*.dll binary
+
+# Visual Studio
+*.sln text eol=crlf merge=union

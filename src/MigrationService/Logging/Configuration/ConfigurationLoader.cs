@@ -74,7 +74,10 @@ public class ConfigurationLoader
         foreach (var path in DEFAULT_CONFIG_PATHS)
         {
             config = LoadFromFile(path);
-            if (config != null) break;
+            if (config != null)
+            {
+                break;
+            }
         }
 
         // If no file found, start with default configuration
@@ -96,7 +99,9 @@ public class ConfigurationLoader
         try
         {
             if (!File.Exists(filePath))
+            {
                 return null;
+            }
 
             var json = File.ReadAllText(filePath);
             var config = JsonSerializer.Deserialize<LoggingConfiguration>(json, _jsonOptions);

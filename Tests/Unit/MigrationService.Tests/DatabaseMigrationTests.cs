@@ -62,7 +62,7 @@ public class DatabaseMigrationTests : IDisposable
         tables.Should().Contain("DelayRequests");
         tables.Should().Contain("ProviderResults");
         tables.Should().Contain("SystemEvents");
-        
+
         // Tables from Migration003 (if it exists)
         // These tables might be present if Migration003 is included
         if (tables.Contains("UserClassifications"))
@@ -96,10 +96,10 @@ public class DatabaseMigrationTests : IDisposable
 
         // Verify we have the expected migrations
         migrations.Should().HaveCountGreaterThan(0);
-        
+
         // Check that Migration001 exists and is first
         migrations.Should().Contain(m => m.Version == 1 && m.Description.Contains("Initial database schema"));
-        
+
         // If Migration003 exists, verify it too
         var migration3 = migrations.FirstOrDefault(m => m.Version == 3);
         if (migration3 != default)

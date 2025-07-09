@@ -1,8 +1,8 @@
-using Microsoft.Win32;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Text;
+using Microsoft.Win32;
 
 namespace MigrationTool.Service;
 

@@ -163,11 +163,15 @@ public static class EventIdMapper
     private static int GetCategoryOffset(string category)
     {
         if (string.IsNullOrEmpty(category))
+        {
             return 0;
+        }
 
         // Try exact match first
         if (_categoryOffsets.TryGetValue(category, out var exactOffset))
+        {
             return exactOffset;
+        }
 
         // Try partial matches (find the longest matching prefix)
         var bestMatch = string.Empty;

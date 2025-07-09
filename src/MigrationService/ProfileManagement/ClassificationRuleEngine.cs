@@ -22,7 +22,7 @@ public class ClassificationRuleEngine
         _logger = logger;
         _rules = new List<ClassificationRule>();
         _ruleSets = new Dictionary<string, ClassificationRuleSet>(StringComparer.OrdinalIgnoreCase);
-        
+
         // Load default rule sets
         LoadDefaultRuleSets();
     }
@@ -71,11 +71,13 @@ public class ClassificationRuleEngine
 
             // Evaluate rules in priority order
             var sortedRules = ruleSet.Rules.OrderByDescending(r => r.Priority).ToList();
-            
+
             foreach (var rule in sortedRules)
             {
                 if (cancellationToken.IsCancellationRequested)
+                {
                     break;
+                }
 
                 var ruleResult = await EvaluateRuleAsync(rule, context, cancellationToken);
                 result.RuleResults.Add(ruleResult);
@@ -116,8 +118,8 @@ public class ClassificationRuleEngine
     /// Evaluates a single rule
     /// </summary>
     private async Task<RuleResult> EvaluateRuleAsync(
-        ClassificationRule rule, 
-        RuleEvaluationContext context, 
+        ClassificationRule rule,
+        RuleEvaluationContext context,
         CancellationToken cancellationToken)
     {
         var result = new RuleResult
@@ -137,7 +139,7 @@ public class ClassificationRuleEngine
             {
                 var conditionMatch = await EvaluateConditionAsync(condition, context, cancellationToken);
                 conditionResults.Add(conditionMatch);
-                
+
                 result.ConditionResults.Add(new ConditionResult
                 {
                     ConditionName = condition.Property,
@@ -152,7 +154,9 @@ public class ClassificationRuleEngine
                 {
                     totalWeight += condition.Weight;
                     if (conditionMatch)
+                    {
                         weightedScore += condition.Weight;
+                    }
                 }
             }
 
@@ -189,12 +193,12 @@ public class ClassificationRuleEngine
     /// Evaluates a single condition
     /// </summary>
     private Task<bool> EvaluateConditionAsync(
-        RuleCondition condition, 
+        RuleCondition condition,
         RuleEvaluationContext context,
         CancellationToken cancellationToken)
     {
         var actualValue = GetPropertyValue(condition.Property, context);
-        
+
         return Task.FromResult(condition.Operator switch
         {
             ComparisonOperator.Equals => CompareValues(actualValue, condition.Value) == 0,
@@ -203,11 +207,11 @@ public class ClassificationRuleEngine
             ComparisonOperator.GreaterThanOrEqual => CompareValues(actualValue, condition.Value) >= 0,
             ComparisonOperator.LessThan => CompareValues(actualValue, condition.Value) < 0,
             ComparisonOperator.LessThanOrEqual => CompareValues(actualValue, condition.Value) <= 0,
-            ComparisonOperator.Contains => actualValue?.ToString()?.Contains(condition.Value?.ToString() ?? "", 
+            ComparisonOperator.Contains => actualValue?.ToString()?.Contains(condition.Value?.ToString() ?? "",
                 StringComparison.OrdinalIgnoreCase) ?? false,
-            ComparisonOperator.StartsWith => actualValue?.ToString()?.StartsWith(condition.Value?.ToString() ?? "", 
+            ComparisonOperator.StartsWith => actualValue?.ToString()?.StartsWith(condition.Value?.ToString() ?? "",
                 StringComparison.OrdinalIgnoreCase) ?? false,
-            ComparisonOperator.EndsWith => actualValue?.ToString()?.EndsWith(condition.Value?.ToString() ?? "", 
+            ComparisonOperator.EndsWith => actualValue?.ToString()?.EndsWith(condition.Value?.ToString() ?? "",
                 StringComparison.OrdinalIgnoreCase) ?? false,
             ComparisonOperator.IsNull => actualValue == null,
             ComparisonOperator.IsNotNull => actualValue != null,
@@ -222,7 +226,9 @@ public class ClassificationRuleEngine
     {
         var parts = propertyPath.Split('.');
         if (parts.Length == 0)
+        {
             return null;
+        }
 
         return parts[0].ToLowerInvariant() switch
         {
@@ -243,13 +249,17 @@ public class ClassificationRuleEngine
     private object? GetNestedPropertyValue(object? obj, string[] propertyPath)
     {
         if (obj == null || propertyPath.Length == 0)
+        {
             return obj;
+        }
 
-        var property = obj.GetType().GetProperty(propertyPath[0], 
+        var property = obj.GetType().GetProperty(propertyPath[0],
             System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.IgnoreCase);
-        
+
         if (property == null)
+        {
             return null;
+        }
 
         var value = property.GetValue(obj);
         return propertyPath.Length > 1 ? GetNestedPropertyValue(value, propertyPath.Skip(1).ToArray()) : value;
@@ -261,11 +271,19 @@ public class ClassificationRuleEngine
     private int CompareValues(object? value1, object? value2)
     {
         if (value1 == null && value2 == null)
+        {
             return 0;
+        }
+
         if (value1 == null)
+        {
             return -1;
+        }
+
         if (value2 == null)
+        {
             return 1;
+        }
 
         // Try to convert to common types for comparison
         if (value1 is IComparable comparable1)
@@ -444,14 +462,16 @@ public class ClassificationRuleEngine
     public void AddOrUpdateRuleSet(ClassificationRuleSet ruleSet)
     {
         if (string.IsNullOrWhiteSpace(ruleSet.Name))
+        {
             throw new ArgumentException("Rule set name is required");
+        }
 
         lock (_rulesLock)
         {
             _ruleSets[ruleSet.Name] = ruleSet;
         }
 
-        _logger.LogInformation("Added/updated rule set: {RuleSetName} (Version: {Version})", 
+        _logger.LogInformation("Added/updated rule set: {RuleSetName} (Version: {Version})",
             ruleSet.Name, ruleSet.Version);
     }
 
@@ -462,7 +482,9 @@ public class ClassificationRuleEngine
     {
         var ruleSet = GetRuleSet(name);
         if (ruleSet == null)
+        {
             throw new ArgumentException($"Rule set '{name}' not found");
+        }
 
         return JsonConvert.SerializeObject(ruleSet, Formatting.Indented);
     }
@@ -474,7 +496,9 @@ public class ClassificationRuleEngine
     {
         var ruleSet = JsonConvert.DeserializeObject<ClassificationRuleSet>(json);
         if (ruleSet == null)
+        {
             throw new ArgumentException("Invalid rule set JSON");
+        }
 
         AddOrUpdateRuleSet(ruleSet);
     }
@@ -488,10 +512,14 @@ public class ClassificationRuleEngine
 
         // Check basic properties
         if (string.IsNullOrWhiteSpace(ruleSet.Name))
+        {
             result.Errors.Add("Rule set name is required");
+        }
 
         if (string.IsNullOrWhiteSpace(ruleSet.Version))
+        {
             result.Errors.Add("Rule set version is required");
+        }
 
         // Check rules
         if (ruleSet.Rules == null || !ruleSet.Rules.Any())
@@ -528,26 +556,38 @@ public class ClassificationRuleEngine
     private void ValidateRule(ClassificationRule rule, ValidationResult result)
     {
         if (string.IsNullOrWhiteSpace(rule.Name))
+        {
             result.Errors.Add("Rule name is required");
+        }
 
         if (rule.Conditions == null || !rule.Conditions.Any())
+        {
             result.Errors.Add($"Rule '{rule.Name}' has no conditions");
+        }
 
         if (rule.LogicalOperator == LogicalOperator.Weighted && rule.WeightedThreshold <= 0)
+        {
             result.Errors.Add($"Rule '{rule.Name}' uses weighted logic but has invalid threshold");
+        }
 
         // Validate conditions
         foreach (var condition in rule.Conditions ?? new List<RuleCondition>())
         {
             if (string.IsNullOrWhiteSpace(condition.Property))
+            {
                 result.Errors.Add($"Condition in rule '{rule.Name}' has no property specified");
+            }
 
             if (condition.Operator == ComparisonOperator.Unknown)
+            {
                 result.Errors.Add($"Condition in rule '{rule.Name}' has invalid operator");
+            }
 
             // Check weight for weighted rules
             if (rule.LogicalOperator == LogicalOperator.Weighted && condition.Weight <= 0)
+            {
                 result.Warnings.Add($"Condition '{condition.Property}' in weighted rule '{rule.Name}' has no weight");
+            }
         }
     }
 }

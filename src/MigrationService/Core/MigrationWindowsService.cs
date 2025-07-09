@@ -46,7 +46,7 @@ public class MigrationWindowsService : BackgroundService
 
             // Main service loop
             var lastProfileRefresh = DateTime.UtcNow;
-            
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try

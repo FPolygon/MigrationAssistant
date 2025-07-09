@@ -41,7 +41,9 @@ public class RetentionPolicy
         CancellationToken cancellationToken = default)
     {
         if (!Directory.Exists(logDirectory))
+        {
             return;
+        }
 
         await _cleanupLock.WaitAsync(cancellationToken);
         try

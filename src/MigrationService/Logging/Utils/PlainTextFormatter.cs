@@ -39,7 +39,10 @@ public class PlainTextFormatter : ILogFormatter
         // Timestamp
         var timestamp = _useUtc ? entry.Timestamp : entry.Timestamp.ToLocalTime();
         sb.Append(timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture));
-        if (_useUtc) sb.Append(" UTC");
+        if (_useUtc)
+        {
+            sb.Append(" UTC");
+        }
 
         // Level
         sb.Append($" [{entry.Level.ToShortString()}]");
@@ -165,7 +168,10 @@ public class PlainTextFormatter : ILogFormatter
     private string FormatBytes(long bytes)
     {
         const int unit = 1024;
-        if (bytes < unit) return $"{bytes} B";
+        if (bytes < unit)
+        {
+            return $"{bytes} B";
+        }
 
         int exp = (int)(Math.Log(bytes) / Math.Log(unit));
         string pre = "KMGTPE"[exp - 1].ToString();

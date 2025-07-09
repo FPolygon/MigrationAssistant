@@ -1,3 +1,5 @@
+using System.IO.Pipes;
+using System.Text;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -5,8 +7,6 @@ using MigrationTool.Service;
 using MigrationTool.Service.Core;
 using Moq;
 using Newtonsoft.Json;
-using System.IO.Pipes;
-using System.Text;
 using Xunit;
 
 namespace MigrationService.Tests;

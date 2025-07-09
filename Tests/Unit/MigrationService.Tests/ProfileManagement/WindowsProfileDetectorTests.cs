@@ -141,11 +141,11 @@ public class WindowsProfileDetectorTests
         _profileRegistryMock
             .Setup(x => x.GetAccountType("S-1-5-21-1234-5678-9012-1001", "user1"))
             .Returns(ProfileAccountType.Local);
-        
+
         _profileRegistryMock
             .Setup(x => x.GetAccountType("S-1-5-21-1234-5678-9012-1002", @"DOMAIN\user2"))
             .Returns(ProfileAccountType.Domain);
-        
+
         _profileRegistryMock
             .Setup(x => x.GetAccountType("S-1-12-1-1234-5678-9012-3456", "azureuser"))
             .Returns(ProfileAccountType.AzureAD);
@@ -300,8 +300,8 @@ public class WindowsProfileDetectorTests
     }
 
     private static ProfileRegistryInfo CreateProfileInfo(
-        string sid, 
-        string userName, 
+        string sid,
+        string userName,
         string profilePath,
         bool isSystem = false,
         bool isTemporary = false,

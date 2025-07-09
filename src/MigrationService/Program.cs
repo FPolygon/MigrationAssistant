@@ -1,12 +1,12 @@
+using System.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using Serilog;
-using System.Diagnostics;
 using MigrationTool.Service.Core;
 using MigrationTool.Service.ProfileManagement;
 using MigrationTool.Service.ProfileManagement.Native;
+using Serilog;
 
 namespace MigrationTool.Service;
 
@@ -80,22 +80,22 @@ public class Program
                 services.AddSingleton<IStateManager, StateManager>();
                 services.AddSingleton<IIpcServer, IpcServer>();
                 services.AddSingleton<IMigrationStateOrchestrator, MigrationStateOrchestrator>();
-                
+
                 // Add profile management services
                 services.AddSingleton<IWindowsProfileRegistry, WindowsProfileRegistry>();
                 services.AddSingleton<WindowsProfileDetector>();
-                
+
                 // Add activity detection services
                 services.AddSingleton<WindowsActivityDetector>();
                 services.AddSingleton<ProcessOwnershipDetector>();
                 services.AddSingleton<FileActivityScanner>();
                 services.AddSingleton<IActivityScoreCalculator, ActivityScoreCalculator>();
-                
+
                 // Add profile analysis services
                 services.AddSingleton<IProfileActivityAnalyzer, ProfileActivityAnalyzer>();
                 services.AddSingleton<IProfileClassifier, ProfileClassifier>();
                 services.AddSingleton<IUserProfileManager, UserProfileManager>();
-                
+
                 // Add classification services
                 services.AddSingleton<ClassificationRuleEngine>();
                 services.AddSingleton<IClassificationOverrideManager, ClassificationOverrideManager>();

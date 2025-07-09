@@ -219,7 +219,9 @@ public class DynamicConfiguration : IDisposable
             var fileName = Path.GetFileName(filePath);
 
             if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName))
+            {
                 return;
+            }
 
             var watcher = new FileSystemWatcher(directory, fileName)
             {
@@ -313,7 +315,10 @@ public class DynamicConfiguration : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
 

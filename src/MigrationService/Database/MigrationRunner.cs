@@ -1,6 +1,6 @@
+using System.Reflection;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-using System.Reflection;
 
 namespace MigrationTool.Service.Database;
 
@@ -164,7 +164,9 @@ public class MigrationRunner
             var result = await command.ExecuteScalarAsync(cancellationToken);
 
             if (result == null || result == DBNull.Value)
+            {
                 return default;
+            }
 
             return (T)Convert.ChangeType(result, typeof(T));
         }

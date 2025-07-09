@@ -79,17 +79,23 @@ public class LoggingSettings
     public LogLevel GetEffectiveLevel(string category)
     {
         if (string.IsNullOrEmpty(category))
+        {
             return MinimumLevel;
+        }
 
         // Check for exact match
         if (CategoryOverrides.TryGetValue(category, out var exactLevel))
+        {
             return exactLevel;
+        }
 
         // Check for partial matches (e.g., "MigrationTool.Service" matches "MigrationTool.Service.IPC")
         foreach (var (prefix, level) in CategoryOverrides)
         {
             if (category.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
                 return level;
+            }
         }
 
         return MinimumLevel;

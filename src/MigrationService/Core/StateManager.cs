@@ -1,10 +1,10 @@
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MigrationTool.Service.Database;
 using MigrationTool.Service.Models;
 using MigrationTool.Service.ProfileManagement;
-using System.Text.Json;
 
 namespace MigrationTool.Service.Core;
 
@@ -424,7 +424,10 @@ public class StateManager : IStateManager, IDisposable
             {
                 case MigrationStateType.Initializing:
                     if (!currentState.StartedAt.HasValue)
+                    {
                         currentState.StartedAt = DateTime.UtcNow;
+                    }
+
                     break;
 
                 case MigrationStateType.BackupCompleted:
@@ -1228,7 +1231,7 @@ public class StateManager : IStateManager, IDisposable
             command.Parameters.AddWithValue("@newClassification", newClassification.ToString());
             command.Parameters.AddWithValue("@changeDate", DateTime.UtcNow);
             command.Parameters.AddWithValue("@reason", reason);
-            command.Parameters.AddWithValue("@activitySnapshot", 
+            command.Parameters.AddWithValue("@activitySnapshot",
                 activitySnapshot != null ? JsonSerializer.Serialize(activitySnapshot) : (object)DBNull.Value);
 
             await command.ExecuteNonQueryAsync(cancellationToken);

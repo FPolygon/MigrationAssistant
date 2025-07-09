@@ -94,7 +94,10 @@ public class LoggingService : IDisposable
     public async Task LogAsync(LogLevel level, string category, string message,
         Exception? exception = null, CancellationToken cancellationToken = default)
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         var entry = CreateLogEntry(level, category, message, exception);
         await WriteToProvidersAsync(entry, cancellationToken);
@@ -107,7 +110,10 @@ public class LoggingService : IDisposable
         IDictionary<string, object?> properties, Exception? exception = null,
         CancellationToken cancellationToken = default)
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         var entry = CreateLogEntry(level, category, message, exception);
         foreach (var (key, value) in properties)
@@ -124,7 +130,10 @@ public class LoggingService : IDisposable
     public async Task LogPerformanceAsync(string category, string operation, double durationMs,
         IDictionary<string, double>? customMetrics = null, CancellationToken cancellationToken = default)
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         var entry = CreateLogEntry(LogLevel.Information, category, $"Performance: {operation}", null);
         entry.Performance = new PerformanceMetrics
@@ -203,7 +212,9 @@ public class LoggingService : IDisposable
     {
         var effectiveLevel = _settings.GetEffectiveLevel(entry.Category);
         if (!entry.Level.IsEnabled(effectiveLevel))
+        {
             return;
+        }
 
         var tasks = new List<Task>();
 
@@ -236,7 +247,10 @@ public class LoggingService : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
 

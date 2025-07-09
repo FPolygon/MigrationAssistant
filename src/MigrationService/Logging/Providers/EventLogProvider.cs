@@ -71,7 +71,9 @@ public class EventLogProvider : ILoggingProvider
     public async Task WriteLogAsync(LogEntry entry, CancellationToken cancellationToken = default)
     {
         if (!IsEnabled || !IsLevelEnabled(entry.Level) || _disposed)
+        {
             return;
+        }
 
         await _writeLock.WaitAsync(cancellationToken);
         try
@@ -123,7 +125,10 @@ public class EventLogProvider : ILoggingProvider
 
     private async Task WriteToEventLogAsync(LogEntry entry, CancellationToken cancellationToken)
     {
-        if (_eventLog == null) return;
+        if (_eventLog == null)
+        {
+            return;
+        }
 
         try
         {
@@ -245,7 +250,10 @@ public class EventLogProvider : ILoggingProvider
     private string FormatBytes(long bytes)
     {
         const int unit = 1024;
-        if (bytes < unit) return $"{bytes} B";
+        if (bytes < unit)
+        {
+            return $"{bytes} B";
+        }
 
         int exp = (int)(Math.Log(bytes) / Math.Log(unit));
         string pre = "KMGTPE"[exp - 1].ToString();
@@ -255,7 +263,10 @@ public class EventLogProvider : ILoggingProvider
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
 

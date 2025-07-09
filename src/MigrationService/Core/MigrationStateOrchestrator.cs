@@ -269,16 +269,24 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
     private EscalationTriggerType DetermineEscalationType(MigrationState migration, string reason)
     {
         if (reason.Contains("quota", StringComparison.OrdinalIgnoreCase))
+        {
             return EscalationTriggerType.QuotaExceeded;
+        }
 
         if (reason.Contains("sync error", StringComparison.OrdinalIgnoreCase))
+        {
             return EscalationTriggerType.SyncError;
+        }
 
         if (reason.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+        {
             return EscalationTriggerType.Timeout;
+        }
 
         if (migration.State == MigrationStateType.Failed)
+        {
             return EscalationTriggerType.BackupFailure;
+        }
 
         return EscalationTriggerType.MultipleFailures;
     }
@@ -431,7 +439,7 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
                     };
 
                     await _stateManager.UpdateMigrationStateAsync(migrationState, cancellationToken);
-                    _logger.LogInformation("Initialized migration state for new user: {UserName} ({UserId})", 
+                    _logger.LogInformation("Initialized migration state for new user: {UserName} ({UserId})",
                         profile.UserName, profile.UserId);
                 }
             }
@@ -451,7 +459,7 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
                         migration.IsBlocking = false;
                         migration.AttentionReason = "User profile is no longer active";
                         await _stateManager.UpdateMigrationStateAsync(migration, cancellationToken);
-                        _logger.LogInformation("User {UserId} is no longer active and will not block reset", 
+                        _logger.LogInformation("User {UserId} is no longer active and will not block reset",
                             migration.UserId);
                     }
                 }
@@ -485,7 +493,7 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
                 if (state != null && state.State == MigrationStateType.NotStarted)
                 {
                     await _stateManager.TransitionStateAsync(
-                        profile.UserId, 
+                        profile.UserId,
                         MigrationStateType.WaitingForUser,
                         "Migration initialized - waiting for user to start backup",
                         cancellationToken);

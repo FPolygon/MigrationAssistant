@@ -185,26 +185,26 @@ public class ProcessOwnershipDetectorTests : IDisposable
     }
 
     [Theory]
-    [InlineData("chrome", ProcessType.Browser, true)]
-    [InlineData("firefox", ProcessType.Browser, true)]
-    [InlineData("msedge", ProcessType.Browser, true)]
-    [InlineData("winword", ProcessType.Productivity, true)]
-    [InlineData("excel", ProcessType.Productivity, true)]
-    [InlineData("teams", ProcessType.Communication, true)]
-    [InlineData("explorer", ProcessType.Shell, true)]
-    [InlineData("svchost", ProcessType.Background, false)]
+    [InlineData("chrome", true)]
+    [InlineData("firefox", true)]
+    [InlineData("msedge", true)]
+    [InlineData("winword", true)]
+    [InlineData("excel", true)]
+    [InlineData("teams", true)]
+    [InlineData("explorer", true)]
+    [InlineData("svchost", false)]
     public void ProcessTypeDetection_CategorizesCorrectly(
-        string processName, ProcessType expectedType, bool expectedInteractive)
+ProcessType expectedType)
     {
         // This is a conceptual test - in reality we'd need to test the private method
         // or make it internal and use InternalsVisibleTo
-        
+
         // The test verifies our process categorization logic is sound
         // Process: {processName}, Expected: {expectedType}, Interactive: {expectedInteractive}
-        expectedType.Should().Match(t => 
+        expectedType.Should().Match(t =>
             t == ProcessType.Shell || t == ProcessType.Browser || t == ProcessType.Productivity ||
             t == ProcessType.Communication || t == ProcessType.Development || t == ProcessType.Background);
-        
+
         // expectedInteractive is a boolean value based on process detection
     }
 
@@ -274,7 +274,7 @@ public static class UserProcessInfoMockHelper
 
     private static ProcessType GetMockProcessType(int index)
     {
-        var types = new[] { ProcessType.Shell, ProcessType.Browser, ProcessType.Productivity, 
+        var types = new[] { ProcessType.Shell, ProcessType.Browser, ProcessType.Productivity,
             ProcessType.Unknown, ProcessType.Background };
         return types[index % types.Length];
     }

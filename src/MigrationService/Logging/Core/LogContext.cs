@@ -120,7 +120,10 @@ public sealed class LogContextScope : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
         LogContext._currentScope.Value = _parent;

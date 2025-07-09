@@ -178,17 +178,27 @@ public class FileActivityScannerTests
     {
         // This is a conceptual test to verify the mapping logic
         // In a real scenario, we'd need to access the private method or make it internal
-        
+
         if (score >= 70)
+        {
             expectedLevel.Should().Be(FileActivityLevel.VeryActive);
+        }
         else if (score >= 40)
+        {
             expectedLevel.Should().Be(FileActivityLevel.Active);
+        }
         else if (score >= 20)
+        {
             expectedLevel.Should().Be(FileActivityLevel.Moderate);
+        }
         else if (score > 0)
+        {
             expectedLevel.Should().Be(FileActivityLevel.Low);
+        }
         else
+        {
             expectedLevel.Should().Be(FileActivityLevel.Inactive);
+        }
     }
 }
 

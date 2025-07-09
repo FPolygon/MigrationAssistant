@@ -22,13 +22,13 @@ public class UserProfileManagerTests
     {
         _loggerMock = new Mock<ILogger<UserProfileManager>>();
         _stateManagerMock = new Mock<IStateManager>();
-        
+
         _profileDetectorMock = new Mock<WindowsProfileDetector>(
             new Mock<ILogger<WindowsProfileDetector>>().Object,
             new Mock<IWindowsProfileRegistry>().Object);
-        
+
         _activityAnalyzerMock = new Mock<IProfileActivityAnalyzer>();
-        
+
         _profileClassifierMock = new Mock<IProfileClassifier>();
 
         // Default mock setup to prevent NullReferenceException
@@ -154,7 +154,7 @@ public class UserProfileManagerTests
         result.IsActive.Should().BeTrue();
         result.RequiresBackup.Should().BeTrue();
         result.BackupPriority.Should().Be(100);
-        
+
         _stateManagerMock.Verify(x => x.UpdateUserProfileAsync(It.Is<UserProfile>(p => p.UserId == targetSid), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -216,11 +216,11 @@ public class UserProfileManagerTests
 
         // Assert
         _stateManagerMock.Verify(x => x.UpdateUserProfileAsync(
-            It.Is<UserProfile>(p => 
-                p.UserId == targetSid && 
-                p.IsActive == true && 
-                p.RequiresBackup == true), 
-            It.IsAny<CancellationToken>()), 
+            It.Is<UserProfile>(p =>
+                p.UserId == targetSid &&
+                p.IsActive == true &&
+                p.RequiresBackup == true),
+            It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -278,7 +278,7 @@ public class UserProfileManagerTests
         var fixedTime = DateTime.UtcNow.AddDays(-10);
         var fixedCreatedTime = DateTime.UtcNow.AddDays(-30);
         var fixedUpdatedTime = DateTime.UtcNow.AddDays(-5);
-        
+
         var existingProfile = CreateProfile("S-1-5-21-1234-5678-9012-1001", "user1", ProfileType.Local);
         existingProfile.IsActive = true;
         existingProfile.RequiresBackup = true;
@@ -301,7 +301,7 @@ public class UserProfileManagerTests
         metrics.ProfileSizeBytes = 1000 * 1024 * 1024;
         // Ensure metrics LastLoginTime matches the profile's LastLoginTime to avoid triggering an update
         metrics.LastLoginTime = fixedTime;
-        
+
         var classification = new ProfileClassificationResult
         {
             Classification = ProfileClassification.Active,

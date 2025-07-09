@@ -56,7 +56,10 @@ public class AsyncLogWriter : IDisposable
     /// <returns>True if the entry was queued; false if the queue is full or the writer is disposed.</returns>
     public bool QueueLogEntry(LogEntry entry)
     {
-        if (_disposed) return false;
+        if (_disposed)
+        {
+            return false;
+        }
 
         // For DropNewest policy, we need to atomically check and reserve space
         if (_options.OverflowPolicy == OverflowPolicy.DropNewest)
@@ -138,7 +141,10 @@ public class AsyncLogWriter : IDisposable
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task FlushAsync(TimeSpan timeout = default)
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         var timeoutCts = timeout == default ?
             new CancellationTokenSource(TimeSpan.FromSeconds(30)) :
@@ -290,7 +296,10 @@ public class AsyncLogWriter : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
 

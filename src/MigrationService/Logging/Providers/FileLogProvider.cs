@@ -80,7 +80,10 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
 
     public async Task WriteLogAsync(LogEntry entry, CancellationToken cancellationToken = default)
     {
-        if (!IsEnabled || _disposed) return;
+        if (!IsEnabled || _disposed)
+        {
+            return;
+        }
 
         await _writeLock.WaitAsync(cancellationToken);
         try
@@ -178,7 +181,10 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
 
     private async Task WriteHeaderAsync(CancellationToken cancellationToken)
     {
-        if (_currentWriter == null) return;
+        if (_currentWriter == null)
+        {
+            return;
+        }
 
         var header = new StringBuilder();
         header.AppendLine($"# Migration Tool Log File");
@@ -244,7 +250,10 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
 
@@ -259,7 +268,10 @@ public class FileLogProvider : ILoggingProvider, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
 

@@ -15,7 +15,7 @@ public class FileActivityScanner
     private readonly int _maxFilesPerFolder;
     private readonly int _maxDepth;
     private readonly ConcurrentDictionary<string, FolderScanResult> _scanCache;
-    
+
     // Key user folders to prioritize
     private static readonly Dictionary<string, int> PriorityFolders = new()
     {
@@ -73,7 +73,7 @@ public class FileActivityScanner
     /// Scans a user profile for file activity
     /// </summary>
     public async Task<FileActivityReport> ScanProfileActivityAsync(
-        string profilePath, 
+        string profilePath,
         CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Starting file activity scan for profile: {Path}", profilePath);
@@ -150,15 +150,15 @@ public class FileActivityScanner
     /// Scans a specific folder for activity
     /// </summary>
     private async Task<FolderScanResult> ScanFolderAsync(
-        string folderPath, 
-        string folderName, 
-        int priority, 
+        string folderPath,
+        string folderName,
+        int priority,
         int currentDepth,
         CancellationToken cancellationToken)
     {
         // Check cache first
         var cacheKey = $"{folderPath}_{_recentThreshold.TotalDays}";
-        if (_scanCache.TryGetValue(cacheKey, out var cached) && 
+        if (_scanCache.TryGetValue(cacheKey, out var cached) &&
             DateTime.UtcNow - cached.ScanTime < TimeSpan.FromMinutes(5))
         {
             return cached;
@@ -184,7 +184,7 @@ public class FileActivityScanner
                 };
 
                 var directory = new DirectoryInfo(folderPath);
-                
+
                 // Get folder modification time
                 result.LastModified = directory.LastWriteTimeUtc;
 
@@ -196,22 +196,28 @@ public class FileActivityScanner
                 foreach (var file in files)
                 {
                     if (cancellationToken.IsCancellationRequested)
+                    {
                         break;
+                    }
 
                     result.FilesScanned++;
 
                     // Check if it's a user file type
                     if (!IsUserFile(file))
+                    {
                         continue;
+                    }
 
                     var age = DateTime.UtcNow - file.LastWriteTimeUtc;
-                    
+
                     if (age <= _recentThreshold)
                     {
                         result.RecentFileCount++;
-                        
+
                         if (age <= TimeSpan.FromDays(7))
+                        {
                             result.VeryRecentFileCount++;
+                        }
 
                         // Track individual recent files
                         result.RecentFiles.Add(new FileActivityInfo
@@ -244,10 +250,12 @@ public class FileActivityScanner
                     foreach (var subDir in subDirs)
                     {
                         if (cancellationToken.IsCancellationRequested)
+                        {
                             break;
+                        }
 
                         var subResult = ScanFolderAsync(
-                            subDir.FullName, 
+                            subDir.FullName,
                             Path.Combine(folderName, subDir.Name),
                             priority - 10,
                             currentDepth + 1,
@@ -257,7 +265,7 @@ public class FileActivityScanner
                         result.FilesScanned += subResult.FilesScanned;
                         result.RecentFileCount += subResult.RecentFileCount;
                         result.VeryRecentFileCount += subResult.VeryRecentFileCount;
-                        
+
                         // Merge recent files
                         foreach (var file in subResult.RecentFiles.Take(5))
                         {
@@ -268,7 +276,7 @@ public class FileActivityScanner
 
                 // Sort recent files by date
                 result.RecentFiles.Sort((a, b) => b.LastModified.CompareTo(a.LastModified));
-                
+
                 // Keep only top files
                 if (result.RecentFiles.Count > 50)
                 {
@@ -298,13 +306,17 @@ public class FileActivityScanner
     {
         // Skip very small files (likely system files)
         if (file.Length < 1024) // 1KB
+        {
             return false;
+        }
 
         // Skip system files
         if (file.Name.StartsWith("~") || file.Name.StartsWith("."))
+        {
             return false;
+        }
 
-        return UserFileExtensions.Contains(file.Extension) || 
+        return UserFileExtensions.Contains(file.Extension) ||
                file.Extension.Length == 0; // Include files without extensions
     }
 
@@ -336,15 +348,33 @@ public class FileActivityScanner
         score += result.Priority / 2;
 
         // Recent files (0-30 points)
-        if (result.VeryRecentFileCount > 10) score += 30;
-        else if (result.VeryRecentFileCount > 5) score += 20;
-        else if (result.VeryRecentFileCount > 0) score += 10;
+        if (result.VeryRecentFileCount > 10)
+        {
+            score += 30;
+        }
+        else if (result.VeryRecentFileCount > 5)
+        {
+            score += 20;
+        }
+        else if (result.VeryRecentFileCount > 0)
+        {
+            score += 10;
+        }
 
         // File diversity (0-20 points)
         var uniqueTypes = result.FileTypeCount.Count;
-        if (uniqueTypes > 10) score += 20;
-        else if (uniqueTypes > 5) score += 15;
-        else if (uniqueTypes > 2) score += 10;
+        if (uniqueTypes > 10)
+        {
+            score += 20;
+        }
+        else if (uniqueTypes > 5)
+        {
+            score += 15;
+        }
+        else if (uniqueTypes > 2)
+        {
+            score += 10;
+        }
 
         return Math.Min(score, 100);
     }
@@ -358,41 +388,90 @@ public class FileActivityScanner
         var score = 0;
 
         // Very recent files (0-40 points)
-        if (report.VeryRecentFileCount > 50) score += 40;
-        else if (report.VeryRecentFileCount > 20) score += 30;
-        else if (report.VeryRecentFileCount > 10) score += 20;
-        else if (report.VeryRecentFileCount > 0) score += 10;
+        if (report.VeryRecentFileCount > 50)
+        {
+            score += 40;
+        }
+        else if (report.VeryRecentFileCount > 20)
+        {
+            score += 30;
+        }
+        else if (report.VeryRecentFileCount > 10)
+        {
+            score += 20;
+        }
+        else if (report.VeryRecentFileCount > 0)
+        {
+            score += 10;
+        }
 
         // Recent files (0-30 points)
-        if (report.RecentFileCount > 100) score += 30;
-        else if (report.RecentFileCount > 50) score += 20;
-        else if (report.RecentFileCount > 20) score += 15;
-        else if (report.RecentFileCount > 0) score += 10;
+        if (report.RecentFileCount > 100)
+        {
+            score += 30;
+        }
+        else if (report.RecentFileCount > 50)
+        {
+            score += 20;
+        }
+        else if (report.RecentFileCount > 20)
+        {
+            score += 15;
+        }
+        else if (report.RecentFileCount > 0)
+        {
+            score += 10;
+        }
 
         // Active folders (0-20 points)
         var activeFolders = report.FolderResults.Values.Count(f => f.RecentFileCount > 0);
-        if (activeFolders > 5) score += 20;
-        else if (activeFolders > 3) score += 15;
-        else if (activeFolders > 1) score += 10;
+        if (activeFolders > 5)
+        {
+            score += 20;
+        }
+        else if (activeFolders > 3)
+        {
+            score += 15;
+        }
+        else if (activeFolders > 1)
+        {
+            score += 10;
+        }
 
         // Document activity (0-10 points)
         var recentDocs = report.MostRecentFiles.Count(f => f.IsUserDocument);
-        if (recentDocs > 5) score += 10;
-        else if (recentDocs > 0) score += 5;
+        if (recentDocs > 5)
+        {
+            score += 10;
+        }
+        else if (recentDocs > 0)
+        {
+            score += 5;
+        }
 
         report.ActivityScore = Math.Min(score, 100);
 
         // Determine activity level
         if (report.ActivityScore >= 70)
+        {
             report.ActivityLevel = FileActivityLevel.VeryActive;
+        }
         else if (report.ActivityScore >= 40)
+        {
             report.ActivityLevel = FileActivityLevel.Active;
+        }
         else if (report.ActivityScore >= 20)
+        {
             report.ActivityLevel = FileActivityLevel.Moderate;
+        }
         else if (report.ActivityScore > 0)
+        {
             report.ActivityLevel = FileActivityLevel.Low;
+        }
         else
+        {
             report.ActivityLevel = FileActivityLevel.Inactive;
+        }
 
         // Find most active time
         if (report.MostRecentFiles.Any())
@@ -418,17 +497,17 @@ public class FileActivityReport
     public string ProfilePath { get; set; } = string.Empty;
     public DateTime ScanStartTime { get; set; }
     public DateTime ScanEndTime { get; set; }
-    
+
     // Summary statistics
     public int TotalFilesScanned { get; set; }
     public int RecentFileCount { get; set; }
     public int VeryRecentFileCount { get; set; }
     public DateTime MostRecentActivity { get; set; }
-    
+
     // Activity analysis
     public int ActivityScore { get; set; }
     public FileActivityLevel ActivityLevel { get; set; }
-    
+
     // Detailed results
     public Dictionary<string, FolderScanResult> FolderResults { get; set; } = new();
     public List<FileActivityInfo> MostRecentFiles { get; set; } = new();
@@ -445,16 +524,16 @@ public class FolderScanResult
     public int Priority { get; set; }
     public DateTime ScanTime { get; set; }
     public DateTime LastModified { get; set; }
-    
+
     // Statistics
     public int FilesScanned { get; set; }
     public int RecentFileCount { get; set; }
     public int VeryRecentFileCount { get; set; }
     public int ActivityScore { get; set; }
-    
+
     // File type analysis
     public Dictionary<string, int> FileTypeCount { get; set; } = new();
-    
+
     // Recent files
     public List<FileActivityInfo> RecentFiles { get; set; } = new();
     public List<string> Errors { get; set; } = new();

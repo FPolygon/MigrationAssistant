@@ -178,7 +178,7 @@ public class ProfileClassifierTests
         // Arrange
         var config = new ProfileClassificationConfig { BackupInactiveProfiles = false };
         var classifier = new ProfileClassifier(_loggerMock.Object, _activityAnalyzerMock.Object, _scoreCalculatorMock.Object, null, null, null, config);
-        
+
         var profile = CreateProfile("S-1-5-21-1234-5678-9012-1001", "user1", ProfileType.Local);
         var metrics = CreateMetrics(
             isAccessible: true,

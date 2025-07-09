@@ -121,7 +121,7 @@ public static class UserProcessInfoMockHelper
 
     private static ProcessType GetMockProcessType(int index)
     {
-        var types = new[] { ProcessType.Shell, ProcessType.Browser, ProcessType.Productivity, 
+        var types = new[] { ProcessType.Shell, ProcessType.Browser, ProcessType.Productivity,
             ProcessType.Unknown, ProcessType.Background };
         return types[index % types.Length];
     }

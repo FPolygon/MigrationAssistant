@@ -17,7 +17,7 @@ public interface IProfileClassifier
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Classification result</returns>
     Task<ProfileClassificationResult> ClassifyProfileAsync(
-        UserProfile profile, 
+        UserProfile profile,
         ProfileMetrics metrics,
         CancellationToken cancellationToken = default);
 

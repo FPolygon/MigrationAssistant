@@ -169,7 +169,7 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             };
 
             var profileDir = new DirectoryInfo(profilePath);
-            
+
             // Calculate size recursively, excluding certain folders
             // Pass the profile root path to properly handle exclusions
             totalSize = CalculateDirectorySize(profileDir, profilePath, ExcludedFolders, options, cancellationToken);
@@ -190,7 +190,9 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
     private long CalculateDirectorySize(DirectoryInfo directory, string profileRootPath, string[] excludedFolders, EnumerationOptions options, CancellationToken cancellationToken)
     {
         if (cancellationToken.IsCancellationRequested)
+        {
             return 0;
+        }
 
         long size = 0;
 
@@ -211,11 +213,13 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
                 IgnoreInaccessible = true,
                 AttributesToSkip = options.AttributesToSkip
             };
-            
+
             foreach (var file in directory.EnumerateFiles("*", fileOptions))
             {
                 if (cancellationToken.IsCancellationRequested)
+                {
                     break;
+                }
 
                 try
                 {
@@ -231,7 +235,9 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             foreach (var subDir in directory.EnumerateDirectories("*", new EnumerationOptions { IgnoreInaccessible = true, AttributesToSkip = options.AttributesToSkip }))
             {
                 if (cancellationToken.IsCancellationRequested)
+                {
                     break;
+                }
 
                 size += CalculateDirectorySize(subDir, profileRootPath, excludedFolders, options, cancellationToken);
             }
@@ -257,18 +263,24 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             foreach (var folder in ActivityCheckFolders)
             {
                 if (cancellationToken.IsCancellationRequested)
+                {
                     break;
+                }
 
                 var folderPath = Path.Combine(profilePath, folder);
                 if (!Directory.Exists(folderPath))
+                {
                     continue;
+                }
 
                 try
                 {
                     // Check directory modification time
                     var dirInfo = new DirectoryInfo(folderPath);
                     if (dirInfo.LastWriteTimeUtc > mostRecentTime)
+                    {
                         mostRecentTime = dirInfo.LastWriteTimeUtc;
+                    }
 
                     // Check a few recent files
                     var recentFiles = Directory.EnumerateFiles(folderPath, "*", new EnumerationOptions
@@ -284,7 +296,9 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
                     foreach (var file in recentFiles)
                     {
                         if (file.LastWriteTimeUtc > mostRecentTime)
+                        {
                             mostRecentTime = file.LastWriteTimeUtc;
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -315,17 +329,17 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             {
                 // Use the enhanced process detector
                 var processInfo = await _processDetector.GetUserProcessesAsync(userSid, cancellationToken);
-                
+
                 metrics.ActiveProcessCount = processInfo.TotalProcessCount;
                 metrics.HasActiveSession = processInfo.HasExplorerProcess;
-                
+
                 // Store additional process information in metrics
                 if (processInfo.TotalProcessCount > 0)
                 {
                     metrics.Errors.Add($"Process detection: Found {processInfo.InteractiveProcessCount} interactive processes");
                 }
-                
-                _logger.LogDebug("Enhanced process detection found {Count} processes for user {Sid}", 
+
+                _logger.LogDebug("Enhanced process detection found {Count} processes for user {Sid}",
                     processInfo.TotalProcessCount, userSid);
             }
             else
@@ -355,8 +369,8 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
                 metrics.ActiveProcessCount = 1; // At least something is active
                 metrics.IsLoaded = true;
             }
-            
-            _logger.LogDebug("Simple process check for user {Sid}: Registry loaded = {IsLoaded}", 
+
+            _logger.LogDebug("Simple process check for user {Sid}: Registry loaded = {IsLoaded}",
                 userSid, metrics.IsLoaded);
         }
         catch (Exception ex)
@@ -377,7 +391,7 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             // In a real implementation, you'd check HKU\{SID}
             using var userKey = Microsoft.Win32.Registry.Users.OpenSubKey(userSid);
             metrics.IsLoaded = userKey != null;
-            
+
             _logger.LogDebug("Profile loaded status: {IsLoaded} for user {Sid}", metrics.IsLoaded, userSid);
         }
         catch (Exception ex)
@@ -400,10 +414,14 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
         // 5. AND it's accessible
 
         if (!metrics.IsAccessible)
+        {
             return false;
+        }
 
         if (metrics.ProfileSizeBytes < _minimumActiveSizeBytes)
+        {
             return false;
+        }
 
         return metrics.HasRecentActivity || metrics.IsLoaded || metrics.ActiveProcessCount > 0;
     }
@@ -418,31 +436,41 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
             if (_activityDetector != null)
             {
                 var activityData = await _activityDetector.GetUserActivityAsync(userSid, cancellationToken);
-                
+
                 // Update metrics with enhanced data
                 if (activityData.LastInteractiveLogon > metrics.LastLoginTime)
+                {
                     metrics.LastLoginTime = activityData.LastInteractiveLogon;
-                    
+                }
+
                 if (activityData.MostRecentActivity > metrics.LastActivityTime)
+                {
                     metrics.LastActivityTime = activityData.MostRecentActivity;
-                
+                }
+
                 // Use registry loaded status
                 if (activityData.IsRegistryLoaded)
+                {
                     metrics.IsLoaded = true;
-                
+                }
+
                 // Update recent activity based on comprehensive data
                 var enhancedActivityAge = DateTime.UtcNow - activityData.MostRecentActivity;
                 if (enhancedActivityAge <= _recentActivityThreshold)
+                {
                     metrics.HasRecentActivity = true;
-                
+                }
+
                 // Check for active session
                 if (activityData.HasActiveSession)
+                {
                     metrics.HasActiveSession = true;
-                
+                }
+
                 _logger.LogDebug(
                     "Enhanced activity detection for {Sid}: LastLogin={LastLogin}, MostRecent={Recent}, HasSession={HasSession}",
                     userSid, activityData.LastInteractiveLogon, activityData.MostRecentActivity, activityData.HasActiveSession);
-                
+
                 // Add detailed activity info to errors (for debugging)
                 if (activityData.LogonEvents.Any())
                 {
@@ -508,32 +536,74 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
         try
         {
             // Base score on various factors
-            
+
             // 1. Login recency (0-40 points)
             var daysSinceLogin = (DateTime.UtcNow - metrics.LastLoginTime).TotalDays;
-            if (daysSinceLogin < 1) score += 40;
-            else if (daysSinceLogin < 7) score += 30;
-            else if (daysSinceLogin < 30) score += 20;
-            else if (daysSinceLogin < 90) score += 10;
+            if (daysSinceLogin < 1)
+            {
+                score += 40;
+            }
+            else if (daysSinceLogin < 7)
+            {
+                score += 30;
+            }
+            else if (daysSinceLogin < 30)
+            {
+                score += 20;
+            }
+            else if (daysSinceLogin < 90)
+            {
+                score += 10;
+            }
 
             // 2. Active processes (0-20 points)
-            if (metrics.ActiveProcessCount > 10) score += 20;
-            else if (metrics.ActiveProcessCount > 5) score += 15;
-            else if (metrics.ActiveProcessCount > 0) score += 10;
+            if (metrics.ActiveProcessCount > 10)
+            {
+                score += 20;
+            }
+            else if (metrics.ActiveProcessCount > 5)
+            {
+                score += 15;
+            }
+            else if (metrics.ActiveProcessCount > 0)
+            {
+                score += 10;
+            }
 
             // 3. Profile loaded (0-15 points)
-            if (metrics.IsLoaded) score += 15;
+            if (metrics.IsLoaded)
+            {
+                score += 15;
+            }
 
             // 4. Recent file activity (0-15 points)
             var daysSinceActivity = (DateTime.UtcNow - metrics.LastActivityTime).TotalDays;
-            if (daysSinceActivity < 1) score += 15;
-            else if (daysSinceActivity < 7) score += 10;
-            else if (daysSinceActivity < 30) score += 5;
+            if (daysSinceActivity < 1)
+            {
+                score += 15;
+            }
+            else if (daysSinceActivity < 7)
+            {
+                score += 10;
+            }
+            else if (daysSinceActivity < 30)
+            {
+                score += 5;
+            }
 
             // 5. Profile size (0-10 points)
-            if (metrics.ProfileSizeMB > 1000) score += 10;
-            else if (metrics.ProfileSizeMB > 500) score += 7;
-            else if (metrics.ProfileSizeMB > 100) score += 5;
+            if (metrics.ProfileSizeMB > 1000)
+            {
+                score += 10;
+            }
+            else if (metrics.ProfileSizeMB > 500)
+            {
+                score += 7;
+            }
+            else if (metrics.ProfileSizeMB > 100)
+            {
+                score += 5;
+            }
 
             _logger.LogDebug("Activity score for {UserName}: {Score}/100", profile.UserName, score);
         }
@@ -564,19 +634,19 @@ public class ProfileActivityAnalyzer : IProfileActivityAnalyzer
         {
             // Get the relative path from the profile root
             var relativePath = Path.GetRelativePath(profileRootPath, directoryPath);
-            
+
             // Check if the relative path starts with any excluded folder
             foreach (var excluded in excludedFolders)
             {
                 // Normalize the excluded path
                 var normalizedExcluded = excluded.Replace('/', Path.DirectorySeparatorChar);
-                
+
                 // Check if the relative path starts with the excluded path
                 if (relativePath.StartsWith(normalizedExcluded, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
-                
+
                 // Also check with backslash normalization for cross-platform compatibility
                 var normalizedRelative = relativePath.Replace('/', '\\');
                 var normalizedExcludedBackslash = normalizedExcluded.Replace('/', '\\');

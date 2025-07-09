@@ -18,7 +18,7 @@ public class ProfileClassifier : IProfileClassifier
     private readonly ClassificationRuleEngine? _ruleEngine;
     private readonly IClassificationOverrideManager? _overrideManager;
     private readonly IStateManager? _stateManager;
-    
+
     // Configuration for classification rules
     private readonly ProfileClassificationConfig _config;
 
@@ -44,7 +44,7 @@ public class ProfileClassifier : IProfileClassifier
     /// Classifies a user profile based on its metrics and characteristics
     /// </summary>
     public async Task<ProfileClassificationResult> ClassifyProfileAsync(
-        UserProfile profile, 
+        UserProfile profile,
         ProfileMetrics metrics,
         CancellationToken cancellationToken = default)
     {
@@ -64,18 +64,18 @@ public class ProfileClassifier : IProfileClassifier
             {
                 var overrideCheck = await _overrideManager.CheckOverrideAsync(
                     profile.UserId, ProfileClassification.Unknown, cancellationToken);
-                
+
                 if (overrideCheck.HasOverride)
                 {
                     result.Classification = overrideCheck.EffectiveClassification;
                     result.IsOverridden = true;
                     result.Reason = $"Manual override: {overrideCheck.OverrideReason}";
                     DetermineBackupRequirements(result, profile, metrics);
-                    
+
                     _logger.LogInformation(
                         "Profile {UserName} classification overridden to {Classification}",
                         profile.UserName, result.Classification);
-                    
+
                     await SaveClassificationAsync(result, cancellationToken);
                     return result;
                 }
@@ -120,7 +120,7 @@ public class ProfileClassifier : IProfileClassifier
             {
                 var scoreResult = await _scoreCalculator.CalculateScoreAsync(profile, metrics, cancellationToken: cancellationToken);
                 var ruleResult = await _ruleEngine.EvaluateRulesAsync(profile, metrics, scoreResult, _config.RuleSetName, cancellationToken);
-                
+
                 if (ruleResult.Classification != ProfileClassification.Unknown)
                 {
                     result.Classification = ruleResult.Classification;
@@ -128,7 +128,7 @@ public class ProfileClassifier : IProfileClassifier
                     result.Reason = ruleResult.ClassificationReason;
                     result.RuleSetName = ruleResult.RuleSetName;
                     result.ActivityScore = scoreResult.TotalScore;
-                    
+
                     DetermineBackupRequirements(result, profile, metrics);
                     await SaveClassificationAsync(result, cancellationToken);
                     return result;
@@ -141,7 +141,7 @@ public class ProfileClassifier : IProfileClassifier
 
             // Determine backup requirements
             DetermineBackupRequirements(result, profile, metrics);
-            
+
             // Save classification
             await SaveClassificationAsync(result, cancellationToken);
 
@@ -173,7 +173,9 @@ public class ProfileClassifier : IProfileClassifier
         };
 
         if (systemSids.Contains(profile.UserId))
+        {
             return true;
+        }
 
         // Check for service account patterns
         if (profile.UserId.StartsWith("S-1-5-80-", StringComparison.OrdinalIgnoreCase) || // Service accounts
@@ -187,7 +189,7 @@ public class ProfileClassifier : IProfileClassifier
 
         // Check username patterns
         var systemUserPatterns = new[] { "SYSTEM", "SERVICE", "NETWORK", "$", "IUSR", "ASPNET" };
-        return systemUserPatterns.Any(pattern => 
+        return systemUserPatterns.Any(pattern =>
             profile.UserName.Contains(pattern, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -205,7 +207,7 @@ public class ProfileClassifier : IProfileClassifier
     /// Classifies profile based on activity metrics
     /// </summary>
     private async Task<ProfileClassification> ClassifyByActivityAsync(
-        UserProfile profile, 
+        UserProfile profile,
         ProfileMetrics metrics,
         CancellationToken cancellationToken)
     {
@@ -215,12 +217,12 @@ public class ProfileClassifier : IProfileClassifier
             try
             {
                 var scoreResult = await _scoreCalculator.CalculateScoreAsync(profile, metrics, cancellationToken: cancellationToken);
-                
+
                 // Map activity level to classification
                 return scoreResult.ActivityLevel switch
                 {
                     UserActivityLevel.VeryActive or UserActivityLevel.Active => ProfileClassification.Active,
-                    UserActivityLevel.Moderate => 
+                    UserActivityLevel.Moderate =>
                         metrics.ProfileSizeMB >= _config.MinimumActiveSizeMB ? ProfileClassification.Active : ProfileClassification.Inactive,
                     UserActivityLevel.Low or UserActivityLevel.Inactive => ProfileClassification.Inactive,
                     _ => ProfileClassification.Unknown
@@ -247,21 +249,21 @@ public class ProfileClassifier : IProfileClassifier
             var loginAge = DateTime.UtcNow - metrics.LastLoginTime;
 
             // Active: Recent activity AND sufficient size
-            if (activityAge <= _config.ActiveThreshold && 
+            if (activityAge <= _config.ActiveThreshold &&
                 metrics.ProfileSizeMB >= _config.MinimumActiveSizeMB)
             {
                 return ProfileClassification.Active;
             }
 
             // Active: Recent login even if no recent file activity (user might be on vacation)
-            if (loginAge <= _config.ActiveThreshold && 
+            if (loginAge <= _config.ActiveThreshold &&
                 metrics.ProfileSizeMB >= _config.MinimumActiveSizeMB)
             {
                 return ProfileClassification.Active;
             }
 
             // Inactive: Old activity OR small profile
-            if (activityAge > _config.InactiveThreshold || 
+            if (activityAge > _config.InactiveThreshold ||
                 metrics.ProfileSizeMB < _config.MinimumActiveSizeMB)
             {
                 return ProfileClassification.Inactive;
@@ -320,28 +322,44 @@ public class ProfileClassifier : IProfileClassifier
 
         // Adjust based on profile size (larger profiles = higher priority)
         if (metrics.ProfileSizeMB > 10000) // > 10GB
+        {
             priority += 20;
+        }
         else if (metrics.ProfileSizeMB > 5000) // > 5GB
+        {
             priority += 10;
+        }
         else if (metrics.ProfileSizeMB > 1000) // > 1GB
+        {
             priority += 5;
+        }
 
         // Adjust based on recent activity
         var daysSinceActivity = (DateTime.UtcNow - metrics.LastActivityTime).TotalDays;
         if (daysSinceActivity < 1)
+        {
             priority += 20;
+        }
         else if (daysSinceActivity < 7)
+        {
             priority += 10;
+        }
         else if (daysSinceActivity < 30)
+        {
             priority += 5;
+        }
 
         // Currently logged in users get highest priority
         if (metrics.IsLoaded)
+        {
             priority += 30;
+        }
 
         // Domain users might have higher priority
         if (profile.ProfileType == ProfileType.Domain || profile.ProfileType == ProfileType.AzureAD)
+        {
             priority += 10;
+        }
 
         return Math.Max(1, Math.Min(priority, 999)); // Clamp between 1-999
     }
@@ -352,7 +370,9 @@ public class ProfileClassifier : IProfileClassifier
     private async Task SaveClassificationAsync(ProfileClassificationResult result, CancellationToken cancellationToken)
     {
         if (_stateManager == null)
+        {
             return;
+        }
 
         try
         {
@@ -433,7 +453,9 @@ public class ProfileClassifier : IProfileClassifier
         CancellationToken cancellationToken = default)
     {
         if (_stateManager == null)
+        {
             return Enumerable.Empty<ClassificationHistoryEntry>();
+        }
 
         return await _stateManager.GetClassificationHistoryAsync(userId, limit, cancellationToken);
     }

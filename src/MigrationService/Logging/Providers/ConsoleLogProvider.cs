@@ -71,7 +71,9 @@ public class ConsoleLogProvider : ILoggingProvider
     public async Task WriteLogAsync(LogEntry entry, CancellationToken cancellationToken = default)
     {
         if (!IsEnabled || !IsLevelEnabled(entry.Level) || _disposed)
+        {
             return;
+        }
 
         await _writeLock.WaitAsync(cancellationToken);
         try
@@ -130,7 +132,10 @@ public class ConsoleLogProvider : ILoggingProvider
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
         _writeLock.Dispose();

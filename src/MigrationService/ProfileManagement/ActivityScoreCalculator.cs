@@ -33,7 +33,7 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
         FileActivityReport? fileActivity = null,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Calculating activity score for user: {UserName} ({UserId})", 
+        _logger.LogDebug("Calculating activity score for user: {UserName} ({UserId})",
             profile.UserName, profile.UserId);
 
         var result = new ActivityScoreResult
@@ -129,12 +129,14 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
         if (activityData != null)
         {
             var recentLogons = activityData.LogonEvents
-                .Where(e => e.EventType == LogonEventType.Logon && 
+                .Where(e => e.EventType == LogonEventType.Logon &&
                            e.EventTime > DateTime.UtcNow.AddDays(-7))
                 .Count();
 
             if (recentLogons > 10)
+            {
                 score.RawScore = Math.Min(score.RawScore + 10, 100);
+            }
 
             score.Details["RecentLogons"] = recentLogons.ToString();
         }
@@ -169,15 +171,23 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
         {
             // Fallback to basic metrics
             var daysSinceActivity = (DateTime.UtcNow - metrics.LastActivityTime).TotalDays;
-            
+
             if (daysSinceActivity < 1)
+            {
                 score.RawScore = 90;
+            }
             else if (daysSinceActivity < 7)
+            {
                 score.RawScore = 70;
+            }
             else if (daysSinceActivity < 30)
+            {
                 score.RawScore = 40;
+            }
             else
+            {
                 score.RawScore = 10;
+            }
 
             score.Details["DaysSinceActivity"] = daysSinceActivity.ToString("F1");
         }
@@ -204,21 +214,37 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
 
             // Interactive processes are most important
             if (processInfo.InteractiveProcessCount > 5)
+            {
                 baseScore = 90;
+            }
             else if (processInfo.InteractiveProcessCount > 2)
+            {
                 baseScore = 70;
+            }
             else if (processInfo.InteractiveProcessCount > 0)
+            {
                 baseScore = 50;
+            }
             else if (processInfo.BackgroundProcessCount > 0)
+            {
                 baseScore = 30;
+            }
 
             // Bonus for key processes
             if (processInfo.HasExplorerProcess)
+            {
                 baseScore += 10;
+            }
+
             if (processInfo.HasBrowserProcess)
+            {
                 baseScore += 5;
+            }
+
             if (processInfo.HasProductivityProcess)
+            {
                 baseScore += 5;
+            }
 
             score.RawScore = Math.Min(baseScore, 100);
             score.Details["TotalProcesses"] = processInfo.TotalProcessCount.ToString();
@@ -229,13 +255,21 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
         {
             // Fallback to basic metrics
             if (metrics.ActiveProcessCount > 10)
+            {
                 score.RawScore = 80;
+            }
             else if (metrics.ActiveProcessCount > 5)
+            {
                 score.RawScore = 60;
+            }
             else if (metrics.ActiveProcessCount > 0)
+            {
                 score.RawScore = 40;
+            }
             else
+            {
                 score.RawScore = 0;
+            }
 
             score.Details["ProcessCount"] = metrics.ActiveProcessCount.ToString();
         }
@@ -257,19 +291,31 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
 
         // Score based on profile size
         var sizeMB = metrics.ProfileSizeMB;
-        
+
         if (sizeMB > 5000) // >5GB
+        {
             score.RawScore = 100;
+        }
         else if (sizeMB > 1000) // >1GB
+        {
             score.RawScore = 80;
+        }
         else if (sizeMB > 500) // >500MB
+        {
             score.RawScore = 60;
+        }
         else if (sizeMB > 100) // >100MB
+        {
             score.RawScore = 40;
+        }
         else if (sizeMB > 50) // >50MB
+        {
             score.RawScore = 20;
+        }
         else
+        {
             score.RawScore = 10;
+        }
 
         score.Details["SizeMB"] = sizeMB.ToString();
         score.Details["SizeCategory"] = GetSizeCategory(sizeMB);
@@ -329,9 +375,11 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
     {
         var totalWeightedScore = componentScores.Values.Sum(s => s.WeightedScore);
         var totalWeight = componentScores.Values.Sum(s => s.Weight);
-        
+
         if (totalWeight == 0)
+        {
             return 0;
+        }
 
         return (int)Math.Round(totalWeightedScore * 100 / totalWeight);
     }
@@ -346,26 +394,48 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
 
         // Check which data sources we have
         if (result.ComponentScores[ActivityComponent.LoginRecency].RawScore > 0)
+        {
             dataPoints++;
+        }
+
         if (result.ComponentScores[ActivityComponent.FileActivity].Details.ContainsKey("ActivityLevel"))
+        {
             dataPoints++;
+        }
+
         if (result.ComponentScores[ActivityComponent.ActiveProcesses].Details.ContainsKey("InteractiveProcesses"))
+        {
             dataPoints++;
+        }
+
         if (result.ComponentScores[ActivityComponent.SessionActivity].RawScore > 0)
+        {
             dataPoints++;
+        }
+
         if (result.ComponentScores[ActivityComponent.ProfileSize].RawScore > 20)
+        {
             dataPoints++;
+        }
 
         var confidenceRatio = (float)dataPoints / totalPossiblePoints;
 
         if (confidenceRatio >= 0.8)
+        {
             return ActivityConfidence.High;
+        }
         else if (confidenceRatio >= 0.6)
+        {
             return ActivityConfidence.Medium;
+        }
         else if (confidenceRatio >= 0.4)
+        {
             return ActivityConfidence.Low;
+        }
         else
+        {
             return ActivityConfidence.VeryLow;
+        }
     }
 
     /// <summary>
@@ -374,15 +444,25 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
     private UserActivityLevel ClassifyActivityLevel(int score)
     {
         if (score >= 80)
+        {
             return UserActivityLevel.VeryActive;
+        }
         else if (score >= 60)
+        {
             return UserActivityLevel.Active;
+        }
         else if (score >= 40)
+        {
             return UserActivityLevel.Moderate;
+        }
         else if (score >= 20)
+        {
             return UserActivityLevel.Low;
+        }
         else
+        {
             return UserActivityLevel.Inactive;
+        }
     }
 
     /// <summary>
@@ -440,11 +520,31 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
     /// </summary>
     private string GetSizeCategory(long sizeMB)
     {
-        if (sizeMB > 10000) return "Very Large (>10GB)";
-        if (sizeMB > 5000) return "Large (5-10GB)";
-        if (sizeMB > 1000) return "Medium (1-5GB)";
-        if (sizeMB > 500) return "Small (500MB-1GB)";
-        if (sizeMB > 100) return "Very Small (100-500MB)";
+        if (sizeMB > 10000)
+        {
+            return "Very Large (>10GB)";
+        }
+
+        if (sizeMB > 5000)
+        {
+            return "Large (5-10GB)";
+        }
+
+        if (sizeMB > 1000)
+        {
+            return "Medium (1-5GB)";
+        }
+
+        if (sizeMB > 500)
+        {
+            return "Small (500MB-1GB)";
+        }
+
+        if (sizeMB > 100)
+        {
+            return "Very Small (100-500MB)";
+        }
+
         return "Minimal (<100MB)";
     }
 }
@@ -455,7 +555,7 @@ public class ActivityScoreCalculator : IActivityScoreCalculator
 public class ActivityScoringConfiguration
 {
     public Dictionary<ActivityComponent, int> Weights { get; set; } = new();
-    
+
     public static ActivityScoringConfiguration Default => new()
     {
         Weights = new Dictionary<ActivityComponent, int>
@@ -500,15 +600,15 @@ public class ActivityScoreResult
 {
     public UserProfile UserProfile { get; set; } = null!;
     public DateTime CalculationTime { get; set; }
-    
+
     // Overall score
     public int TotalScore { get; set; }
     public UserActivityLevel ActivityLevel { get; set; }
     public ActivityConfidence Confidence { get; set; }
-    
+
     // Component scores
     public Dictionary<ActivityComponent, ComponentScore> ComponentScores { get; set; } = new();
-    
+
     // Analysis results
     public List<string> Recommendations { get; set; } = new();
     public List<string> Errors { get; set; } = new();

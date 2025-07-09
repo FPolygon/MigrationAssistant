@@ -20,7 +20,7 @@ public class ActivityScoreCalculatorTests
     {
         _loggerMock = new Mock<ILogger<ActivityScoreCalculator>>();
         _calculator = new ActivityScoreCalculator(_loggerMock.Object);
-        
+
         _testProfile = CreateTestProfile();
         _testMetrics = CreateTestMetrics();
     }
@@ -238,7 +238,7 @@ public class ActivityScoreCalculatorTests
                 { ActivityComponent.SessionActivity, 5 }
             }
         };
-        
+
         var customCalculator = new ActivityScoreCalculator(_loggerMock.Object, customConfig);
 
         // Act
@@ -292,7 +292,7 @@ public class ActivityScoreCalculatorTests
         metrics.HasActiveSession = false;
         metrics.ProfileSizeBytes = 10 * 1024 * 1024; // 10MB
         metrics.HasRecentActivity = false;
-        
+
         // Adjust based on target score
         if (targetScore >= 80)
         {

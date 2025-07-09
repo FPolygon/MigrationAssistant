@@ -39,7 +39,7 @@ public class ProcessOwnershipDetector : IDisposable
     {
         _logger = logger;
         _processCache = new Dictionary<string, ProcessOwnershipInfo>();
-        
+
         // Initialize WMI connection
         try
         {
@@ -81,7 +81,7 @@ public class ProcessOwnershipDetector : IDisposable
 
             _logger.LogInformation(
                 "Found {Count} processes for user {Sid}: Interactive={Interactive}, Background={Background}",
-                userProcessInfo.TotalProcessCount, userSid, 
+                userProcessInfo.TotalProcessCount, userSid,
                 userProcessInfo.InteractiveProcessCount, userProcessInfo.BackgroundProcessCount);
         }
         catch (Exception ex)
@@ -116,16 +116,20 @@ public class ProcessOwnershipDetector : IDisposable
                 foreach (ManagementObject process in results)
                 {
                     if (cancellationToken.IsCancellationRequested)
+                    {
                         break;
+                    }
 
                     try
                     {
                         var processId = Convert.ToInt32(process["ProcessId"]);
-                        
+
                         // Get process owner
                         var ownerSid = GetProcessOwnerSid(process);
                         if (!string.Equals(ownerSid, userSid, StringComparison.OrdinalIgnoreCase))
+                        {
                             continue;
+                        }
 
                         var processName = process["Name"]?.ToString() ?? string.Empty;
                         var executablePath = process["ExecutablePath"]?.ToString() ?? string.Empty;
@@ -201,7 +205,7 @@ public class ProcessOwnershipDetector : IDisposable
             // Call GetOwnerSid method
             var ownerInfo = new object[2];
             var result = process.InvokeMethod("GetOwnerSid", ownerInfo);
-            
+
             if (result != null && ownerInfo[0] is string sid)
             {
                 // Cache the result
@@ -240,13 +244,17 @@ public class ProcessOwnershipDetector : IDisposable
                 foreach (var process in processes)
                 {
                     if (cancellationToken.IsCancellationRequested)
+                    {
                         break;
+                    }
 
                     try
                     {
                         // Skip if we can't get process info
                         if (process.HasExited)
+                        {
                             continue;
+                        }
 
                         var processInfo = new ProcessInfo
                         {
@@ -322,17 +330,23 @@ public class ProcessOwnershipDetector : IDisposable
 
         // Check if it's a known user process
         if (UserActivityProcesses.Contains(process.ProcessName))
+        {
             return true;
+        }
 
         // Check if it's definitely a system process
         if (SystemProcesses.Contains(process.ProcessName))
+        {
             return false;
+        }
 
         // Check session ID (0 is usually services, >0 is usually users)
         try
         {
             if (process.SessionId > 0)
+            {
                 return true;
+            }
         }
         catch
         {
@@ -348,7 +362,7 @@ public class ProcessOwnershipDetector : IDisposable
     private bool IsSystemProcess(string processName)
     {
         var name = Path.GetFileNameWithoutExtension(processName);
-        return SystemProcesses.Contains(name) || 
+        return SystemProcesses.Contains(name) ||
                name.StartsWith("svchost", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -368,7 +382,7 @@ public class ProcessOwnershipDetector : IDisposable
         }
 
         // Check for browsers
-        if (processName.Contains("chrome") || processName.Contains("firefox") || 
+        if (processName.Contains("chrome") || processName.Contains("firefox") ||
             processName.Contains("edge") || processName == "iexplore")
         {
             processInfo.ProcessType = ProcessType.Browser;
@@ -377,7 +391,7 @@ public class ProcessOwnershipDetector : IDisposable
         }
 
         // Check for office apps
-        if (processName == "winword" || processName == "excel" || 
+        if (processName == "winword" || processName == "excel" ||
             processName == "powerpnt" || processName == "outlook")
         {
             processInfo.ProcessType = ProcessType.Productivity;
@@ -386,7 +400,7 @@ public class ProcessOwnershipDetector : IDisposable
         }
 
         // Check for communication apps
-        if (processName == "teams" || processName == "slack" || 
+        if (processName == "teams" || processName == "slack" ||
             processName == "zoom" || processName.Contains("skype"))
         {
             processInfo.ProcessType = ProcessType.Communication;
@@ -395,7 +409,7 @@ public class ProcessOwnershipDetector : IDisposable
         }
 
         // Check for development tools
-        if (processName == "devenv" || processName == "code" || 
+        if (processName == "devenv" || processName == "code" ||
             processName.Contains("studio") || processName.Contains("idea"))
         {
             processInfo.ProcessType = ProcessType.Development;
@@ -466,22 +480,22 @@ public class UserProcessInfo
     public string UserSid { get; set; } = string.Empty;
     public DateTime ScanTime { get; set; }
     public List<ProcessInfo> Processes { get; set; } = new();
-    
+
     // Summary statistics
     public int TotalProcessCount { get; set; }
     public int InteractiveProcessCount { get; set; }
     public int BackgroundProcessCount { get; set; }
     public Dictionary<ProcessType, int> ProcessesByType { get; set; } = new();
-    
+
     // Key indicators
     public bool HasExplorerProcess { get; set; }
     public bool HasBrowserProcess { get; set; }
     public bool HasProductivityProcess { get; set; }
-    
+
     // Resource usage
     public long TotalMemoryUsageBytes { get; set; }
     public int TotalHandleCount { get; set; }
-    
+
     // Detection status
     public bool WmiSucceeded { get; set; }
     public bool Win32Succeeded { get; set; }

@@ -70,10 +70,14 @@ public static class StructuredLoggingExtensions
         perfProperties["DurationMs"] = durationMs;
 
         if (itemCount.HasValue)
+        {
             perfProperties["ItemCount"] = itemCount.Value;
+        }
 
         if (bytesProcessed.HasValue)
+        {
             perfProperties["BytesProcessed"] = bytesProcessed.Value;
+        }
 
         return logger.LogAsync(LogLevel.Information, $"Performance: {operationName}", perfProperties);
     }
@@ -103,7 +107,9 @@ public static class StructuredLoggingExtensions
         secProperties["Success"] = success;
 
         if (!string.IsNullOrEmpty(userId))
+        {
             secProperties["UserId"] = userId;
+        }
 
         var level = success ? LogLevel.Information : LogLevel.Warning;
         return logger.LogAsync(level, $"Security event: {eventType}", secProperties);
@@ -121,10 +127,14 @@ public static class StructuredLoggingExtensions
         auditProperties["Success"] = success;
 
         if (!string.IsNullOrEmpty(userId))
+        {
             auditProperties["UserId"] = userId;
+        }
 
         if (!string.IsNullOrEmpty(resource))
+        {
             auditProperties["Resource"] = resource;
+        }
 
         var level = success ? LogLevel.Information : LogLevel.Error;
         return logger.LogAsync(level, $"Audit: {action}", auditProperties);
@@ -145,7 +155,9 @@ public static class StructuredLoggingExtensions
         };
 
         if (!string.IsNullOrEmpty(userId))
+        {
             configProperties["UserId"] = userId;
+        }
 
         return logger.LogAsync(LogLevel.Information, $"Configuration changed: {setting}", configProperties);
     }
@@ -176,13 +188,19 @@ public static class StructuredLoggingExtensions
     internal static Dictionary<string, object?> ConvertToProperties(object? obj)
     {
         if (obj == null)
+        {
             return new Dictionary<string, object?>();
+        }
 
         if (obj is Dictionary<string, object?> dict)
+        {
             return new Dictionary<string, object?>(dict);
+        }
 
         if (obj is IDictionary<string, object?> idict)
+        {
             return new Dictionary<string, object?>(idict);
+        }
 
         // Use reflection to convert anonymous objects or POCOs to dictionary
         var properties = new Dictionary<string, object?>();
@@ -274,7 +292,10 @@ internal class OperationLogger : IOperationLogger
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
         _stopwatch.Stop();

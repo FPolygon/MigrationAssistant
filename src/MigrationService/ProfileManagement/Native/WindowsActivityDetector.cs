@@ -122,7 +122,9 @@ public class WindowsActivityDetector
                         // Extract SID from event data
                         var eventSid = ExtractSidFromEvent(eventRecord);
                         if (!string.Equals(eventSid, userSid, StringComparison.OrdinalIgnoreCase))
+                        {
                             continue;
+                        }
 
                         var eventTime = eventRecord.TimeCreated?.ToUniversalTime() ?? DateTime.MinValue;
 
@@ -133,12 +135,16 @@ public class WindowsActivityDetector
                                 if (logonType == 2 || logonType == 10) // Interactive or RemoteInteractive
                                 {
                                     if (eventTime > activityData.LastInteractiveLogon)
+                                    {
                                         activityData.LastInteractiveLogon = eventTime;
+                                    }
                                 }
                                 else if (logonType == 3) // Network
                                 {
                                     if (eventTime > activityData.LastNetworkLogon)
+                                    {
                                         activityData.LastNetworkLogon = eventTime;
+                                    }
                                 }
                                 activityData.LogonEvents.Add(new LogonEvent
                                 {
@@ -150,7 +156,10 @@ public class WindowsActivityDetector
 
                             case EventIdLogoff:
                                 if (eventTime > activityData.LastLogoff)
+                                {
                                     activityData.LastLogoff = eventTime;
+                                }
+
                                 activityData.LogonEvents.Add(new LogonEvent
                                 {
                                     EventTime = eventTime,
@@ -160,7 +169,10 @@ public class WindowsActivityDetector
 
                             case EventIdUnlock:
                                 if (eventTime > activityData.LastUnlock)
+                                {
                                     activityData.LastUnlock = eventTime;
+                                }
+
                                 activityData.LogonEvents.Add(new LogonEvent
                                 {
                                     EventTime = eventTime,
@@ -229,7 +241,9 @@ public class WindowsActivityDetector
                         var fileTime = ((long)highTime << 32) | (uint)lowTime;
                         var loadTime = DateTime.FromFileTimeUtc(fileTime);
                         if (loadTime > activityData.LastProfileLoad)
+                        {
                             activityData.LastProfileLoad = loadTime;
+                        }
                     }
                 }
             }
@@ -432,7 +446,9 @@ public class WindowsActivityDetector
         try
         {
             if (eventRecord.UserId != null)
+            {
                 return eventRecord.UserId.Value;
+            }
 
             // Try to extract from event data
             var eventXml = eventRecord.ToXml();
@@ -472,7 +488,9 @@ public class WindowsActivityDetector
                 {
                     var logonTypeStr = eventXml.Substring(startIndex, endIndex - startIndex);
                     if (int.TryParse(logonTypeStr, out var logonType))
+                    {
                         return logonType;
+                    }
                 }
             }
         }
@@ -504,35 +522,35 @@ public class UserActivityData
 {
     public string UserSid { get; set; } = string.Empty;
     public DateTime LastUpdate { get; set; }
-    
+
     // Logon information
     public DateTime LastInteractiveLogon { get; set; }
     public DateTime LastNetworkLogon { get; set; }
     public DateTime LastLogoff { get; set; }
     public DateTime LastUnlock { get; set; }
     public DateTime LastProfileLoad { get; set; }
-    
+
     // Registry activity
     public bool IsRegistryLoaded { get; set; }
     public int RecentDocumentCount { get; set; }
     public int RecentRunCommands { get; set; }
     public int TypedPathCount { get; set; }
     public bool HasRecentDocumentActivity { get; set; }
-    
+
     // Profile activity
     public string ProfilePath { get; set; } = string.Empty;
     public DateTime NtUserLastModified { get; set; }
     public Dictionary<string, FolderActivityInfo> FolderActivity { get; set; } = new();
-    
+
     // Session information
     public bool HasActiveSession { get; set; }
     public bool HasRdpActivity { get; set; }
     public List<SessionInfo> ActiveSessions { get; set; } = new();
-    
+
     // Event data
     public List<LogonEvent> LogonEvents { get; set; } = new();
     public List<string> Errors { get; set; } = new();
-    
+
     /// <summary>
     /// Gets the most recent activity time
     /// </summary>
@@ -548,7 +566,7 @@ public class UserActivityData
                 LastProfileLoad,
                 NtUserLastModified
             };
-            
+
             var folderTimes = FolderActivity.Values.Select(f => f.LastModified);
             return times.Concat(folderTimes).Where(t => t != DateTime.MinValue).DefaultIfEmpty(DateTime.MinValue).Max();
         }

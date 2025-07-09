@@ -55,7 +55,7 @@ public class WindowsProfileDetector
                     // Skip corrupted profiles
                     if (regProfile.IsCorrupted)
                     {
-                        _logger.LogWarning("Skipping corrupted profile: {Sid} at {Path}", 
+                        _logger.LogWarning("Skipping corrupted profile: {Sid} at {Path}",
                             regProfile.Sid, regProfile.ProfilePath);
                         continue;
                     }
@@ -65,7 +65,7 @@ public class WindowsProfileDetector
                     if (userProfile != null)
                     {
                         profiles.Add(userProfile);
-                        _logger.LogDebug("Discovered profile: {UserName} ({Sid})", 
+                        _logger.LogDebug("Discovered profile: {UserName} ({Sid})",
                             userProfile.UserName, userProfile.UserId);
                     }
                 }
@@ -188,7 +188,7 @@ public class WindowsProfileDetector
             try
             {
                 var registryProfiles = _profileRegistry.EnumerateProfiles();
-                var regProfile = registryProfiles.FirstOrDefault(p => 
+                var regProfile = registryProfiles.FirstOrDefault(p =>
                     p.Sid.Equals(sid, StringComparison.OrdinalIgnoreCase));
 
                 if (regProfile == null)
@@ -215,7 +215,9 @@ public class WindowsProfileDetector
         try
         {
             if (!Directory.Exists(profilePath))
+            {
                 return false;
+            }
 
             // Try to enumerate at least one file to verify access
             var _ = Directory.EnumerateFiles(profilePath).FirstOrDefault();

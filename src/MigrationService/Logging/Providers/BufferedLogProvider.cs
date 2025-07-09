@@ -82,7 +82,10 @@ public class BufferedLogProvider : ILoggingProvider
     /// <returns>A completed task (queuing is synchronous).</returns>
     public Task WriteLogAsync(LogEntry entry, CancellationToken cancellationToken = default)
     {
-        if (_disposed) return Task.CompletedTask;
+        if (_disposed)
+        {
+            return Task.CompletedTask;
+        }
 
         // Queue the entry for asynchronous processing
         var queued = _asyncWriter.QueueLogEntry(entry);
@@ -104,7 +107,10 @@ public class BufferedLogProvider : ILoggingProvider
     /// <returns>A task representing the asynchronous flush operation.</returns>
     public async Task FlushAsync(CancellationToken cancellationToken = default)
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         await _asyncWriter.FlushAsync(TimeSpan.FromSeconds(30));
     }
@@ -176,7 +182,10 @@ public class BufferedLogProvider : ILoggingProvider
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _disposed = true;
 

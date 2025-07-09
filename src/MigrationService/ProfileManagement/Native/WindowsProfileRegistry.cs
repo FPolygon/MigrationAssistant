@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
-using Microsoft.Win32;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 
 namespace MigrationTool.Service.ProfileManagement.Native;
 
@@ -58,7 +58,9 @@ public class WindowsProfileRegistry : IWindowsProfileRegistry
             {
                 // Skip non-SID entries
                 if (!sidString.StartsWith("S-1-5-", StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
 
                 try
                 {
@@ -89,11 +91,15 @@ public class WindowsProfileRegistry : IWindowsProfileRegistry
     {
         using var profileKey = profileListKey.OpenSubKey(sid);
         if (profileKey == null)
+        {
             return null;
+        }
 
         var profilePath = profileKey.GetValue("ProfileImagePath") as string;
         if (string.IsNullOrEmpty(profilePath))
+        {
             return null;
+        }
 
         // Expand environment variables in the path
         profilePath = Environment.ExpandEnvironmentVariables(profilePath);
@@ -156,13 +162,17 @@ public class WindowsProfileRegistry : IWindowsProfileRegistry
     {
         // Check exact matches
         if (SystemSids.Contains(sid))
+        {
             return true;
+        }
 
         // Check prefixes for service accounts
         foreach (var systemPrefix in SystemSids)
         {
             if (sid.StartsWith(systemPrefix + "-", StringComparison.OrdinalIgnoreCase))
+            {
                 return true;
+            }
         }
 
         // Check for well-known RIDs
@@ -186,11 +196,13 @@ public class WindowsProfileRegistry : IWindowsProfileRegistry
         {
             // Check for Azure AD accounts (have specific SID pattern)
             if (sid.StartsWith("S-1-12-1-", StringComparison.OrdinalIgnoreCase))
+            {
                 return ProfileAccountType.AzureAD;
+            }
 
             // Try to create SecurityIdentifier to check domain
             var securityId = new SecurityIdentifier(sid);
-            
+
             // Check if it's a built-in account
             if (securityId.IsWellKnown(WellKnownSidType.BuiltinDomainSid) ||
                 securityId.IsWellKnown(WellKnownSidType.LocalSystemSid) ||
@@ -240,7 +252,10 @@ public class WindowsProfileRegistry : IWindowsProfileRegistry
         {
             long fileTime = ((long)high << 32) | (uint)low;
             if (fileTime == 0)
+            {
                 return null;
+            }
+
             return DateTime.FromFileTimeUtc(fileTime);
         }
         catch
