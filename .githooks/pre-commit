@@ -1,0 +1,25 @@
+#!/bin/sh
+# Pre-commit hook to ensure code formatting is correct
+# This hook runs before each commit to verify formatting standards
+
+echo "Running .NET format check..."
+
+# Run format verification
+dotnet format MigrationAssistant.sln --verify-no-changes
+
+# Check the exit code
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Code formatting issues detected!"
+    echo ""
+    echo "To fix formatting issues, run:"
+    echo "  dotnet format MigrationAssistant.sln"
+    echo ""
+    echo "To bypass this check (not recommended), use:"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
+echo "✅ Format check passed!"
+exit 0

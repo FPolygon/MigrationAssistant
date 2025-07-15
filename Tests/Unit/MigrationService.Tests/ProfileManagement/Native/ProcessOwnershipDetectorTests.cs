@@ -196,8 +196,8 @@ public class ProcessOwnershipDetectorTests : IDisposable
     [InlineData("vscode", ProcessType.Development, true)]
     [InlineData("devenv", ProcessType.Development, true)]
     public void ProcessTypeDetection_CategorizesCorrectly(
-        string processName, 
-        ProcessType expectedType, 
+        string processName,
+        ProcessType expectedType,
         bool expectedInteractive)
     {
         // This is a conceptual test - in reality we'd need to test the private method
