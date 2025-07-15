@@ -32,8 +32,13 @@ The Windows Migration Tool is designed as a distributed system with multiple com
 - `IpcServer`: Named pipe server for agent communication ✅
 - `MigrationStateOrchestrator`: Core orchestration logic ✅
 
+**Key Classes** (Phase 2 Implemented):
+- `UserProfileManager`: Profile detection and classification ✅
+- `WindowsProfileDetector`: Registry-based profile enumeration ✅
+- `ProfileActivityAnalyzer`: Activity metrics calculation ✅
+- `ProfileClassifier`: Rule-based classification logic ✅
+
 **Key Classes** (Planned for future phases):
-- `UserProfileManager`: Profile detection and classification (Phase 2)
 - `BackupOrchestrator`: Coordinates backup across users (Phase 5-6)
 - `EscalationManager`: IT escalation logic (Phase 8)
 

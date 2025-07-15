@@ -189,7 +189,9 @@ public interface IIpcServer
 }
 ```
 
-### IUserProfileManager 📅 Phase 2
+### IUserProfileManager ✅ Phase 2 Complete
+
+**Note**: Phase 2 implementation uses `IProfileActivityAnalyzer` instead of the originally planned `IProfileAnalyzer`. `IUserDetectionService` functionality is integrated into `WindowsProfileDetector`.
 
 ```csharp
 public interface IUserProfileManager
@@ -228,6 +230,45 @@ public enum ProfileStatus
     BackupInProgress,
     BackupComplete,
     BackupFailed
+}
+```
+
+### Additional Phase 2 Interfaces ✅
+
+**IProfileActivityAnalyzer**
+```csharp
+public interface IProfileActivityAnalyzer
+{
+    Task<ProfileMetrics> AnalyzeProfileAsync(UserProfile profile, CancellationToken cancellationToken = default);
+    bool IsProfileActive(ProfileMetrics metrics);
+    Task<DateTime> GetLastLoginTimeAsync(string userSid, string profilePath, CancellationToken cancellationToken = default);
+    Task<int> GetActivityScoreAsync(UserProfile profile, ProfileMetrics metrics, CancellationToken cancellationToken = default);
+}
+```
+
+**IProfileClassifier**
+```csharp
+public interface IProfileClassifier
+{
+    Task<ProfileClassificationResult> ClassifyProfileAsync(UserProfile profile, ProfileMetrics metrics, CancellationToken cancellationToken = default);
+    Task<List<ClassificationRule>> GetActiveRulesAsync(CancellationToken cancellationToken = default);
+}
+```
+
+**IActivityScoreCalculator**
+```csharp
+public interface IActivityScoreCalculator
+{
+    Task<ActivityScore> CalculateScoreAsync(UserProfile profile, ProfileMetrics metrics, UserActivityData activityData, CancellationToken cancellationToken = default);
+}
+```
+
+**IClassificationOverrideManager**
+```csharp
+public interface IClassificationOverrideManager
+{
+    Task<ClassificationOverride?> GetOverrideAsync(string userSid, CancellationToken cancellationToken = default);
+    Task<ClassificationOverride> ApplyOverrideAsync(string userSid, ProfileClassification classification, string reason, string appliedBy, CancellationToken cancellationToken = default);
 }
 ```
 
