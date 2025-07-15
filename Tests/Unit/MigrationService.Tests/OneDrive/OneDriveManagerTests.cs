@@ -170,7 +170,7 @@ public class OneDriveManagerTests
     {
         // Arrange
         var testFolder = @"C:\Users\TestUser\OneDrive - Contoso\Documents";
-        
+
         // Mock directory exists
         _fileSystemServiceMock.Setup(f => f.DirectoryExistsAsync(testFolder))
             .ReturnsAsync(true);
@@ -195,12 +195,12 @@ public class OneDriveManagerTests
 
         // Assert - Verify that trigger file was created and deleted
         _fileSystemServiceMock.Verify(f => f.WriteAllTextAsync(
-            It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")), 
-            It.IsAny<string>(), 
+            It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")),
+            It.IsAny<string>(),
             It.IsAny<CancellationToken>()), Times.Once);
 
         _fileSystemServiceMock.Verify(f => f.DeleteFileAsync(
-            It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")), 
+            It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -14,12 +14,12 @@ public class OneDriveSyncController : IOneDriveSyncController
     private readonly IOneDriveRegistry _registry;
     private readonly IOneDriveDetector _detector;
     private readonly IFileSystemService _fileSystemService;
-    
+
     // Registry keys for selective sync configuration
     private const string SelectiveSyncKey = @"SOFTWARE\Microsoft\OneDrive\Accounts\";
     private const string ExcludedFoldersValue = "ExcludedFolders";
     private const string IncludedFoldersValue = "IncludedFolders";
-    
+
     public OneDriveSyncController(
         ILogger<OneDriveSyncController> logger,
         IOneDriveRegistry registry,
@@ -35,7 +35,7 @@ public class OneDriveSyncController : IOneDriveSyncController
     /// <inheritdoc/>
     public async Task<bool> AddFolderToSyncScopeAsync(string userSid, string accountId, string folderPath, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Adding folder {FolderPath} to sync scope for user {Sid}, account {AccountId}", 
+        _logger.LogInformation("Adding folder {FolderPath} to sync scope for user {Sid}, account {AccountId}",
             folderPath, userSid, accountId);
 
         try
@@ -57,17 +57,17 @@ public class OneDriveSyncController : IOneDriveSyncController
             // Check if folder is already within sync scope
             if (!folderPath.StartsWith(syncFolder, StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("Folder {FolderPath} is not within OneDrive sync folder {SyncFolder}", 
+                _logger.LogWarning("Folder {FolderPath} is not within OneDrive sync folder {SyncFolder}",
                     folderPath, syncFolder);
                 return false;
             }
 
             // Get relative path within OneDrive
             var relativePath = GetRelativePath(syncFolder, folderPath);
-            
+
             // Get current excluded folders
             var excludedFolders = await GetExcludedFoldersAsync(userSid, accountId, cancellationToken);
-            
+
             // Remove from excluded list if present
             var updated = false;
             if (excludedFolders.Contains(relativePath, StringComparer.OrdinalIgnoreCase))
@@ -82,7 +82,9 @@ public class OneDriveSyncController : IOneDriveSyncController
             {
                 var parent = Path.GetDirectoryName(parentPath);
                 if (string.IsNullOrEmpty(parent))
+                {
                     break;
+                }
 
                 if (excludedFolders.Contains(parent, StringComparer.OrdinalIgnoreCase))
                 {
@@ -111,7 +113,7 @@ public class OneDriveSyncController : IOneDriveSyncController
     /// <inheritdoc/>
     public async Task<bool> RemoveFolderFromSyncScopeAsync(string userSid, string accountId, string folderPath, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Removing folder {FolderPath} from sync scope for user {Sid}, account {AccountId}", 
+        _logger.LogInformation("Removing folder {FolderPath} from sync scope for user {Sid}, account {AccountId}",
             folderPath, userSid, accountId);
 
         try
@@ -127,22 +129,22 @@ public class OneDriveSyncController : IOneDriveSyncController
             // Check if folder is within sync scope
             if (!folderPath.StartsWith(syncFolder, StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("Folder {FolderPath} is not within OneDrive sync folder {SyncFolder}", 
+                _logger.LogWarning("Folder {FolderPath} is not within OneDrive sync folder {SyncFolder}",
                     folderPath, syncFolder);
                 return false;
             }
 
             // Get relative path within OneDrive
             var relativePath = GetRelativePath(syncFolder, folderPath);
-            
+
             // Get current excluded folders
             var excludedFolders = await GetExcludedFoldersAsync(userSid, accountId, cancellationToken);
-            
+
             // Add to excluded list if not present
             if (!excludedFolders.Contains(relativePath, StringComparer.OrdinalIgnoreCase))
             {
                 excludedFolders.Add(relativePath);
-                
+
                 // Update registry with new excluded folders list
                 return await UpdateExcludedFoldersAsync(userSid, accountId, excludedFolders, cancellationToken);
             }
@@ -166,7 +168,7 @@ public class OneDriveSyncController : IOneDriveSyncController
         {
             // Get all OneDrive accounts for the user
             var syncedFolders = await _registry.GetSyncedFoldersAsync(userSid);
-            
+
             foreach (var syncedFolder in syncedFolders)
             {
                 // Check if folder is within any OneDrive sync folder
@@ -184,28 +186,31 @@ public class OneDriveSyncController : IOneDriveSyncController
 
                     // Get relative path
                     var relativePath = GetRelativePath(syncedFolder.LocalPath, folderPath);
-                    
+
                     // Get excluded folders for this account
                     var excludedFolders = await GetExcludedFoldersAsync(userSid, accountId, cancellationToken);
-                    
+
                     // Check if this folder or any parent is excluded
                     var pathToCheck = relativePath;
                     while (!string.IsNullOrEmpty(pathToCheck))
                     {
                         if (excludedFolders.Contains(pathToCheck, StringComparer.OrdinalIgnoreCase))
                         {
-                            _logger.LogDebug("Folder {FolderPath} is excluded from sync (matched: {ExcludedPath})", 
+                            _logger.LogDebug("Folder {FolderPath} is excluded from sync (matched: {ExcludedPath})",
                                 folderPath, pathToCheck);
                             return false;
                         }
-                        
+
                         // Check parent
                         var parent = Path.GetDirectoryName(pathToCheck);
                         if (parent == pathToCheck) // Reached root
+                        {
                             break;
+                        }
+
                         pathToCheck = parent ?? string.Empty;
                     }
-                    
+
                     // Folder is within sync scope and not excluded
                     return true;
                 }
@@ -230,7 +235,7 @@ public class OneDriveSyncController : IOneDriveSyncController
         {
             var keyPath = $@"{SelectiveSyncKey}{accountId}";
             var excludedValue = await _registry.GetUserRegistryValueAsync(userSid, keyPath, ExcludedFoldersValue);
-            
+
             if (excludedValue == null)
             {
                 return new List<string>();
@@ -259,12 +264,12 @@ public class OneDriveSyncController : IOneDriveSyncController
 
     /// <inheritdoc/>
     public async Task<Dictionary<string, bool>> EnsureCriticalFoldersIncludedAsync(
-        string userSid, 
-        string accountId, 
-        List<string> criticalFolders, 
+        string userSid,
+        string accountId,
+        List<string> criticalFolders,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Ensuring {Count} critical folders are included for user {Sid}, account {AccountId}", 
+        _logger.LogInformation("Ensuring {Count} critical folders are included for user {Sid}, account {AccountId}",
             criticalFolders.Count, userSid, accountId);
 
         var results = new Dictionary<string, bool>();
@@ -311,7 +316,7 @@ public class OneDriveSyncController : IOneDriveSyncController
         }
 
         var successCount = results.Count(r => r.Value);
-        _logger.LogInformation("Successfully included {SuccessCount}/{TotalCount} critical folders", 
+        _logger.LogInformation("Successfully included {SuccessCount}/{TotalCount} critical folders",
             successCount, criticalFolders.Count);
 
         return results;
@@ -358,12 +363,14 @@ public class OneDriveSyncController : IOneDriveSyncController
             // Get all accounts for the user
             var accountsKey = await _registry.GetUserRegistryValueAsync(userSid, SelectiveSyncKey.TrimEnd('\\'), null);
             if (accountsKey == null)
+            {
                 return string.Empty;
+            }
 
             // This would need to enumerate subkeys, which requires enhancement to IOneDriveRegistry
             // For now, we'll try to match based on the sync folder path
             // In a full implementation, we'd enumerate account subkeys and check UserFolder values
-            
+
             _logger.LogDebug("Account ID lookup for sync folder not fully implemented");
             return string.Empty;
         }
@@ -379,18 +386,18 @@ public class OneDriveSyncController : IOneDriveSyncController
         try
         {
             var keyPath = $@"{SelectiveSyncKey}{accountId}";
-            
+
             // Convert to string array for registry
             var excludedArray = excludedFolders.ToArray();
-            
+
             // Note: Writing to user registry requires the IOneDriveRegistry interface to be enhanced
             // For now, log the intended action
-            _logger.LogInformation("Would update excluded folders for account {AccountId}: {Folders}", 
+            _logger.LogInformation("Would update excluded folders for account {AccountId}: {Folders}",
                 accountId, string.Join(", ", excludedFolders));
-            
+
             // In a full implementation, we'd write to the registry here
             // await _registry.SetUserRegistryValueAsync(userSid, keyPath, ExcludedFoldersValue, excludedArray);
-            
+
             // For now, return true to indicate the operation would succeed
             return true;
         }
@@ -404,11 +411,15 @@ public class OneDriveSyncController : IOneDriveSyncController
     private string GetRelativePath(string basePath, string fullPath)
     {
         if (!fullPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
+        {
             return fullPath;
+        }
 
         var relativePath = fullPath.Substring(basePath.Length);
         if (relativePath.StartsWith(Path.DirectorySeparatorChar))
+        {
             relativePath = relativePath.Substring(1);
+        }
 
         return relativePath;
     }

@@ -55,9 +55,9 @@ public interface IOneDriveSyncController
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Dictionary of folder paths and their inclusion status</returns>
     Task<Dictionary<string, bool>> EnsureCriticalFoldersIncludedAsync(
-        string userSid, 
-        string accountId, 
-        List<string> criticalFolders, 
+        string userSid,
+        string accountId,
+        List<string> criticalFolders,
         CancellationToken cancellationToken = default);
 
     /// <summary>

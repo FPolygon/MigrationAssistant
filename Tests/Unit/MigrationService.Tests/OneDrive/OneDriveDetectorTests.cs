@@ -1,9 +1,9 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
+using MigrationService.Tests.OneDrive.TestUtilities;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
-using MigrationService.Tests.OneDrive.TestUtilities;
 using Moq;
 using Xunit;
 
@@ -28,7 +28,7 @@ public class OneDriveDetectorTests
         _attributeService = new MockOneDriveAttributeService();
         _attributeService.SetupCommonMappings();
         _detector = new OneDriveDetector(_loggerMock.Object, _registryMock.Object, _processDetectorMock.Object, _fileSystemServiceMock.Object, _attributeService);
-        
+
         SetupOneDriveFolderMocks();
     }
 

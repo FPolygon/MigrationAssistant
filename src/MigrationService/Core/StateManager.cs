@@ -2952,9 +2952,9 @@ public class StateManager : IStateManager, IDisposable
 
     public async Task<int> CreateSyncOperationAsync(SyncOperation operation, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Creating sync operation for user {UserId}, folder {Folder}", 
+        _logger.LogInformation("Creating sync operation for user {UserId}, folder {Folder}",
             operation.UserSid, operation.FolderPath);
-        
+
         // Placeholder implementation - return a dummy ID
         await Task.CompletedTask;
         return 1;
@@ -2975,7 +2975,7 @@ public class StateManager : IStateManager, IDisposable
 
     public async Task<SyncOperation?> GetActiveSyncOperationAsync(string userSid, string folderPath, CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Getting active sync operation for user {UserId}, folder {Folder}", 
+        _logger.LogDebug("Getting active sync operation for user {UserId}, folder {Folder}",
             userSid, folderPath);
         await Task.CompletedTask;
         return null;
@@ -3007,7 +3007,7 @@ public class StateManager : IStateManager, IDisposable
 
     public async Task<int> RecordSyncErrorAsync(SyncError error, CancellationToken cancellationToken)
     {
-        _logger.LogWarning("Recording sync error for file {FilePath}: {Error}", 
+        _logger.LogWarning("Recording sync error for file {FilePath}: {Error}",
             error.FilePath, error.ErrorMessage);
         await Task.CompletedTask;
         return 1;

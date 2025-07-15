@@ -1,11 +1,11 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
-using Moq;
 using MigrationTool.Service.Core;
 using MigrationTool.Service.Models;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
+using Moq;
 using Xunit;
 
 namespace MigrationService.Tests.OneDrive;
@@ -47,7 +47,7 @@ public class OneDriveManagerSyncTests
     {
         // Arrange
         var folderPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents";
-        
+
         _fileSystemServiceMock.Setup(f => f.DirectoryExistsAsync(folderPath))
             .ReturnsAsync(true);
 
@@ -76,8 +76,8 @@ public class OneDriveManagerSyncTests
         // Assert
         _detectorMock.Verify(d => d.GetLocalOnlyFilesAsync(folderPath, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
         _fileSystemServiceMock.Verify(f => f.WriteAllTextAsync(
-            It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")), 
-            It.IsAny<string>(), 
+            It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")),
+            It.IsAny<string>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -86,7 +86,7 @@ public class OneDriveManagerSyncTests
     {
         // Arrange
         var folderPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents";
-        
+
         _fileSystemServiceMock.Setup(f => f.DirectoryExistsAsync(folderPath))
             .ReturnsAsync(true);
 
@@ -99,8 +99,8 @@ public class OneDriveManagerSyncTests
         // Assert
         _detectorMock.Verify(d => d.GetLocalOnlyFilesAsync(folderPath, It.IsAny<CancellationToken>()), Times.Once);
         _fileSystemServiceMock.Verify(f => f.WriteAllTextAsync(
-            It.IsAny<string>(), 
-            It.IsAny<string>(), 
+            It.IsAny<string>(),
+            It.IsAny<string>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -270,11 +270,11 @@ public class OneDriveManagerSyncTests
 
         var syncErrors = new List<SyncError>
         {
-            new SyncError 
-            { 
-                Id = 1, 
-                FilePath = "file1.txt", 
-                ErrorMessage = "Persistent error", 
+            new SyncError
+            {
+                Id = 1,
+                FilePath = "file1.txt",
+                ErrorMessage = "Persistent error",
                 RetryAttempts = 3,
                 EscalatedToIT = false
             }
@@ -288,11 +288,11 @@ public class OneDriveManagerSyncTests
 
         // Assert
         _stateManagerMock.Verify(s => s.CreateEscalationAsync(
-            It.Is<ITEscalation>(e => e.UserId == userSid && e.Reason.Contains("sync errors")), 
+            It.Is<ITEscalation>(e => e.UserId == userSid && e.Reason.Contains("sync errors")),
             It.IsAny<CancellationToken>()), Times.Once);
-        
+
         _stateManagerMock.Verify(s => s.RecordSyncErrorAsync(
-            It.Is<SyncError>(e => e.EscalatedToIT == true), 
+            It.Is<SyncError>(e => e.EscalatedToIT == true),
             It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 }

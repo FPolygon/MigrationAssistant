@@ -202,12 +202,12 @@ public class OneDriveManager : IOneDriveManager
             while (!syncTriggered && retryCount < maxRetries)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                
+
                 try
                 {
                     // Get local-only files that need syncing
                     var localOnlyFiles = await _detector.GetLocalOnlyFilesAsync(folderPath, cancellationToken);
-                    
+
                     if (localOnlyFiles.Count == 0)
                     {
                         _logger.LogDebug("No local-only files found in {FolderPath}, sync not needed", folderPath);
@@ -218,10 +218,10 @@ public class OneDriveManager : IOneDriveManager
 
                     // Strategy 1: Create trigger file
                     var triggerFile = Path.Combine(folderPath, $".onedrive_sync_trigger_{Guid.NewGuid():N}");
-                    await _fileSystemService.WriteAllTextAsync(triggerFile, 
-                        $"Sync triggered at {DateTime.UtcNow:O} for {localOnlyFiles.Count} files", 
+                    await _fileSystemService.WriteAllTextAsync(triggerFile,
+                        $"Sync triggered at {DateTime.UtcNow:O} for {localOnlyFiles.Count} files",
                         cancellationToken);
-                    
+
                     // Give OneDrive time to notice the new file
                     await Task.Delay(500, cancellationToken);
 
@@ -338,7 +338,7 @@ public class OneDriveManager : IOneDriveManager
             var initialProgress = await GetSyncProgressAsync(folderPath, cancellationToken);
             if (initialProgress.IsComplete)
             {
-                _logger.LogInformation("Sync already completed for folder: {FolderPath} - {FilesSynced} files ({BytesSynced} bytes)", 
+                _logger.LogInformation("Sync already completed for folder: {FolderPath} - {FilesSynced} files ({BytesSynced} bytes)",
                     folderPath, initialProgress.FilesSynced, initialProgress.BytesSynced);
                 return true;
             }
@@ -362,7 +362,7 @@ public class OneDriveManager : IOneDriveManager
                 // Check if sync is complete
                 if (progress.IsComplete)
                 {
-                    _logger.LogInformation("Sync completed for folder: {FolderPath} - {FilesSynced} files ({BytesSynced} bytes)", 
+                    _logger.LogInformation("Sync completed for folder: {FolderPath} - {FilesSynced} files ({BytesSynced} bytes)",
                         folderPath, progress.FilesSynced, progress.BytesSynced);
                     return true;
                 }
@@ -370,16 +370,16 @@ public class OneDriveManager : IOneDriveManager
                 // Check for errors
                 if (progress.Status == OneDrive.Models.OneDriveSyncStatus.Error)
                 {
-                    _logger.LogWarning("Sync error detected for folder: {FolderPath}. Errors: {ErrorCount}", 
+                    _logger.LogWarning("Sync error detected for folder: {FolderPath}. Errors: {ErrorCount}",
                         folderPath, progress.Errors.Count);
-                    
+
                     // Log specific errors
                     foreach (var error in progress.Errors.Take(5)) // Log first 5 errors
                     {
-                        _logger.LogWarning("Sync error for {FilePath}: {ErrorMessage}", 
+                        _logger.LogWarning("Sync error for {FilePath}: {ErrorMessage}",
                             error.FilePath, error.ErrorMessage);
                     }
-                    
+
                     return false;
                 }
 
@@ -393,7 +393,7 @@ public class OneDriveManager : IOneDriveManager
                 {
                     _logger.LogWarning("Sync appears to be stalled for folder: {FolderPath}. No progress for {Minutes} minutes",
                         folderPath, stallDetectionThreshold.TotalMinutes);
-                    
+
                     // Try to restart sync
                     await ForceSyncAsync(folderPath, cancellationToken);
                     lastProgressUpdate = DateTime.UtcNow; // Reset stall detection
@@ -402,15 +402,15 @@ public class OneDriveManager : IOneDriveManager
                 // Log progress
                 var elapsedTime = DateTime.UtcNow - startTime;
                 var remainingTime = timeout - elapsedTime;
-                
+
                 _logger.LogDebug("Sync progress for {FolderPath}: {Percent:F1}% ({FilesSynced}/{TotalFiles} files, {BytesSynced}/{TotalBytes} bytes)",
                     folderPath, progress.PercentComplete, progress.FilesSynced, progress.TotalFiles,
                     progress.BytesSynced, progress.TotalBytes);
 
                 if (progress.ActiveFiles.Count > 0)
                 {
-                    _logger.LogDebug("Currently syncing {Count} files: {Files}", 
-                        progress.ActiveFiles.Count, 
+                    _logger.LogDebug("Currently syncing {Count} files: {Files}",
+                        progress.ActiveFiles.Count,
                         string.Join(", ", progress.ActiveFiles.Take(3).Select(Path.GetFileName)));
                 }
 
@@ -418,7 +418,7 @@ public class OneDriveManager : IOneDriveManager
                 {
                     _logger.LogDebug("Estimated time remaining: {Time}, Timeout in: {Timeout}",
                         progress.EstimatedTimeRemaining.Value, remainingTime);
-                    
+
                     // Warn if estimated time exceeds timeout
                     if (progress.EstimatedTimeRemaining.Value > remainingTime)
                     {
@@ -448,7 +448,7 @@ public class OneDriveManager : IOneDriveManager
             var finalProgress = await GetSyncProgressAsync(folderPath, cancellationToken);
             _logger.LogWarning("Sync timeout for folder: {FolderPath}. Progress: {Percent:F1}% ({FilesSynced}/{TotalFiles} files)",
                 folderPath, finalProgress.PercentComplete, finalProgress.FilesSynced, finalProgress.TotalFiles);
-            
+
             return false;
         }
         catch (OperationCanceledException)
@@ -515,7 +515,7 @@ public class OneDriveManager : IOneDriveManager
 
             // Get or create sync operation for tracking
             var syncOperation = await GetOrCreateSyncOperationAsync(userSid, status.SyncFolder ?? string.Empty, cancellationToken);
-            
+
             // Get unresolved errors from database
             var unresolvedErrors = await _stateManager.GetUnresolvedSyncOperationErrorsAsync(userSid, cancellationToken);
             var resolvedCount = 0;
@@ -530,7 +530,7 @@ public class OneDriveManager : IOneDriveManager
             {
                 var category = errorGroup.Key;
                 var errors = errorGroup.ToList();
-                
+
                 _logger.LogDebug("Attempting to resolve {Count} {Category} errors", errors.Count, category);
 
                 switch (category)
@@ -538,28 +538,28 @@ public class OneDriveManager : IOneDriveManager
                     case SyncErrorCategory.FileNotFound:
                         resolvedCount += await HandleFileNotFoundErrorsAsync(errors.ToList(), cancellationToken);
                         break;
-                        
+
                     case SyncErrorCategory.FileLocked:
                         resolvedCount += await HandleFileLockedErrorsAsync(errors.ToList(), cancellationToken);
                         break;
-                        
+
                     case SyncErrorCategory.InvalidPath:
                         resolvedCount += await HandleInvalidPathErrorsAsync(errors.ToList(), cancellationToken);
                         break;
-                        
+
                     case SyncErrorCategory.QuotaExceeded:
                         resolvedCount += await HandleQuotaExceededErrorsAsync(userSid, errors.ToList(), cancellationToken);
                         break;
-                        
+
                     case SyncErrorCategory.NetworkError:
                         resolvedCount += await HandleNetworkErrorsAsync(errors.ToList(), cancellationToken);
                         break;
-                        
+
                     case SyncErrorCategory.AuthenticationError:
                         // Can't resolve auth errors from service context
                         _logger.LogWarning("Authentication errors require user interaction. Will be handled in Phase 4");
                         break;
-                        
+
                     default:
                         // Try generic resolution
                         resolvedCount += await HandleGenericErrorsAsync(errors.ToList(), cancellationToken);
@@ -593,7 +593,7 @@ public class OneDriveManager : IOneDriveManager
             {
                 _logger.LogInformation("Resolved {Count}/{Total} sync errors for user {Sid}", resolvedCount, totalErrors, userSid);
                 _cache.InvalidateCache(userSid);
-                
+
                 // Try to restart sync for affected folders
                 foreach (var folder in status.AccountInfo.SyncedFolders.Where(f => f.HasErrors))
                 {
@@ -651,23 +651,35 @@ public class OneDriveManager : IOneDriveManager
         var lowerMessage = errorMessage.ToLowerInvariant();
 
         if (lowerMessage.Contains("not found") || lowerMessage.Contains("doesn't exist"))
+        {
             return SyncErrorCategory.FileNotFound;
-        
+        }
+
         if (lowerMessage.Contains("locked") || lowerMessage.Contains("in use") || lowerMessage.Contains("access denied"))
+        {
             return SyncErrorCategory.FileLocked;
-        
+        }
+
         if (lowerMessage.Contains("path") || lowerMessage.Contains("filename") || lowerMessage.Contains("invalid character"))
+        {
             return SyncErrorCategory.InvalidPath;
-        
+        }
+
         if (lowerMessage.Contains("quota") || lowerMessage.Contains("space") || lowerMessage.Contains("storage"))
+        {
             return SyncErrorCategory.QuotaExceeded;
-        
+        }
+
         if (lowerMessage.Contains("network") || lowerMessage.Contains("connection") || lowerMessage.Contains("offline"))
+        {
             return SyncErrorCategory.NetworkError;
-        
+        }
+
         if (lowerMessage.Contains("auth") || lowerMessage.Contains("sign") || lowerMessage.Contains("credential"))
+        {
             return SyncErrorCategory.AuthenticationError;
-        
+        }
+
         return SyncErrorCategory.Unknown;
     }
 
@@ -698,10 +710,10 @@ public class OneDriveManager : IOneDriveManager
     private async Task<int> HandleFileLockedErrorsAsync(List<MigrationTool.Service.Models.SyncError> errors, CancellationToken cancellationToken)
     {
         var resolved = 0;
-        
+
         // Wait a bit for files to be unlocked
         await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-        
+
         foreach (var error in errors)
         {
             try
@@ -740,18 +752,18 @@ public class OneDriveManager : IOneDriveManager
             {
                 // Log for IT attention - these usually require manual intervention
                 _logger.LogWarning("Invalid path error for {FilePath} - requires manual intervention", error.FilePath);
-                
+
                 // Check if file has invalid characters
                 var invalidChars = Path.GetInvalidFileNameChars();
                 var fileName = Path.GetFileName(error.FilePath);
-                
+
                 if (!string.IsNullOrEmpty(fileName) && fileName.Any(c => invalidChars.Contains(c)))
                 {
-                    _logger.LogError("File {FilePath} contains invalid characters: {InvalidChars}", 
-                        error.FilePath, 
+                    _logger.LogError("File {FilePath} contains invalid characters: {InvalidChars}",
+                        error.FilePath,
                         string.Join(", ", fileName.Where(c => invalidChars.Contains(c))));
                 }
-                
+
                 // These errors need IT escalation after retry limit
                 error.RetryAttempts++;
                 await _stateManager.RecordSyncErrorAsync(error, cancellationToken);
@@ -768,11 +780,11 @@ public class OneDriveManager : IOneDriveManager
     {
         // Check current quota
         var availableSpace = await GetAvailableSpaceMBAsync(userSid, cancellationToken);
-        
+
         if (availableSpace <= 0)
         {
             _logger.LogError("OneDrive quota exceeded for user {Sid}. Available space: {Space} MB", userSid, availableSpace);
-            
+
             // These need immediate IT escalation
             foreach (var error in errors)
             {
@@ -780,7 +792,7 @@ public class OneDriveManager : IOneDriveManager
                 await _stateManager.RecordSyncErrorAsync(error, cancellationToken);
             }
         }
-        
+
         return 0; // Can't resolve quota issues automatically
     }
 
@@ -793,7 +805,7 @@ public class OneDriveManager : IOneDriveManager
             error.RetryAttempts++;
             await _stateManager.RecordSyncErrorAsync(error, cancellationToken);
         }
-        
+
         _logger.LogInformation("Network errors detected. Will retry on next sync cycle");
         return 0;
     }
@@ -801,7 +813,7 @@ public class OneDriveManager : IOneDriveManager
     private async Task<int> HandleGenericErrorsAsync(List<MigrationTool.Service.Models.SyncError> errors, CancellationToken cancellationToken)
     {
         var resolved = 0;
-        
+
         // Try forcing sync for affected folders
         var affectedFolders = errors
             .Select(e => Path.GetDirectoryName(e.FilePath))
@@ -820,21 +832,21 @@ public class OneDriveManager : IOneDriveManager
                 _logger.LogWarning(ex, "Failed to force sync for folder {Folder}", folder);
             }
         }
-        
+
         // Update retry counts
         foreach (var error in errors)
         {
             error.RetryAttempts++;
             await _stateManager.RecordSyncErrorAsync(error, cancellationToken);
         }
-        
+
         return resolved;
     }
 
     private async Task EscalateSyncErrorsAsync(string userSid, List<MigrationTool.Service.Models.SyncError> errors, CancellationToken cancellationToken)
     {
         _logger.LogWarning("Escalating {Count} sync errors to IT for user {Sid}", errors.Count, userSid);
-        
+
         // Create IT escalation
         var escalation = new ITEscalation
         {
@@ -844,9 +856,9 @@ public class OneDriveManager : IOneDriveManager
             CreatedAt = DateTime.UtcNow,
             Status = "Open"
         };
-        
+
         await _stateManager.CreateEscalationAsync(escalation, cancellationToken);
-        
+
         // Mark errors as escalated
         foreach (var error in errors)
         {
@@ -859,8 +871,8 @@ public class OneDriveManager : IOneDriveManager
     #region Private Methods
 
     private MigrationTool.Service.Models.KnownFolderMoveStatus ConvertKnownFolderMoveStatus(
-        string userSid, 
-        string accountId, 
+        string userSid,
+        string accountId,
         OneDrive.Models.KnownFolderMoveStatus domainStatus)
     {
         return new MigrationTool.Service.Models.KnownFolderMoveStatus
@@ -903,7 +915,7 @@ public class OneDriveManager : IOneDriveManager
             {
                 statusRecord.PrimaryAccountId = status.AccountInfo.AccountId;
                 statusRecord.AvailableSpaceMB = status.AccountInfo.AvailableSpaceMB;
-                statusRecord.UsedSpaceMB = status.AccountInfo.UsedSpaceBytes.HasValue 
+                statusRecord.UsedSpaceMB = status.AccountInfo.UsedSpaceBytes.HasValue
                     ? (int)(status.AccountInfo.UsedSpaceBytes.Value / (1024 * 1024))
                     : null;
                 statusRecord.HasSyncErrors = status.AccountInfo.HasSyncErrors;

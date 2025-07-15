@@ -31,21 +31,21 @@ public class SyncOperation
     /// <summary>
     /// Calculates the progress percentage
     /// </summary>
-    public double ProgressPercentage => FilesTotal > 0 
-        ? (double)(FilesUploaded ?? 0) / FilesTotal.Value * 100 
+    public double ProgressPercentage => FilesTotal > 0
+        ? (double)(FilesUploaded ?? 0) / FilesTotal.Value * 100
         : 0;
 
     /// <summary>
     /// Determines if the sync operation is complete
     /// </summary>
-    public bool IsComplete => Status == SyncOperationStatus.Completed || 
+    public bool IsComplete => Status == SyncOperationStatus.Completed ||
                              Status == SyncOperationStatus.Failed;
 
     /// <summary>
     /// Gets the duration of the sync operation
     /// </summary>
-    public TimeSpan? Duration => EndTime.HasValue 
-        ? EndTime.Value - StartTime 
+    public TimeSpan? Duration => EndTime.HasValue
+        ? EndTime.Value - StartTime
         : (IsComplete ? null : DateTime.UtcNow - StartTime);
 }
 

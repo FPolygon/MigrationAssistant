@@ -1,9 +1,9 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
-using Moq;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
+using Moq;
 using Xunit;
 
 namespace MigrationService.Tests.OneDrive;

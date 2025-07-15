@@ -163,9 +163,9 @@ public class OneDriveDetector : IOneDriveDetector
             foreach (var file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                
+
                 var fileSyncStatus = await GetFileSyncStatusAsync(file.FullName, cancellationToken);
-                
+
                 switch (fileSyncStatus.State)
                 {
                     case FileSyncState.CloudOnly:
@@ -175,18 +175,18 @@ public class OneDriveDetector : IOneDriveDetector
                         uploadedCount++;
                         uploadedBytes += file.Length;
                         break;
-                        
+
                     case FileSyncState.Uploading:
                         // File is currently being uploaded
                         uploadingFiles.Add(file.FullName);
                         break;
-                        
+
                     case FileSyncState.LocalOnly:
                         // File needs to be uploaded
                         localOnlyCount++;
                         localOnlyBytes += file.Length;
                         break;
-                        
+
                     case FileSyncState.Error:
                         errorCount++;
                         progress.Errors.Add(new OneDriveSyncError
@@ -216,7 +216,7 @@ public class OneDriveDetector : IOneDriveDetector
                 {
                     var bytesPerSecond = progress.BytesSynced / elapsedTime.TotalSeconds;
                     var remainingBytes = progress.TotalBytes - progress.BytesSynced;
-                    
+
                     if (bytesPerSecond > 0)
                     {
                         progress.EstimatedTimeRemaining = TimeSpan.FromSeconds(remainingBytes / bytesPerSecond);
@@ -232,7 +232,7 @@ public class OneDriveDetector : IOneDriveDetector
             else if (localOnlyCount > 0 || uploadingFiles.Count > 0)
             {
                 progress.Status = OneDriveSyncStatus.Syncing;
-                _logger.LogInformation("Sync in progress: {LocalFiles} files ({LocalBytes} bytes) need upload, {UploadingFiles} files uploading", 
+                _logger.LogInformation("Sync in progress: {LocalFiles} files ({LocalBytes} bytes) need upload, {UploadingFiles} files uploading",
                     localOnlyCount, localOnlyBytes, uploadingFiles.Count);
             }
             else if (progress.FilesSynced == progress.TotalFiles)
@@ -469,18 +469,18 @@ public class OneDriveDetector : IOneDriveDetector
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var syncStatus = await GetFileSyncStatusAsync(file.FullName, cancellationToken);
-                
+
                 // We need to upload files that are:
                 // 1. Local only (not in OneDrive folder)
                 // 2. In OneDrive folder but not yet synced (no cloud attributes)
-                if (syncStatus.State == FileSyncState.LocalOnly || 
+                if (syncStatus.State == FileSyncState.LocalOnly ||
                     (syncStatus.State == FileSyncState.InSync && !await IsFileUploadedAsync(file.FullName)))
                 {
                     localOnlyFiles.Add(syncStatus);
                 }
             }
 
-            _logger.LogInformation("Found {Count} local-only files in {FolderPath} requiring upload", 
+            _logger.LogInformation("Found {Count} local-only files in {FolderPath} requiring upload",
                 localOnlyFiles.Count, folderPath);
 
             return localOnlyFiles;
@@ -498,7 +498,7 @@ public class OneDriveDetector : IOneDriveDetector
         {
             // Get all OneDrive sync folders for all users
             var syncFolders = await _registry.GetSyncedFoldersAsync(string.Empty);
-            
+
             foreach (var folder in syncFolders)
             {
                 if (filePath.StartsWith(folder.LocalPath, StringComparison.OrdinalIgnoreCase))
@@ -522,14 +522,16 @@ public class OneDriveDetector : IOneDriveDetector
         {
             var directory = Path.GetDirectoryName(filePath);
             var fileName = Path.GetFileName(filePath);
-            
+
             if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName))
+            {
                 return false;
+            }
 
             // Check for conflict files (e.g., "Document-ComputerName.docx")
             var conflictPattern = $"{Path.GetFileNameWithoutExtension(fileName)}-*{Path.GetExtension(fileName)}";
             var conflictFiles = await _fileSystemService.GetFilesAsync(directory, conflictPattern, SearchOption.TopDirectoryOnly);
-            
+
             if (conflictFiles.Length > 0)
             {
                 _logger.LogDebug("Found conflict files for {FilePath}", filePath);
@@ -538,7 +540,7 @@ public class OneDriveDetector : IOneDriveDetector
 
             // Check for .tmp or error marker files
             var errorFiles = await _fileSystemService.GetFilesAsync(directory, $"{fileName}*.tmp", SearchOption.TopDirectoryOnly);
-            
+
             return errorFiles.Length > 0;
         }
         catch (Exception ex)
@@ -559,7 +561,9 @@ public class OneDriveDetector : IOneDriveDetector
 
             var fileInfo = await _fileSystemService.GetFileInfoAsync(filePath);
             if (fileInfo == null)
+            {
                 return false;
+            }
 
             // If file was modified very recently, it might not be uploaded yet
             var timeSinceModified = DateTime.UtcNow - fileInfo.LastWriteTimeUtc;

@@ -133,7 +133,7 @@ public class ITEscalation
     public DateTime? ResolvedAt { get; set; }
     public string? ResolutionNotes { get; set; }
     public bool AutoTriggered { get; set; } = true;
-    
+
     /// <summary>
     /// Alias for TriggerReason to maintain compatibility
     /// </summary>

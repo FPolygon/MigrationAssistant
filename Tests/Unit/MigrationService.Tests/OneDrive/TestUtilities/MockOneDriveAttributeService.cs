@@ -89,7 +89,7 @@ public class MockOneDriveAttributeService : IOneDriveAttributeService
         // Check for RecallOnDataAccess or RecallOnOpen attributes
         const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
         const FileAttributes RecallOnOpen = (FileAttributes)0x00040000;
-        
+
         return (fileAttributes & RecallOnDataAccess) != 0 || (fileAttributes & RecallOnOpen) != 0;
     }
 

@@ -298,7 +298,7 @@ public class TestFileSystemService : IFileSystemService
 
         // Add the file to the existing files set for testing
         _existingFiles.Add(path);
-        
+
         // Create file info for the written file
         var fileInfo = new MockFileInfo(path, content.Length, true);
         _fileInfos[path] = fileInfo;

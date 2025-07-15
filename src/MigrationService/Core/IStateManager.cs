@@ -115,7 +115,7 @@ public interface IStateManager : IDisposable
     Task<IEnumerable<SyncOperation>> GetSyncOperationsAsync(string userSid, CancellationToken cancellationToken);
     Task<IEnumerable<SyncOperation>> GetPendingSyncOperationsAsync(CancellationToken cancellationToken);
     Task IncrementSyncRetryCountAsync(int syncOperationId, CancellationToken cancellationToken);
-    
+
     // Sync error management
     Task<int> RecordSyncErrorAsync(SyncError error, CancellationToken cancellationToken);
     Task<IEnumerable<SyncError>> GetSyncErrorsAsync(int syncOperationId, CancellationToken cancellationToken);

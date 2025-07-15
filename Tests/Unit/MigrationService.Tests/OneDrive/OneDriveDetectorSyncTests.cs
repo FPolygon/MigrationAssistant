@@ -1,10 +1,10 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
-using Moq;
+using MigrationService.Tests.OneDrive.TestUtilities;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
-using MigrationService.Tests.OneDrive.TestUtilities;
+using Moq;
 using Xunit;
 
 namespace MigrationService.Tests.OneDrive;
@@ -163,13 +163,13 @@ public class OneDriveDetectorSyncTests
     {
         // Arrange
         var folderPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents";
-        
+
         // Create files with different attributes - use files outside OneDrive folder for LocalOnly test
         var local1Path = @"C:\Users\TestUser\Documents\local1.txt";
         var local2Path = @"C:\Users\TestUser\Documents\local2.txt";
         var cloudPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents\cloud.txt";
         var syncedPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents\synced.txt";
-        
+
         var files = new[]
         {
             CreateMockFileInfo(local1Path, 1024, FileAttributes.Normal).Object,
