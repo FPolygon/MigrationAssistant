@@ -175,17 +175,19 @@ public class OneDriveManagerTests
         _fileSystemServiceMock.Setup(f => f.DirectoryExistsAsync(testFolder))
             .ReturnsAsync(true);
 
-        // Mock local only files to trigger sync
+        // Mock local only files to trigger sync initially, then empty list to indicate sync completion
         var localOnlyFiles = new List<FileSyncStatus>
         {
             new FileSyncStatus { FilePath = Path.Combine(testFolder, "test.txt"), State = FileSyncState.LocalOnly }
         };
 
-        _detectorMock.Setup(d => d.GetLocalOnlyFilesAsync(testFolder, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(localOnlyFiles);
+        _detectorMock.SetupSequence(d => d.GetLocalOnlyFilesAsync(testFolder, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(localOnlyFiles)  // First call - has files to sync
+            .ReturnsAsync(new List<FileSyncStatus>()); // Subsequent calls - no files to sync
 
-        // Mock sync progress
-        _detectorMock.Setup(d => d.GetSyncProgressAsync(testFolder, It.IsAny<CancellationToken>()))
+        // Mock sync progress to indicate syncing then complete
+        _detectorMock.SetupSequence(d => d.GetSyncProgressAsync(testFolder, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SyncProgress { Status = OneDriveSyncStatus.Syncing })
             .ReturnsAsync(new SyncProgress { Status = OneDriveSyncStatus.UpToDate });
 
         // Act

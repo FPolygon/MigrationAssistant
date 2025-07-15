@@ -68,28 +68,13 @@ public class OneDriveDetectorSyncTests
     {
         // Set up common OneDrive attribute mappings
         _attributeService.SetupCommonMappings();
-
-        // Override specific mappings for test scenarios
-        // Normal file (LocalOnly when not in OneDrive folder, InSync when in OneDrive folder)
-        _attributeService.SetSyncState(FileAttributes.Normal, FileSyncState.InSync);
-        _attributeService.SetPinnedState(FileAttributes.Normal, false);
-
-        // Cloud-only file (RecallOnDataAccess)
-        var cloudOnlyAttributes = FileAttributes.Normal | (FileAttributes)0x00400000;
-        _attributeService.SetSyncState(cloudOnlyAttributes, FileSyncState.CloudOnly);
-        _attributeService.SetPinnedState(cloudOnlyAttributes, false);
-
-        // Pinned file (LocallyAvailable)
-        var pinnedAttributes = FileAttributes.Normal | (FileAttributes)0x00080000;
-        _attributeService.SetSyncState(pinnedAttributes, FileSyncState.LocallyAvailable);
-        _attributeService.SetPinnedState(pinnedAttributes, true);
     }
 
     [Fact]
     public async Task GetFileSyncStatusAsync_LocalOnlyFile_ReturnsCorrectStatus()
     {
-        // Arrange
-        var filePath = @"C:\Users\TestUser\OneDrive - Contoso\Documents\localfile.txt";
+        // Arrange - Use a file path OUTSIDE OneDrive folder to test LocalOnly state
+        var filePath = @"C:\Users\TestUser\Documents\localfile.txt";
         var fileInfo = new Mock<IFileInfo>();
         fileInfo.Setup(f => f.Exists).Returns(true);
         fileInfo.Setup(f => f.Length).Returns(1024);
@@ -178,13 +163,27 @@ public class OneDriveDetectorSyncTests
     {
         // Arrange
         var folderPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents";
+        
+        // Create files with different attributes - use files outside OneDrive folder for LocalOnly test
+        var local1Path = @"C:\Users\TestUser\Documents\local1.txt";
+        var local2Path = @"C:\Users\TestUser\Documents\local2.txt";
+        var cloudPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents\cloud.txt";
+        var syncedPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents\synced.txt";
+        
         var files = new[]
         {
-            CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\local1.txt", 1024, FileAttributes.Normal).Object,
-            CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\cloud.txt", 0, FileAttributes.Normal | (FileAttributes)0x00400000).Object,
-            CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\local2.txt", 2048, FileAttributes.Normal).Object,
-            CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\synced.txt", 512, FileAttributes.Normal | (FileAttributes)0x00080000).Object
+            CreateMockFileInfo(local1Path, 1024, FileAttributes.Normal).Object,
+            CreateMockFileInfo(cloudPath, 0, FileAttributes.Normal | (FileAttributes)0x00400000).Object,
+            CreateMockFileInfo(local2Path, 2048, FileAttributes.Normal).Object,
+            CreateMockFileInfo(syncedPath, 512, FileAttributes.Normal | (FileAttributes)0x00080000).Object
         };
+
+        // Set up individual file info mocks for GetFileSyncStatusAsync calls
+        foreach (var file in files)
+        {
+            _fileSystemServiceMock.Setup(f => f.GetFileInfoAsync(file.FullName))
+                .ReturnsAsync(file);
+        }
 
         _fileSystemServiceMock.Setup(f => f.DirectoryExistsAsync(folderPath))
             .ReturnsAsync(true);
@@ -211,6 +210,13 @@ public class OneDriveDetectorSyncTests
             CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\uploading.txt", 2048, FileAttributes.Normal).Object,
             CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\pending.txt", 4096, FileAttributes.Normal).Object
         };
+
+        // Set up individual file info mocks for GetFileSyncStatusAsync calls
+        foreach (var file in files)
+        {
+            _fileSystemServiceMock.Setup(f => f.GetFileInfoAsync(file.FullName))
+                .ReturnsAsync(file);
+        }
 
         _fileSystemServiceMock.Setup(f => f.DirectoryExistsAsync(folderPath))
             .ReturnsAsync(true);
@@ -252,6 +258,13 @@ public class OneDriveDetectorSyncTests
             CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\file1.txt", 1024, FileAttributes.Normal | (FileAttributes)0x00080000).Object,
             CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\file2.txt", 2048, FileAttributes.Normal | (FileAttributes)0x00080000).Object
         };
+
+        // Set up individual file info mocks for GetFileSyncStatusAsync calls
+        foreach (var file in files)
+        {
+            _fileSystemServiceMock.Setup(f => f.GetFileInfoAsync(file.FullName))
+                .ReturnsAsync(file);
+        }
 
         _fileSystemServiceMock.Setup(f => f.DirectoryExistsAsync(folderPath))
             .ReturnsAsync(true);

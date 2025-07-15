@@ -34,8 +34,8 @@ public class MockOneDriveAttributeService : IOneDriveAttributeService
     /// </summary>
     public void SetupCommonMappings()
     {
-        // Normal file attributes (no OneDrive attributes)
-        SetSyncState(FileAttributes.Normal, FileSyncState.LocalOnly);
+        // Normal file attributes in OneDrive folder (no special cloud attributes = InSync)
+        SetSyncState(FileAttributes.Normal, FileSyncState.InSync);
         SetPinnedState(FileAttributes.Normal, false);
 
         // Cloud-only file (RecallOnDataAccess)
@@ -47,9 +47,6 @@ public class MockOneDriveAttributeService : IOneDriveAttributeService
         var pinnedAttributes = FileAttributes.Normal | (FileAttributes)0x00080000;
         SetSyncState(pinnedAttributes, FileSyncState.LocallyAvailable);
         SetPinnedState(pinnedAttributes, true);
-
-        // In-sync file (normal file in OneDrive folder)
-        SetSyncState(FileAttributes.Normal, FileSyncState.InSync);
     }
 
     /// <inheritdoc/>
