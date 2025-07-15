@@ -9,6 +9,7 @@ using MigrationTool.Service.Models;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
+using MigrationService.Tests.OneDrive.TestUtilities;
 using Moq;
 using Xunit;
 
@@ -27,6 +28,8 @@ public class OneDriveIntegrationTests
     private readonly Mock<ILogger<OneDriveStatusCache>> _cacheLoggerMock;
     private readonly Mock<IStateManager> _stateManagerMock;
     private readonly Mock<IOneDriveRegistry> _registryMock;
+    private readonly TestFileSystemService _testFileSystemService;
+    private readonly TestProcessService _testProcessService;
     private readonly OneDriveManager _manager;
     private readonly OneDriveStatusCache _cache;
     private readonly string _testUserSid = "S-1-5-21-123456789-1234567890-1234567890-1001";
@@ -40,9 +43,13 @@ public class OneDriveIntegrationTests
         _stateManagerMock = new Mock<IStateManager>();
         _registryMock = new Mock<IOneDriveRegistry>();
 
+        // Initialize test services
+        _testFileSystemService = new TestFileSystemService();
+        _testProcessService = new TestProcessService();
+
         // Create real components with mocked dependencies
-        IOneDriveProcessDetector processDetector = new OneDriveProcessDetector(_processLoggerMock.Object);
-        IOneDriveDetector detector = new OneDriveDetector(_detectorLoggerMock.Object, _registryMock.Object, processDetector);
+        IOneDriveProcessDetector processDetector = new OneDriveProcessDetector(_processLoggerMock.Object, _testProcessService);
+        IOneDriveDetector detector = new OneDriveDetector(_detectorLoggerMock.Object, _registryMock.Object, processDetector, _testFileSystemService);
         _cache = new OneDriveStatusCache(_cacheLoggerMock.Object, TimeSpan.FromMinutes(5));
 
         _manager = new OneDriveManager(
@@ -51,7 +58,8 @@ public class OneDriveIntegrationTests
             _cache,
             _registryMock.Object,
             processDetector,
-            _stateManagerMock.Object);
+            _stateManagerMock.Object,
+            _testFileSystemService);
     }
 
     [Fact]
@@ -70,6 +78,10 @@ public class OneDriveIntegrationTests
                 TotalSpaceBytes = 5368709120
             }
         };
+
+        // Configure test services
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\TestUser\OneDrive - Contoso", true);
+        _testProcessService.SetProcessRunning("OneDrive", 1234, _testUserSid);
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
@@ -113,6 +125,10 @@ public class OneDriveIntegrationTests
             PicturesRedirected = false
         };
 
+        // Configure test services
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\TestUser\OneDrive - Contoso", true);
+        _testProcessService.SetProcessRunning("OneDrive", 1234, _testUserSid);
+
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
         _registryMock.Setup(r => r.GetKnownFolderMoveStatusAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(kfmStatus);
@@ -146,6 +162,11 @@ public class OneDriveIntegrationTests
             }
         };
 
+        // Configure test services
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\TestUser\OneDrive - Contoso", true);
+        // Don't set process running to simulate authentication issues
+        _testProcessService.ClearAllProcesses();
+
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
 
@@ -171,6 +192,10 @@ public class OneDriveIntegrationTests
                 UserFolder = @"C:\Users\TestUser\OneDrive - Contoso"
             }
         };
+
+        // Configure test services
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\TestUser\OneDrive - Contoso", true);
+        _testProcessService.SetProcessRunning("OneDrive", 1234, _testUserSid);
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
@@ -206,11 +231,16 @@ public class OneDriveIntegrationTests
             {
                 AccountId = "Business1",
                 Email = "user@contoso.com",
+                UserFolder = @"C:\Users\TestUser\OneDrive - Contoso",
                 IsPrimary = true,
                 UsedSpaceBytes = 1073741824, // 1GB
                 TotalSpaceBytes = 5368709120 // 5GB
             }
         };
+
+        // Configure test services
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\TestUser\OneDrive - Contoso", true);
+        _testProcessService.SetProcessRunning("OneDrive", 1234, _testUserSid);
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
@@ -226,6 +256,9 @@ public class OneDriveIntegrationTests
     public async Task GetAvailableSpaceMBAsync_WhenNotSignedIn_ReturnsNegativeOne()
     {
         // Arrange
+        // Configure test services for not signed in scenario
+        _testProcessService.ClearAllProcesses();
+
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(false);
 
         // Act
@@ -244,13 +277,28 @@ public class OneDriveIntegrationTests
 
         var user1Accounts = new List<OneDriveAccountInfo>
         {
-            new OneDriveAccountInfo { AccountId = "Business1", Email = "user1@contoso.com" }
+            new OneDriveAccountInfo { 
+                AccountId = "Business1", 
+                Email = "user1@contoso.com",
+                UserFolder = @"C:\Users\User1\OneDrive - Contoso"
+            }
         };
 
         var user2Accounts = new List<OneDriveAccountInfo>
         {
-            new OneDriveAccountInfo { AccountId = "Business1", Email = "user2@contoso.com", HasSyncErrors = true }
+            new OneDriveAccountInfo { 
+                AccountId = "Business1", 
+                Email = "user2@contoso.com", 
+                UserFolder = @"C:\Users\User2\OneDrive - Contoso",
+                HasSyncErrors = true 
+            }
         };
+
+        // Configure test services
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\User1\OneDrive - Contoso", true);
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\User2\OneDrive - Contoso", true);
+        _testProcessService.SetProcessRunning("OneDrive", 1234, user1Sid);
+        _testProcessService.SetProcessRunning("OneDrive", 5678, user2Sid);
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(user1Sid, It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(user1Accounts);
@@ -265,7 +313,7 @@ public class OneDriveIntegrationTests
         status1.SyncStatus.Should().Be(MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate);
 
         status2.AccountEmail.Should().Be("user2@contoso.com");
-        status2.SyncStatus.Should().Be(MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.Error);
+        status2.SyncStatus.Should().Be(MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.AuthenticationRequired);
 
         // Assert - Cache behavior
         var cached1 = _cache.GetCachedStatus(user1Sid);
@@ -309,6 +357,11 @@ public class OneDriveIntegrationTests
             }
         };
 
+        // Configure test services
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\TestUser\OneDrive - Contoso", true);
+        _testFileSystemService.SetDirectoryExists(@"C:\Users\TestUser\SharePoint - Project Documents", true);
+        _testProcessService.SetProcessRunning("OneDrive", 1234, _testUserSid);
+
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
         _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(syncedFolders);
@@ -328,6 +381,9 @@ public class OneDriveIntegrationTests
     public async Task TryRecoverAuthenticationAsync_LogsAttempt()
     {
         // Arrange
+        // Configure test services for authentication recovery scenario
+        _testProcessService.ClearAllProcesses();
+
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
             .ReturnsAsync(new List<OneDriveAccountInfo>());

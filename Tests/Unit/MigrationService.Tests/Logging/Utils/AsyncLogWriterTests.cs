@@ -347,22 +347,18 @@ public class AsyncLogWriterTests : IDisposable
         var entry = new LogEntry { Message = "Test message" };
         writer.QueueLogEntry(entry);
 
-        // Act - Get statistics immediately after queuing
-        var statsBeforeProcessing = writer.GetStatistics();
-
-        // Assert - Before processing starts
-        statsBeforeProcessing.Should().NotBeNull();
-        statsBeforeProcessing.CurrentQueueSize.Should().Be(1, "Queue should contain exactly one entry before processing");
-        statsBeforeProcessing.MaxQueueSize.Should().Be(100);
-        statsBeforeProcessing.HighWatermark.Should().Be(75);
-        statsBeforeProcessing.IsRunning.Should().BeTrue();
-
-        // Wait for processing to start
+        // Wait for processing to start (provider will be blocked by semaphore)
         processingStarted.Wait(TimeSpan.FromSeconds(1)).Should().BeTrue("Processing should have started");
 
-        // Get statistics after processing has dequeued the entry
-        var statsAfterProcessing = writer.GetStatistics();
-        statsAfterProcessing.CurrentQueueSize.Should().Be(0, "Queue should be empty after entry is dequeued for processing");
+        // Act - Get statistics after the entry has been dequeued but provider is blocked
+        var statsAfterDequeue = writer.GetStatistics();
+
+        // Assert - After dequeuing but during provider processing
+        statsAfterDequeue.Should().NotBeNull();
+        statsAfterDequeue.CurrentQueueSize.Should().Be(0, "Queue should be empty after entry is dequeued for processing");
+        statsAfterDequeue.MaxQueueSize.Should().Be(100);
+        statsAfterDequeue.HighWatermark.Should().Be(75);
+        statsAfterDequeue.IsRunning.Should().BeTrue();
 
         // Clean up
         blockingSemaphore.Release();

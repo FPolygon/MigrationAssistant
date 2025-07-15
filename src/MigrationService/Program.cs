@@ -103,6 +103,8 @@ public class Program
                 services.AddSingleton<IClassificationOverrideManager, ClassificationOverrideManager>();
 
                 // Add OneDrive services
+                services.AddSingleton<IFileSystemService, WindowsFileSystemService>();
+                services.AddSingleton<IProcessService, WindowsProcessService>();
                 services.AddSingleton<IOneDriveRegistry, OneDriveRegistry>();
                 services.AddSingleton<IOneDriveProcessDetector, OneDriveProcessDetector>();
                 services.AddSingleton<IOneDriveDetector, OneDriveDetector>();

@@ -13,11 +13,13 @@ namespace MigrationTool.Service.OneDrive.Native;
 public class OneDriveProcessDetector : IOneDriveProcessDetector
 {
     private readonly ILogger<OneDriveProcessDetector> _logger;
+    private readonly IProcessService _processService;
     private const string OneDriveProcessName = "OneDrive";
 
-    public OneDriveProcessDetector(ILogger<OneDriveProcessDetector> logger)
+    public OneDriveProcessDetector(ILogger<OneDriveProcessDetector> logger, IProcessService processService)
     {
         _logger = logger;
+        _processService = processService;
     }
 
     /// <summary>
@@ -27,8 +29,7 @@ public class OneDriveProcessDetector : IOneDriveProcessDetector
     {
         try
         {
-            var processes = Process.GetProcessesByName(OneDriveProcessName);
-            return processes.Length > 0;
+            return _processService.IsProcessRunningAsync(OneDriveProcessName).Result;
         }
         catch (Exception ex)
         {
@@ -42,42 +43,15 @@ public class OneDriveProcessDetector : IOneDriveProcessDetector
     /// </summary>
     public virtual async Task<bool> IsOneDriveRunningForUserAsync(string userSid)
     {
-        return await Task.Run(() =>
+        try
         {
-            try
-            {
-                // Use WMI to get process owner information
-                var query = $"SELECT ProcessId, Name FROM Win32_Process WHERE Name = '{OneDriveProcessName}.exe'";
-                using var searcher = new ManagementObjectSearcher(query);
-                using var results = searcher.Get();
-
-                foreach (ManagementObject process in results)
-                {
-                    try
-                    {
-                        var processId = Convert.ToInt32(process["ProcessId"]);
-                        var ownerSid = GetProcessOwnerSid(processId);
-
-                        if (ownerSid != null && ownerSid.Equals(userSid, StringComparison.OrdinalIgnoreCase))
-                        {
-                            _logger.LogDebug("Found OneDrive process {ProcessId} for user {Sid}",
-                                processId, userSid);
-                            return true;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to check process owner");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to check OneDrive process for user {Sid}", userSid);
-            }
-
+            return await _processService.IsProcessRunningForUserAsync(OneDriveProcessName, userSid);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check OneDrive process for user {Sid}", userSid);
             return false;
-        });
+        }
     }
 
     /// <summary>
@@ -85,19 +59,15 @@ public class OneDriveProcessDetector : IOneDriveProcessDetector
     /// </summary>
     public virtual List<int> GetOneDriveProcessIds()
     {
-        var processIds = new List<int>();
-
         try
         {
-            var processes = Process.GetProcessesByName(OneDriveProcessName);
-            processIds.AddRange(processes.Select(p => p.Id));
+            return _processService.GetProcessIdsByNameAsync(OneDriveProcessName).Result;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to get OneDrive process IDs");
+            return new List<int>();
         }
-
-        return processIds;
     }
 
     /// <summary>
@@ -136,46 +106,4 @@ public class OneDriveProcessDetector : IOneDriveProcessDetector
         }
     }
 
-    #region Private Methods
-
-    private string? GetProcessOwnerSid(int processId)
-    {
-        try
-        {
-            var query = $"SELECT * FROM Win32_Process WHERE ProcessId = {processId}";
-            using var searcher = new ManagementObjectSearcher(query);
-            using var results = searcher.Get();
-
-            foreach (ManagementObject process in results)
-            {
-                var argList = new string[] { string.Empty, string.Empty };
-                var returnVal = Convert.ToInt32(process.InvokeMethod("GetOwner", argList));
-
-                if (returnVal == 0)
-                {
-                    var owner = argList[1] + "\\" + argList[0]; // DOMAIN\Username
-
-                    // Convert to SID
-                    try
-                    {
-                        var account = new NTAccount(owner);
-                        var sid = (SecurityIdentifier)account.Translate(typeof(SecurityIdentifier));
-                        return sid.Value;
-                    }
-                    catch
-                    {
-                        // Failed to translate to SID
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to get process owner for PID {ProcessId}", processId);
-        }
-
-        return null;
-    }
-
-    #endregion
 }
