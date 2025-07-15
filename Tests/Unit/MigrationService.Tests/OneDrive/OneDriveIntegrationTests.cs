@@ -307,7 +307,7 @@ public class OneDriveIntegrationTests
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
         _registryMock.Setup(r => r.GetUserAccountsAsync(user1Sid, It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(user1Accounts);
         _registryMock.Setup(r => r.GetUserAccountsAsync(user2Sid, It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(user2Accounts);
-        
+
         // Add registry mocks for both users
         _registryMock.Setup(r => r.IsSyncPausedAsync(user1Sid, It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(false);
         _registryMock.Setup(r => r.IsSyncPausedAsync(user2Sid, It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(false);

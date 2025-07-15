@@ -128,7 +128,7 @@ public class OneDriveManagerTests
         // Arrange
         var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var subFolder = Path.Combine(tempFolder, "Documents");
-        
+
         var userProfile = new UserProfile
         {
             UserId = "S-1-5-21-1234567890-1234567890-1234567890-1001",
@@ -153,7 +153,7 @@ public class OneDriveManagerTests
             .ReturnsAsync(new List<OneDriveSyncFolder> { syncFolder });
         _detectorMock.Setup(d => d.GetSyncProgressAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(syncProgress);
-        
+
         // Configure file system mock to recognize the subfolder exists
         _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(subFolder))
             .ReturnsAsync(true);

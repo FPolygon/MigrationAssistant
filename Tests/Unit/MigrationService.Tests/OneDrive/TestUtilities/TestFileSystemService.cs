@@ -72,7 +72,7 @@ public class TestFileSystemService : IFileSystemService
     public void SetFilesForDirectory(string directoryPath, params IFileInfo[] files)
     {
         _directoryFiles[directoryPath] = files.ToList();
-        
+
         // Also add files to the existing files set
         foreach (var file in files)
         {
@@ -88,12 +88,12 @@ public class TestFileSystemService : IFileSystemService
     {
         var filePath = Path.Combine(directoryPath, fileName);
         var fileInfo = new MockFileInfo(filePath, fileSize, true);
-        
+
         if (!_directoryFiles.ContainsKey(directoryPath))
         {
             _directoryFiles[directoryPath] = new List<IFileInfo>();
         }
-        
+
         _directoryFiles[directoryPath].Add(fileInfo);
         _existingFiles.Add(filePath);
         _fileInfos[filePath] = fileInfo;
@@ -157,7 +157,7 @@ public class TestFileSystemService : IFileSystemService
     public Task<IFileInfo[]> GetFilesAsync(string path, string searchPattern, SearchOption searchOption)
     {
         var results = new List<IFileInfo>();
-        
+
         try
         {
             // Get files from the current directory
@@ -166,13 +166,13 @@ public class TestFileSystemService : IFileSystemService
                 var matchingFiles = files.Where(f => MatchesPattern(Path.GetFileName(f.FullName), searchPattern));
                 results.AddRange(matchingFiles);
             }
-            
+
             // If AllDirectories is specified, search subdirectories recursively
             if (searchOption == SearchOption.AllDirectories)
             {
-                var subdirectories = _directoryFiles.Keys.Where(dir => 
+                var subdirectories = _directoryFiles.Keys.Where(dir =>
                     IsSubdirectory(dir, path) && !string.Equals(dir, path, StringComparison.OrdinalIgnoreCase));
-                    
+
                 foreach (var subdirectory in subdirectories)
                 {
                     if (_directoryFiles.TryGetValue(subdirectory, out var subFiles))
@@ -188,7 +188,7 @@ public class TestFileSystemService : IFileSystemService
             // Log error but don't fail the test
             Console.WriteLine($"Error in GetFilesAsync: {ex.Message}");
         }
-        
+
         return Task.FromResult(results.ToArray());
     }
 
@@ -198,31 +198,35 @@ public class TestFileSystemService : IFileSystemService
     private bool MatchesPattern(string fileName, string pattern)
     {
         if (string.IsNullOrEmpty(pattern) || pattern == "*")
+        {
             return true;
-            
+        }
+
         if (pattern == "*.*")
+        {
             return true;
-            
+        }
+
         // Handle simple wildcard patterns
         if (pattern.StartsWith("*") && pattern.Length > 1)
         {
             var extension = pattern.Substring(1);
             return fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
         }
-        
+
         if (pattern.EndsWith("*") && pattern.Length > 1)
         {
             var prefix = pattern.Substring(0, pattern.Length - 1);
             return fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
         }
-        
+
         if (pattern.Contains("*"))
         {
             // Convert wildcard pattern to regex
             var regexPattern = "^" + pattern.Replace("*", ".*").Replace("?", ".") + "$";
             return System.Text.RegularExpressions.Regex.IsMatch(fileName, regexPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
-        
+
         return string.Equals(fileName, pattern, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -235,7 +239,7 @@ public class TestFileSystemService : IFileSystemService
         {
             var parentPath = Path.GetFullPath(parentDirectory).TrimEnd(Path.DirectorySeparatorChar);
             var subPath = Path.GetFullPath(subdirectory).TrimEnd(Path.DirectorySeparatorChar);
-            
+
             return subPath.StartsWith(parentPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
         }
         catch

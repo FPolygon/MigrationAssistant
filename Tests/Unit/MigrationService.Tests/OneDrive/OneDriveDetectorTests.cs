@@ -68,7 +68,7 @@ public class OneDriveDetectorTests
         // Arrange
         var userSid = "S-1-5-21-1234567890-1234567890-1234567890-1001";
         var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         var account = new OneDriveAccountInfo
         {
             AccountId = "Business1",
@@ -86,7 +86,7 @@ public class OneDriveDetectorTests
             .ReturnsAsync(false);
         _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
             .ReturnsAsync(new List<OneDriveSyncFolder>());
-        
+
         // Configure file system mock to recognize the temp folder
         _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(tempFolder))
             .ReturnsAsync(true);
@@ -110,7 +110,7 @@ public class OneDriveDetectorTests
         // Arrange
         var userSid = "S-1-5-21-1234567890-1234567890-1234567890-1001";
         var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         var account = new OneDriveAccountInfo
         {
             AccountId = "Business1",
@@ -128,7 +128,7 @@ public class OneDriveDetectorTests
             .ReturnsAsync(true);
         _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
             .ReturnsAsync(new List<OneDriveSyncFolder>());
-        
+
         // Configure file system mock to recognize the temp folder
         _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(tempFolder))
             .ReturnsAsync(true);
@@ -160,7 +160,7 @@ public class OneDriveDetectorTests
     {
         // Arrange
         var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         // Create mock files - don't create real files, just mock them
         var mockFiles = new List<IFileInfo>();
         for (int i = 0; i < 5; i++)
@@ -179,7 +179,7 @@ public class OneDriveDetectorTests
             .ReturnsAsync(true);
         _fileSystemServiceMock.Setup(fs => fs.GetFilesAsync(tempFolder, "*", SearchOption.AllDirectories))
             .ReturnsAsync(mockFiles.ToArray());
-        
+
         // Mock IsFileSyncedAsync to return true for all files (consider them synced)
         foreach (var file in mockFiles)
         {
@@ -205,7 +205,7 @@ public class OneDriveDetectorTests
         var userSid = "S-1-5-21-1234567890-1234567890-1234567890-1001";
         var tempFolder1 = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var tempFolder2 = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        
+
         var accounts = new List<OneDriveAccountInfo>
         {
             new OneDriveAccountInfo
@@ -233,7 +233,7 @@ public class OneDriveDetectorTests
             .ReturnsAsync(false);
         _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
             .ReturnsAsync(new List<OneDriveSyncFolder>());
-        
+
         // Configure file system mock to recognize both temp folders
         _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(tempFolder1))
             .ReturnsAsync(true);
