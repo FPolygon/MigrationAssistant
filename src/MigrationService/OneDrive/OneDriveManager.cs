@@ -13,18 +13,18 @@ namespace MigrationTool.Service.OneDrive;
 public class OneDriveManager : IOneDriveManager
 {
     private readonly ILogger<OneDriveManager> _logger;
-    private readonly OneDriveDetector _detector;
-    private readonly OneDriveStatusCache _cache;
+    private readonly IOneDriveDetector _detector;
+    private readonly IOneDriveStatusCache _cache;
     private readonly IOneDriveRegistry _registry;
-    private readonly OneDriveProcessDetector _processDetector;
+    private readonly IOneDriveProcessDetector _processDetector;
     private readonly IStateManager _stateManager;
 
     public OneDriveManager(
         ILogger<OneDriveManager> logger,
-        OneDriveDetector detector,
-        OneDriveStatusCache cache,
+        IOneDriveDetector detector,
+        IOneDriveStatusCache cache,
         IOneDriveRegistry registry,
-        OneDriveProcessDetector processDetector,
+        IOneDriveProcessDetector processDetector,
         IStateManager stateManager)
     {
         _logger = logger;

@@ -13,14 +13,14 @@ public class OneDriveDetectorTests
 {
     private readonly Mock<ILogger<OneDriveDetector>> _loggerMock;
     private readonly Mock<IOneDriveRegistry> _registryMock;
-    private readonly Mock<OneDriveProcessDetector> _processDetectorMock;
+    private readonly Mock<IOneDriveProcessDetector> _processDetectorMock;
     private readonly OneDriveDetector _detector;
 
     public OneDriveDetectorTests()
     {
         _loggerMock = new Mock<ILogger<OneDriveDetector>>();
         _registryMock = new Mock<IOneDriveRegistry>();
-        _processDetectorMock = new Mock<OneDriveProcessDetector>(new Mock<ILogger<OneDriveProcessDetector>>().Object);
+        _processDetectorMock = new Mock<IOneDriveProcessDetector>();
         _detector = new OneDriveDetector(_loggerMock.Object, _registryMock.Object, _processDetectorMock.Object);
     }
 
@@ -46,9 +46,9 @@ public class OneDriveDetectorTests
         // Arrange
         var userSid = "S-1-5-21-1234567890-1234567890-1234567890-1001";
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(userSid, null))
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
             .ReturnsAsync(new List<OneDriveAccountInfo>());
-        _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(userSid))
+        _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
             .ReturnsAsync(false);
 
         // Act
@@ -79,13 +79,13 @@ public class OneDriveDetectorTests
             };
 
             _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-            _registryMock.Setup(r => r.GetUserAccountsAsync(userSid, null))
+            _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(new List<OneDriveAccountInfo> { account });
-            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(userSid))
+            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
                 .ReturnsAsync(true);
-            _registryMock.Setup(r => r.IsSyncPausedAsync(userSid, null))
+            _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(false);
-            _registryMock.Setup(r => r.GetSyncedFoldersAsync(userSid, null))
+            _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(new List<OneDriveSyncFolder>());
 
             // Act
@@ -129,13 +129,13 @@ public class OneDriveDetectorTests
             };
 
             _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-            _registryMock.Setup(r => r.GetUserAccountsAsync(userSid, null))
+            _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(new List<OneDriveAccountInfo> { account });
-            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(userSid))
+            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
                 .ReturnsAsync(true);
-            _registryMock.Setup(r => r.IsSyncPausedAsync(userSid, null))
+            _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(true);
-            _registryMock.Setup(r => r.GetSyncedFoldersAsync(userSid, null))
+            _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(new List<OneDriveSyncFolder>());
 
             // Act
@@ -235,13 +235,13 @@ public class OneDriveDetectorTests
             };
 
             _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-            _registryMock.Setup(r => r.GetUserAccountsAsync(userSid, null))
+            _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(accounts);
-            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(userSid))
+            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
                 .ReturnsAsync(true);
-            _registryMock.Setup(r => r.IsSyncPausedAsync(userSid, null))
+            _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(false);
-            _registryMock.Setup(r => r.GetSyncedFoldersAsync(userSid, null))
+            _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
                 .ReturnsAsync(new List<OneDriveSyncFolder>());
 
             // Act

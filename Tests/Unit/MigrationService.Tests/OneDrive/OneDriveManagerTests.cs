@@ -14,25 +14,20 @@ namespace MigrationService.Tests.OneDrive;
 public class OneDriveManagerTests
 {
     private readonly Mock<ILogger<OneDriveManager>> _loggerMock;
-    private readonly Mock<OneDriveDetector> _detectorMock;
-    private readonly Mock<OneDriveStatusCache> _cacheMock;
+    private readonly Mock<IOneDriveDetector> _detectorMock;
+    private readonly Mock<IOneDriveStatusCache> _cacheMock;
     private readonly Mock<IOneDriveRegistry> _registryMock;
-    private readonly Mock<OneDriveProcessDetector> _processDetectorMock;
+    private readonly Mock<IOneDriveProcessDetector> _processDetectorMock;
     private readonly Mock<IStateManager> _stateManagerMock;
     private readonly OneDriveManager _manager;
 
     public OneDriveManagerTests()
     {
         _loggerMock = new Mock<ILogger<OneDriveManager>>();
-        _detectorMock = new Mock<OneDriveDetector>(
-            new Mock<ILogger<OneDriveDetector>>().Object,
-            new Mock<IOneDriveRegistry>().Object,
-            new Mock<OneDriveProcessDetector>(new Mock<ILogger<OneDriveProcessDetector>>().Object).Object);
-        _cacheMock = new Mock<OneDriveStatusCache>(
-            new Mock<ILogger<OneDriveStatusCache>>().Object,
-            TimeSpan.FromMinutes(5));
+        _detectorMock = new Mock<IOneDriveDetector>();
+        _cacheMock = new Mock<IOneDriveStatusCache>();
         _registryMock = new Mock<IOneDriveRegistry>();
-        _processDetectorMock = new Mock<OneDriveProcessDetector>(new Mock<ILogger<OneDriveProcessDetector>>().Object);
+        _processDetectorMock = new Mock<IOneDriveProcessDetector>();
         _stateManagerMock = new Mock<IStateManager>();
 
         _manager = new OneDriveManager(
@@ -56,7 +51,7 @@ public class OneDriveManagerTests
             AccountEmail = "user@company.com"
         };
 
-        _cacheMock.Setup(c => c.GetCachedStatus(userSid)).Returns(cachedStatus);
+        _cacheMock.Setup(c => c.GetCachedStatus(It.IsAny<string>())).Returns(cachedStatus);
 
         // Act
         var result = await _manager.GetStatusAsync(userSid);
@@ -79,8 +74,8 @@ public class OneDriveManagerTests
             SyncStatus = MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate
         };
 
-        _cacheMock.Setup(c => c.GetCachedStatus(userSid)).Returns((OneDriveStatus?)null);
-        _detectorMock.Setup(d => d.DetectOneDriveStatusAsync(userSid, It.IsAny<CancellationToken>()))
+        _cacheMock.Setup(c => c.GetCachedStatus(It.IsAny<string>())).Returns((OneDriveStatus?)null);
+        _detectorMock.Setup(d => d.DetectOneDriveStatusAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(detectedStatus);
 
         // Act
@@ -102,7 +97,7 @@ public class OneDriveManagerTests
             IsSignedIn = false
         };
 
-        _cacheMock.Setup(c => c.GetCachedStatus(userSid)).Returns(status);
+        _cacheMock.Setup(c => c.GetCachedStatus(It.IsAny<string>())).Returns(status);
 
         // Act
         var result = await _manager.GetAvailableSpaceMBAsync(userSid);
@@ -156,7 +151,7 @@ public class OneDriveManagerTests
                 .ReturnsAsync(new List<UserProfile> { userProfile });
             _registryMock.Setup(r => r.GetSyncedFoldersAsync(userProfile.UserId, null))
                 .ReturnsAsync(new List<OneDriveSyncFolder> { syncFolder });
-            _detectorMock.Setup(d => d.GetSyncProgressAsync(subFolder, It.IsAny<CancellationToken>()))
+            _detectorMock.Setup(d => d.GetSyncProgressAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(syncProgress);
 
             // Act
@@ -217,7 +212,7 @@ public class OneDriveManagerTests
                 PercentComplete = 100
             };
 
-            _detectorMock.Setup(d => d.GetSyncProgressAsync(folderPath, It.IsAny<CancellationToken>()))
+            _detectorMock.Setup(d => d.GetSyncProgressAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(progress);
 
             // Act
@@ -252,7 +247,7 @@ public class OneDriveManagerTests
                 PercentComplete = 50
             };
 
-            _detectorMock.Setup(d => d.GetSyncProgressAsync(folderPath, It.IsAny<CancellationToken>()))
+            _detectorMock.Setup(d => d.GetSyncProgressAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(progress);
 
             // Act
@@ -283,7 +278,7 @@ public class OneDriveManagerTests
             SyncStatus = MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate
         };
 
-        _cacheMock.Setup(c => c.GetCachedStatus(userSid)).Returns(status);
+        _cacheMock.Setup(c => c.GetCachedStatus(It.IsAny<string>())).Returns(status);
 
         // Act
         var result = await _manager.TryRecoverAuthenticationAsync(userSid);
@@ -305,8 +300,8 @@ public class OneDriveManagerTests
             AccountEmail = "user@company.com"
         };
 
-        _cacheMock.Setup(c => c.GetCachedStatus(userSid)).Returns((OneDriveStatus?)null);
-        _detectorMock.Setup(d => d.DetectOneDriveStatusAsync(userSid, It.IsAny<CancellationToken>()))
+        _cacheMock.Setup(c => c.GetCachedStatus(It.IsAny<string>())).Returns((OneDriveStatus?)null);
+        _detectorMock.Setup(d => d.DetectOneDriveStatusAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(status);
 
         // Act
@@ -334,7 +329,7 @@ public class OneDriveManagerTests
             SyncStatus = MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate
         };
 
-        _cacheMock.Setup(c => c.GetCachedStatus(userSid)).Returns(status);
+        _cacheMock.Setup(c => c.GetCachedStatus(It.IsAny<string>())).Returns(status);
 
         // Act
         var result = await _manager.TryResolveSyncErrorsAsync(userSid);

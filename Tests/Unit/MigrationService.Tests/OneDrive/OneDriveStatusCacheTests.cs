@@ -136,7 +136,7 @@ public class OneDriveStatusCacheTests
         Assert.Equal(2, stats.TotalEntries);
         Assert.Equal(1, stats.ValidEntries);
         Assert.Equal(1, stats.ExpiredEntries);
-        Assert.Equal(0.1, stats.CacheExpiryMinutes, 2); // 100ms = 0.00167 minutes
+        Assert.Equal(0.1 / 60.0, stats.CacheExpiryMinutes, 2); // 100ms = 0.00167 minutes
     }
 
     [Fact]

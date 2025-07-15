@@ -104,9 +104,9 @@ public class Program
 
                 // Add OneDrive services
                 services.AddSingleton<IOneDriveRegistry, OneDriveRegistry>();
-                services.AddSingleton<OneDriveProcessDetector>();
-                services.AddSingleton<OneDriveDetector>();
-                services.AddSingleton<OneDriveStatusCache>();
+                services.AddSingleton<IOneDriveProcessDetector, OneDriveProcessDetector>();
+                services.AddSingleton<IOneDriveDetector, OneDriveDetector>();
+                services.AddSingleton<IOneDriveStatusCache, OneDriveStatusCache>();
                 services.AddSingleton<IOneDriveManager, OneDriveManager>();
             });
 

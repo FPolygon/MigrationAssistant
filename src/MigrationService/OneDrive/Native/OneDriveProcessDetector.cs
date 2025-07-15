@@ -10,7 +10,7 @@ namespace MigrationTool.Service.OneDrive.Native;
 /// Detects and monitors OneDrive processes
 /// </summary>
 [SupportedOSPlatform("windows")]
-public class OneDriveProcessDetector
+public class OneDriveProcessDetector : IOneDriveProcessDetector
 {
     private readonly ILogger<OneDriveProcessDetector> _logger;
     private const string OneDriveProcessName = "OneDrive";
@@ -23,7 +23,7 @@ public class OneDriveProcessDetector
     /// <summary>
     /// Checks if OneDrive is running for any user
     /// </summary>
-    public bool IsOneDriveRunning()
+    public virtual bool IsOneDriveRunning()
     {
         try
         {
@@ -40,7 +40,7 @@ public class OneDriveProcessDetector
     /// <summary>
     /// Checks if OneDrive is running for a specific user
     /// </summary>
-    public async Task<bool> IsOneDriveRunningForUserAsync(string userSid)
+    public virtual async Task<bool> IsOneDriveRunningForUserAsync(string userSid)
     {
         return await Task.Run(() =>
         {
@@ -83,7 +83,7 @@ public class OneDriveProcessDetector
     /// <summary>
     /// Gets all OneDrive process IDs
     /// </summary>
-    public List<int> GetOneDriveProcessIds()
+    public virtual List<int> GetOneDriveProcessIds()
     {
         var processIds = new List<int>();
 
@@ -103,7 +103,7 @@ public class OneDriveProcessDetector
     /// <summary>
     /// Attempts to start OneDrive for a user
     /// </summary>
-    public Task<bool> StartOneDriveForUserAsync(string userSid, string oneDrivePath)
+    public virtual Task<bool> StartOneDriveForUserAsync(string userSid, string oneDrivePath)
     {
         try
         {
@@ -123,7 +123,7 @@ public class OneDriveProcessDetector
     /// <summary>
     /// Gets process start time if available
     /// </summary>
-    public DateTime? GetProcessStartTime(int processId)
+    public virtual DateTime? GetProcessStartTime(int processId)
     {
         try
         {

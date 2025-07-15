@@ -7,7 +7,7 @@ namespace MigrationTool.Service.OneDrive;
 /// <summary>
 /// Caches OneDrive status to improve performance
 /// </summary>
-public class OneDriveStatusCache
+public class OneDriveStatusCache : IOneDriveStatusCache
 {
     private readonly ILogger<OneDriveStatusCache> _logger;
     private readonly ConcurrentDictionary<string, CachedStatus> _cache;
@@ -25,7 +25,7 @@ public class OneDriveStatusCache
     /// <summary>
     /// Gets a cached status if available and not expired
     /// </summary>
-    public OneDriveStatus? GetCachedStatus(string userSid)
+    public virtual OneDriveStatus? GetCachedStatus(string userSid)
     {
         CleanupIfNeeded();
 
@@ -49,7 +49,7 @@ public class OneDriveStatusCache
     /// <summary>
     /// Caches a status for a user
     /// </summary>
-    public void CacheStatus(string userSid, OneDriveStatus status)
+    public virtual void CacheStatus(string userSid, OneDriveStatus status)
     {
         _logger.LogDebug("Caching OneDrive status for user {Sid}", userSid);
 
@@ -61,7 +61,7 @@ public class OneDriveStatusCache
     /// <summary>
     /// Invalidates cached status for a user
     /// </summary>
-    public void InvalidateCache(string userSid)
+    public virtual void InvalidateCache(string userSid)
     {
         _logger.LogDebug("Invalidating cache for user {Sid}", userSid);
         _cache.TryRemove(userSid, out _);
@@ -70,7 +70,7 @@ public class OneDriveStatusCache
     /// <summary>
     /// Clears all cached entries
     /// </summary>
-    public void ClearCache()
+    public virtual void ClearCache()
     {
         _logger.LogInformation("Clearing OneDrive status cache");
         _cache.Clear();
@@ -84,7 +84,7 @@ public class OneDriveStatusCache
     /// <summary>
     /// Gets cache statistics
     /// </summary>
-    public CacheStatistics GetStatistics()
+    public virtual CacheStatistics GetStatistics()
     {
         var now = DateTime.UtcNow;
         var validEntries = 0;

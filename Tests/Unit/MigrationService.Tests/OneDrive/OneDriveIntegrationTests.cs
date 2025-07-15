@@ -4,13 +4,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Xunit;
 using MigrationTool.Service.Core;
 using MigrationTool.Service.Models;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
+using Moq;
+using Xunit;
 
 namespace MigrationService.Tests.OneDrive;
 
@@ -39,12 +39,12 @@ public class OneDriveIntegrationTests
         _cacheLoggerMock = new Mock<ILogger<OneDriveStatusCache>>();
         _stateManagerMock = new Mock<IStateManager>();
         _registryMock = new Mock<IOneDriveRegistry>();
-        
+
         // Create real components with mocked dependencies
-        var processDetector = new OneDriveProcessDetector(_processLoggerMock.Object);
-        var detector = new OneDriveDetector(_detectorLoggerMock.Object, _registryMock.Object, processDetector);
+        IOneDriveProcessDetector processDetector = new OneDriveProcessDetector(_processLoggerMock.Object);
+        IOneDriveDetector detector = new OneDriveDetector(_detectorLoggerMock.Object, _registryMock.Object, processDetector);
         _cache = new OneDriveStatusCache(_cacheLoggerMock.Object, TimeSpan.FromMinutes(5));
-        
+
         _manager = new OneDriveManager(
             _managerLoggerMock.Object,
             detector,
@@ -72,8 +72,8 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(_testUserSid, null)).ReturnsAsync(accounts);
-        _registryMock.Setup(r => r.IsSyncPausedAsync(_testUserSid, null)).ReturnsAsync(false);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null)).ReturnsAsync(false);
 
         // Act
         var status = await _manager.GetStatusAsync(_testUserSid);
@@ -114,8 +114,8 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(_testUserSid, null)).ReturnsAsync(accounts);
-        _registryMock.Setup(r => r.GetKnownFolderMoveStatusAsync(_testUserSid, null)).ReturnsAsync(kfmStatus);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetKnownFolderMoveStatusAsync(It.IsAny<string>(), null)).ReturnsAsync(kfmStatus);
 
         // Act
         var status = await _manager.GetStatusAsync(_testUserSid);
@@ -147,7 +147,7 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(_testUserSid, null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
 
         // Act
         var status = await _manager.GetStatusAsync(_testUserSid);
@@ -173,16 +173,16 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(_testUserSid, null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
 
         // Act - First call (should hit registry and cache result)
         var status1 = await _manager.GetStatusAsync(_testUserSid);
-        
+
         // Assert - Check cache
         var cachedStatus = _cache.GetCachedStatus(_testUserSid);
         cachedStatus.Should().NotBeNull();
         cachedStatus!.AccountEmail.Should().Be("user@contoso.com");
-        
+
         // Act - Second call (should use cache)
         var status2 = await _manager.GetStatusAsync(_testUserSid);
 
@@ -213,7 +213,7 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(_testUserSid, null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
 
         // Act
         var availableSpace = await _manager.GetAvailableSpaceMBAsync(_testUserSid);
@@ -263,7 +263,7 @@ public class OneDriveIntegrationTests
         // Assert - Status results
         status1.AccountEmail.Should().Be("user1@contoso.com");
         status1.SyncStatus.Should().Be(MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate);
-        
+
         status2.AccountEmail.Should().Be("user2@contoso.com");
         status2.SyncStatus.Should().Be(MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.Error);
 
@@ -310,8 +310,8 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(_testUserSid, null)).ReturnsAsync(accounts);
-        _registryMock.Setup(r => r.GetSyncedFoldersAsync(_testUserSid, null)).ReturnsAsync(syncedFolders);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null)).ReturnsAsync(syncedFolders);
 
         // Act
         var status = await _manager.GetStatusAsync(_testUserSid);
@@ -329,7 +329,7 @@ public class OneDriveIntegrationTests
     {
         // Arrange
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(_testUserSid, null))
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
             .ReturnsAsync(new List<OneDriveAccountInfo>());
 
         // Act
@@ -337,14 +337,14 @@ public class OneDriveIntegrationTests
 
         // Assert
         result.Should().BeFalse(); // Not implemented yet
-        
+
         // Verify logging occurred
         _managerLoggerMock.Verify(x => x.Log(
             LogLevel.Information,
             It.IsAny<EventId>(),
             It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Attempting to recover OneDrive authentication")),
             It.IsAny<Exception>(),
-            It.Is<Func<It.IsAnyType, Exception?, string>>((v, t) => true)), 
+            It.Is<Func<It.IsAnyType, Exception?, string>>((v, t) => true)),
             Times.Once);
     }
 }

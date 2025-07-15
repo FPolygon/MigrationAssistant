@@ -9,16 +9,16 @@ namespace MigrationTool.Service.OneDrive;
 /// Core detection logic for OneDrive status and configuration
 /// </summary>
 [SupportedOSPlatform("windows")]
-public class OneDriveDetector
+public class OneDriveDetector : IOneDriveDetector
 {
     private readonly ILogger<OneDriveDetector> _logger;
     private readonly IOneDriveRegistry _registry;
-    private readonly OneDriveProcessDetector _processDetector;
+    private readonly IOneDriveProcessDetector _processDetector;
 
     public OneDriveDetector(
         ILogger<OneDriveDetector> logger,
         IOneDriveRegistry registry,
-        OneDriveProcessDetector processDetector)
+        IOneDriveProcessDetector processDetector)
     {
         _logger = logger;
         _registry = registry;
@@ -28,7 +28,7 @@ public class OneDriveDetector
     /// <summary>
     /// Performs comprehensive OneDrive detection for a user
     /// </summary>
-    public async Task<OneDriveStatus> DetectOneDriveStatusAsync(string userSid, CancellationToken cancellationToken = default)
+    public virtual async Task<OneDriveStatus> DetectOneDriveStatusAsync(string userSid, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Detecting OneDrive status for user {Sid}", userSid);
 
@@ -113,7 +113,7 @@ public class OneDriveDetector
     /// <summary>
     /// Detects specific sync folder status
     /// </summary>
-    public async Task<SyncProgress> GetSyncProgressAsync(string folderPath, CancellationToken cancellationToken = default)
+    public virtual async Task<SyncProgress> GetSyncProgressAsync(string folderPath, CancellationToken cancellationToken = default)
     {
         var progress = new SyncProgress
         {
