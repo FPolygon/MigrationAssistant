@@ -47,6 +47,16 @@ public class MockOneDriveAttributeService : IOneDriveAttributeService
         var pinnedAttributes = FileAttributes.Normal | (FileAttributes)0x00080000;
         SetSyncState(pinnedAttributes, FileSyncState.LocallyAvailable);
         SetPinnedState(pinnedAttributes, true);
+
+        // Files with Temporary attribute are considered Local Only (need upload)
+        var localOnlyAttributes = FileAttributes.Normal | FileAttributes.Temporary;
+        SetSyncState(localOnlyAttributes, FileSyncState.LocalOnly);
+        SetPinnedState(localOnlyAttributes, false);
+
+        // Files with System attribute are considered Uploading
+        var uploadingAttributes = FileAttributes.Normal | FileAttributes.System;
+        SetSyncState(uploadingAttributes, FileSyncState.Uploading);
+        SetPinnedState(uploadingAttributes, false);
     }
 
     /// <inheritdoc/>

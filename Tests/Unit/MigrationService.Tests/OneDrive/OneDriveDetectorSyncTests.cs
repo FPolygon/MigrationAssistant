@@ -207,8 +207,8 @@ public class OneDriveDetectorSyncTests
         var files = new[]
         {
             CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\uploaded.txt", 1024, FileAttributes.Normal | (FileAttributes)0x00080000).Object,
-            CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\uploading.txt", 2048, FileAttributes.Normal).Object,
-            CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\pending.txt", 4096, FileAttributes.Normal).Object
+            CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\uploading.txt", 2048, FileAttributes.Normal | FileAttributes.System).Object,
+            CreateMockFileInfo(@"C:\Users\TestUser\OneDrive - Contoso\Documents\pending.txt", 4096, FileAttributes.Normal | FileAttributes.Temporary).Object
         };
 
         // Set up individual file info mocks for GetFileSyncStatusAsync calls

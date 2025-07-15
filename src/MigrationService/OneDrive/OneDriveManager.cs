@@ -334,7 +334,16 @@ public class OneDriveManager : IOneDriveManager
 
         try
         {
-            // First, ensure folder is in OneDrive sync scope
+            // First, check if sync is already complete
+            var initialProgress = await GetSyncProgressAsync(folderPath, cancellationToken);
+            if (initialProgress.IsComplete)
+            {
+                _logger.LogInformation("Sync already completed for folder: {FolderPath} - {FilesSynced} files ({BytesSynced} bytes)", 
+                    folderPath, initialProgress.FilesSynced, initialProgress.BytesSynced);
+                return true;
+            }
+
+            // Ensure folder is in OneDrive sync scope
             if (!await EnsureFolderSyncedAsync(folderPath, cancellationToken))
             {
                 _logger.LogError("Folder {FolderPath} is not within OneDrive sync scope", folderPath);
