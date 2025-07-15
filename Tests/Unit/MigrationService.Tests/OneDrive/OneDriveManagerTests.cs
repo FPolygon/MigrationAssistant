@@ -19,6 +19,7 @@ public class OneDriveManagerTests
     private readonly Mock<IOneDriveRegistry> _registryMock;
     private readonly Mock<IOneDriveProcessDetector> _processDetectorMock;
     private readonly Mock<IStateManager> _stateManagerMock;
+    private readonly Mock<IFileSystemService> _fileSystemServiceMock;
     private readonly OneDriveManager _manager;
 
     public OneDriveManagerTests()
@@ -29,6 +30,7 @@ public class OneDriveManagerTests
         _registryMock = new Mock<IOneDriveRegistry>();
         _processDetectorMock = new Mock<IOneDriveProcessDetector>();
         _stateManagerMock = new Mock<IStateManager>();
+        _fileSystemServiceMock = new Mock<IFileSystemService>();
 
         _manager = new OneDriveManager(
             _loggerMock.Object,
@@ -36,7 +38,8 @@ public class OneDriveManagerTests
             _cacheMock.Object,
             _registryMock.Object,
             _processDetectorMock.Object,
-            _stateManagerMock.Object);
+            _stateManagerMock.Object,
+            _fileSystemServiceMock.Object);
     }
 
     [Fact]

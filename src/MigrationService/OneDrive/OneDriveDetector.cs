@@ -270,7 +270,7 @@ public class OneDriveDetector : IOneDriveDetector
                 if (dirInfo != null)
                 {
                     // Get the last write time - handle mock objects in tests
-                    var lastWriteTime = dirInfo.GetType().Name == "MockDirectoryInfo" 
+                    var lastWriteTime = dirInfo.GetType().Name == "MockDirectoryInfo"
                         ? (DateTime)dirInfo.GetType().GetProperty("MockLastWriteTimeUtc")?.GetValue(dirInfo)!
                         : dirInfo.LastWriteTimeUtc;
 

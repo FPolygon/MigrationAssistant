@@ -100,7 +100,7 @@ public class OneDriveManager : IOneDriveManager
                 if (driveInfo != null)
                 {
                     // Get the available free space - handle mock objects in tests
-                    var availableBytes = driveInfo.GetType().Name == "MockDriveInfo" 
+                    var availableBytes = driveInfo.GetType().Name == "MockDriveInfo"
                         ? (long)driveInfo.GetType().GetProperty("MockAvailableFreeSpace")?.GetValue(driveInfo)!
                         : driveInfo.AvailableFreeSpace;
 

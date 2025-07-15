@@ -14,6 +14,7 @@ public class OneDriveDetectorTests
     private readonly Mock<ILogger<OneDriveDetector>> _loggerMock;
     private readonly Mock<IOneDriveRegistry> _registryMock;
     private readonly Mock<IOneDriveProcessDetector> _processDetectorMock;
+    private readonly Mock<IFileSystemService> _fileSystemServiceMock;
     private readonly OneDriveDetector _detector;
 
     public OneDriveDetectorTests()
@@ -21,7 +22,8 @@ public class OneDriveDetectorTests
         _loggerMock = new Mock<ILogger<OneDriveDetector>>();
         _registryMock = new Mock<IOneDriveRegistry>();
         _processDetectorMock = new Mock<IOneDriveProcessDetector>();
-        _detector = new OneDriveDetector(_loggerMock.Object, _registryMock.Object, _processDetectorMock.Object);
+        _fileSystemServiceMock = new Mock<IFileSystemService>();
+        _detector = new OneDriveDetector(_loggerMock.Object, _registryMock.Object, _processDetectorMock.Object, _fileSystemServiceMock.Object);
     }
 
     [Fact]

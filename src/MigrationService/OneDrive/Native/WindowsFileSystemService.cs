@@ -39,7 +39,7 @@ public class WindowsFileSystemService : IFileSystemService
     }
 
     /// <inheritdoc/>
-    public async Task<DirectoryInfo?> GetDirectoryInfoAsync(string path)
+    public async Task<IDirectoryInfo?> GetDirectoryInfoAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -51,7 +51,7 @@ public class WindowsFileSystemService : IFileSystemService
             try
             {
                 var dirInfo = new DirectoryInfo(path);
-                return dirInfo.Exists ? dirInfo : null;
+                return dirInfo.Exists ? new DirectoryInfoWrapper(dirInfo) : null;
             }
             catch (Exception ex)
             {
@@ -62,7 +62,7 @@ public class WindowsFileSystemService : IFileSystemService
     }
 
     /// <inheritdoc/>
-    public async Task<DriveInfo?> GetDriveInfoAsync(string path)
+    public async Task<IDriveInfo?> GetDriveInfoAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -79,7 +79,7 @@ public class WindowsFileSystemService : IFileSystemService
                     return null;
                 }
 
-                return new DriveInfo(rootPath);
+                return new DriveInfoWrapper(new DriveInfo(rootPath));
             }
             catch (Exception ex)
             {
@@ -90,11 +90,11 @@ public class WindowsFileSystemService : IFileSystemService
     }
 
     /// <inheritdoc/>
-    public async Task<FileInfo[]> GetFilesAsync(string path, string searchPattern, SearchOption searchOption)
+    public async Task<IFileInfo[]> GetFilesAsync(string path, string searchPattern, SearchOption searchOption)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            return Array.Empty<FileInfo>();
+            return Array.Empty<IFileInfo>();
         }
 
         return await Task.Run(() =>
@@ -104,21 +104,22 @@ public class WindowsFileSystemService : IFileSystemService
                 var dirInfo = new DirectoryInfo(path);
                 if (!dirInfo.Exists)
                 {
-                    return Array.Empty<FileInfo>();
+                    return Array.Empty<IFileInfo>();
                 }
 
-                return dirInfo.GetFiles(searchPattern, searchOption);
+                var files = dirInfo.GetFiles(searchPattern, searchOption);
+                return files.Select(f => new FileInfoWrapper(f)).ToArray<IFileInfo>();
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to get files in directory: {Path}", path);
-                return Array.Empty<FileInfo>();
+                return Array.Empty<IFileInfo>();
             }
         });
     }
 
     /// <inheritdoc/>
-    public async Task<FileInfo?> GetFileInfoAsync(string path)
+    public async Task<IFileInfo?> GetFileInfoAsync(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -130,7 +131,7 @@ public class WindowsFileSystemService : IFileSystemService
             try
             {
                 var fileInfo = new FileInfo(path);
-                return fileInfo.Exists ? fileInfo : null;
+                return fileInfo.Exists ? new FileInfoWrapper(fileInfo) : null;
             }
             catch (Exception ex)
             {

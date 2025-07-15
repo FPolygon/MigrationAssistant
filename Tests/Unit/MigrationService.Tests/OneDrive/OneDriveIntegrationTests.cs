@@ -4,12 +4,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using MigrationService.Tests.OneDrive.TestUtilities;
 using MigrationTool.Service.Core;
 using MigrationTool.Service.Models;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
-using MigrationService.Tests.OneDrive.TestUtilities;
 using Moq;
 using Xunit;
 
@@ -277,8 +277,8 @@ public class OneDriveIntegrationTests
 
         var user1Accounts = new List<OneDriveAccountInfo>
         {
-            new OneDriveAccountInfo { 
-                AccountId = "Business1", 
+            new OneDriveAccountInfo {
+                AccountId = "Business1",
                 Email = "user1@contoso.com",
                 UserFolder = @"C:\Users\User1\OneDrive - Contoso"
             }
@@ -286,11 +286,11 @@ public class OneDriveIntegrationTests
 
         var user2Accounts = new List<OneDriveAccountInfo>
         {
-            new OneDriveAccountInfo { 
-                AccountId = "Business1", 
-                Email = "user2@contoso.com", 
+            new OneDriveAccountInfo {
+                AccountId = "Business1",
+                Email = "user2@contoso.com",
                 UserFolder = @"C:\Users\User2\OneDrive - Contoso",
-                HasSyncErrors = true 
+                HasSyncErrors = true
             }
         };
 

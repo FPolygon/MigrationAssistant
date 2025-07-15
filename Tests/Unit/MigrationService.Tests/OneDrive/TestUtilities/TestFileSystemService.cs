@@ -11,9 +11,9 @@ public class TestFileSystemService : IFileSystemService
 {
     private readonly HashSet<string> _existingDirectories = new();
     private readonly HashSet<string> _existingFiles = new();
-    private readonly Dictionary<string, DirectoryInfo> _directoryInfos = new();
-    private readonly Dictionary<string, FileInfo> _fileInfos = new();
-    private readonly Dictionary<string, DriveInfo> _driveInfos = new();
+    private readonly Dictionary<string, IDirectoryInfo> _directoryInfos = new();
+    private readonly Dictionary<string, IFileInfo> _fileInfos = new();
+    private readonly Dictionary<string, IDriveInfo> _driveInfos = new();
     private readonly Dictionary<string, long> _availableFreeSpace = new();
 
     /// <summary>
@@ -72,60 +72,60 @@ public class TestFileSystemService : IFileSystemService
     }
 
     /// <inheritdoc/>
-    public Task<DirectoryInfo?> GetDirectoryInfoAsync(string path)
+    public Task<IDirectoryInfo?> GetDirectoryInfoAsync(string path)
     {
         if (_directoryInfos.TryGetValue(path, out var dirInfo))
         {
-            return Task.FromResult<DirectoryInfo?>(dirInfo);
+            return Task.FromResult<IDirectoryInfo?>(dirInfo);
         }
 
         if (_existingDirectories.Contains(path))
         {
-            return Task.FromResult<DirectoryInfo?>(new MockDirectoryInfo(path, DateTime.UtcNow, true) as DirectoryInfo);
+            return Task.FromResult<IDirectoryInfo?>(new MockDirectoryInfo(path, DateTime.UtcNow, true));
         }
 
-        return Task.FromResult<DirectoryInfo?>(null);
+        return Task.FromResult<IDirectoryInfo?>(null);
     }
 
     /// <inheritdoc/>
-    public Task<DriveInfo?> GetDriveInfoAsync(string path)
+    public Task<IDriveInfo?> GetDriveInfoAsync(string path)
     {
         var rootPath = GetPathRoot(path);
         if (rootPath != null && _driveInfos.TryGetValue(rootPath, out var driveInfo))
         {
-            return Task.FromResult<DriveInfo?>(driveInfo);
+            return Task.FromResult<IDriveInfo?>(driveInfo);
         }
 
         // Default drive info for test scenarios
         if (rootPath != null)
         {
-            return Task.FromResult<DriveInfo?>(new MockDriveInfo(rootPath, 1073741824)); // 1GB default
+            return Task.FromResult<IDriveInfo?>(new MockDriveInfo(rootPath, 1073741824)); // 1GB default
         }
 
-        return Task.FromResult<DriveInfo?>(null);
+        return Task.FromResult<IDriveInfo?>(null);
     }
 
     /// <inheritdoc/>
-    public Task<FileInfo[]> GetFilesAsync(string path, string searchPattern, SearchOption searchOption)
+    public Task<IFileInfo[]> GetFilesAsync(string path, string searchPattern, SearchOption searchOption)
     {
         // For testing, return empty array unless specifically configured
-        return Task.FromResult(Array.Empty<FileInfo>());
+        return Task.FromResult(Array.Empty<IFileInfo>());
     }
 
     /// <inheritdoc/>
-    public Task<FileInfo?> GetFileInfoAsync(string path)
+    public Task<IFileInfo?> GetFileInfoAsync(string path)
     {
         if (_fileInfos.TryGetValue(path, out var fileInfo))
         {
-            return Task.FromResult<FileInfo?>(fileInfo);
+            return Task.FromResult<IFileInfo?>(fileInfo);
         }
 
         if (_existingFiles.Contains(path))
         {
-            return Task.FromResult<FileInfo?>(new MockFileInfo(path, 1024, true));
+            return Task.FromResult<IFileInfo?>(new MockFileInfo(path, 1024, true));
         }
 
-        return Task.FromResult<FileInfo?>(null);
+        return Task.FromResult<IFileInfo?>(null);
     }
 
     /// <inheritdoc/>
@@ -156,7 +156,7 @@ public class TestFileSystemService : IFileSystemService
 /// <summary>
 /// Mock implementation of DirectoryInfo for testing
 /// </summary>
-public class MockDirectoryInfo
+public class MockDirectoryInfo : IDirectoryInfo
 {
     private readonly DateTime _lastWriteTimeUtc;
     private readonly bool _exists;
@@ -178,7 +178,7 @@ public class MockDirectoryInfo
 /// <summary>
 /// Mock implementation of FileInfo for testing
 /// </summary>
-public class MockFileInfo
+public class MockFileInfo : IFileInfo
 {
     private readonly long _length;
     private readonly bool _exists;
@@ -200,7 +200,7 @@ public class MockFileInfo
 /// <summary>
 /// Mock implementation of DriveInfo for testing
 /// </summary>
-public class MockDriveInfo
+public class MockDriveInfo : IDriveInfo
 {
     private readonly long _availableFreeSpace;
     private readonly string _name;
