@@ -128,49 +128,41 @@ public class OneDriveManagerTests
         // Arrange
         var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var subFolder = Path.Combine(tempFolder, "Documents");
-        Directory.CreateDirectory(subFolder);
-
-        try
+        
+        var userProfile = new UserProfile
         {
-            var userProfile = new UserProfile
-            {
-                UserId = "S-1-5-21-1234567890-1234567890-1234567890-1001",
-                UserName = "testuser"
-            };
+            UserId = "S-1-5-21-1234567890-1234567890-1234567890-1001",
+            UserName = "testuser"
+        };
 
-            var syncFolder = new OneDriveSyncFolder
-            {
-                LocalPath = tempFolder,
-                FolderType = SyncFolderType.Business
-            };
-
-            var syncProgress = new SyncProgress
-            {
-                FolderPath = subFolder,
-                Status = MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate
-            };
-
-            _stateManagerMock.Setup(s => s.GetUserProfilesAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<UserProfile> { userProfile });
-            _registryMock.Setup(r => r.GetSyncedFoldersAsync(userProfile.UserId, null))
-                .ReturnsAsync(new List<OneDriveSyncFolder> { syncFolder });
-            _detectorMock.Setup(d => d.GetSyncProgressAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(syncProgress);
-
-            // Act
-            var result = await _manager.EnsureFolderSyncedAsync(subFolder);
-
-            // Assert
-            Assert.True(result);
-        }
-        finally
+        var syncFolder = new OneDriveSyncFolder
         {
-            // Cleanup
-            if (Directory.Exists(tempFolder))
-            {
-                Directory.Delete(tempFolder, true);
-            }
-        }
+            LocalPath = tempFolder,
+            FolderType = SyncFolderType.Business
+        };
+
+        var syncProgress = new SyncProgress
+        {
+            FolderPath = subFolder,
+            Status = MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate
+        };
+
+        _stateManagerMock.Setup(s => s.GetUserProfilesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<UserProfile> { userProfile });
+        _registryMock.Setup(r => r.GetSyncedFoldersAsync(userProfile.UserId, null))
+            .ReturnsAsync(new List<OneDriveSyncFolder> { syncFolder });
+        _detectorMock.Setup(d => d.GetSyncProgressAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(syncProgress);
+        
+        // Configure file system mock to recognize the subfolder exists
+        _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(subFolder))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _manager.EnsureFolderSyncedAsync(subFolder);
+
+        // Assert
+        Assert.True(result);
     }
 
     [Fact]

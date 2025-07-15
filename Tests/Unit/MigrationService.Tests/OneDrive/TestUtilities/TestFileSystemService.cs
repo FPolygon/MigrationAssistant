@@ -15,6 +15,7 @@ public class TestFileSystemService : IFileSystemService
     private readonly Dictionary<string, IFileInfo> _fileInfos = new();
     private readonly Dictionary<string, IDriveInfo> _driveInfos = new();
     private readonly Dictionary<string, long> _availableFreeSpace = new();
+    private readonly Dictionary<string, List<IFileInfo>> _directoryFiles = new();
 
     /// <summary>
     /// Configures a directory to exist in the test file system
@@ -65,6 +66,53 @@ public class TestFileSystemService : IFileSystemService
         _driveInfos[rootPath] = mockDriveInfo;
     }
 
+    /// <summary>
+    /// Configures files to exist in a specific directory
+    /// </summary>
+    public void SetFilesForDirectory(string directoryPath, params IFileInfo[] files)
+    {
+        _directoryFiles[directoryPath] = files.ToList();
+        
+        // Also add files to the existing files set
+        foreach (var file in files)
+        {
+            _existingFiles.Add(file.FullName);
+            _fileInfos[file.FullName] = file;
+        }
+    }
+
+    /// <summary>
+    /// Adds a file to a directory
+    /// </summary>
+    public void AddFileToDirectory(string directoryPath, string fileName, long fileSize = 1024)
+    {
+        var filePath = Path.Combine(directoryPath, fileName);
+        var fileInfo = new MockFileInfo(filePath, fileSize, true);
+        
+        if (!_directoryFiles.ContainsKey(directoryPath))
+        {
+            _directoryFiles[directoryPath] = new List<IFileInfo>();
+        }
+        
+        _directoryFiles[directoryPath].Add(fileInfo);
+        _existingFiles.Add(filePath);
+        _fileInfos[filePath] = fileInfo;
+    }
+
+    /// <summary>
+    /// Clears all configured files and directories
+    /// </summary>
+    public void ClearAll()
+    {
+        _existingDirectories.Clear();
+        _existingFiles.Clear();
+        _directoryInfos.Clear();
+        _fileInfos.Clear();
+        _driveInfos.Clear();
+        _availableFreeSpace.Clear();
+        _directoryFiles.Clear();
+    }
+
     /// <inheritdoc/>
     public Task<bool> DirectoryExistsAsync(string path)
     {
@@ -108,8 +156,92 @@ public class TestFileSystemService : IFileSystemService
     /// <inheritdoc/>
     public Task<IFileInfo[]> GetFilesAsync(string path, string searchPattern, SearchOption searchOption)
     {
-        // For testing, return empty array unless specifically configured
-        return Task.FromResult(Array.Empty<IFileInfo>());
+        var results = new List<IFileInfo>();
+        
+        try
+        {
+            // Get files from the current directory
+            if (_directoryFiles.TryGetValue(path, out var files))
+            {
+                var matchingFiles = files.Where(f => MatchesPattern(Path.GetFileName(f.FullName), searchPattern));
+                results.AddRange(matchingFiles);
+            }
+            
+            // If AllDirectories is specified, search subdirectories recursively
+            if (searchOption == SearchOption.AllDirectories)
+            {
+                var subdirectories = _directoryFiles.Keys.Where(dir => 
+                    IsSubdirectory(dir, path) && !string.Equals(dir, path, StringComparison.OrdinalIgnoreCase));
+                    
+                foreach (var subdirectory in subdirectories)
+                {
+                    if (_directoryFiles.TryGetValue(subdirectory, out var subFiles))
+                    {
+                        var matchingSubFiles = subFiles.Where(f => MatchesPattern(Path.GetFileName(f.FullName), searchPattern));
+                        results.AddRange(matchingSubFiles);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't fail the test
+            Console.WriteLine($"Error in GetFilesAsync: {ex.Message}");
+        }
+        
+        return Task.FromResult(results.ToArray());
+    }
+
+    /// <summary>
+    /// Checks if a filename matches a search pattern
+    /// </summary>
+    private bool MatchesPattern(string fileName, string pattern)
+    {
+        if (string.IsNullOrEmpty(pattern) || pattern == "*")
+            return true;
+            
+        if (pattern == "*.*")
+            return true;
+            
+        // Handle simple wildcard patterns
+        if (pattern.StartsWith("*") && pattern.Length > 1)
+        {
+            var extension = pattern.Substring(1);
+            return fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
+        }
+        
+        if (pattern.EndsWith("*") && pattern.Length > 1)
+        {
+            var prefix = pattern.Substring(0, pattern.Length - 1);
+            return fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        }
+        
+        if (pattern.Contains("*"))
+        {
+            // Convert wildcard pattern to regex
+            var regexPattern = "^" + pattern.Replace("*", ".*").Replace("?", ".") + "$";
+            return System.Text.RegularExpressions.Regex.IsMatch(fileName, regexPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+        
+        return string.Equals(fileName, pattern, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Checks if a directory is a subdirectory of another directory
+    /// </summary>
+    private bool IsSubdirectory(string subdirectory, string parentDirectory)
+    {
+        try
+        {
+            var parentPath = Path.GetFullPath(parentDirectory).TrimEnd(Path.DirectorySeparatorChar);
+            var subPath = Path.GetFullPath(subdirectory).TrimEnd(Path.DirectorySeparatorChar);
+            
+            return subPath.StartsWith(parentPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <inheritdoc/>

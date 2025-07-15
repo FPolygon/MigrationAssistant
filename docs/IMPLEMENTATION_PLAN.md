@@ -172,18 +172,10 @@ Tasks:
 ```
 
 ### Success Criteria
-- Reliably detects OneDrive status ✅ (Phase 3.1)
-- Can control sync settings 📅 (Phase 3.2)
-- Accurate quota calculations 📅 (Phase 3.3)
-- Handles sync errors gracefully ✅ (Phase 3.1)
-
-### Implementation Notes (Phase 3.1)
-- Extended IStateManager with comprehensive OneDrive persistence methods
-- Created OneDriveModels for database entities separate from detection models
-- Implemented full integration tests demonstrating caching and multi-user scenarios
-- Registry detection works in SYSTEM context via user hive loading
-- Sync status detection includes: UpToDate, Syncing, Paused, Error, NotSignedIn, AuthenticationRequired
-- Ready for Phase 4 agent integration for user-facing authentication recovery
+- Reliably detects OneDrive status
+- Can control sync settings
+- Accurate quota calculations
+- Handles sync errors gracefully
 
 ## Phase 4: Notification System (Week 7-8)
 

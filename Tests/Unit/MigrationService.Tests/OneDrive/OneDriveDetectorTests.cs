@@ -68,48 +68,40 @@ public class OneDriveDetectorTests
         // Arrange
         var userSid = "S-1-5-21-1234567890-1234567890-1234567890-1001";
         var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(tempFolder);
-
-        try
+        
+        var account = new OneDriveAccountInfo
         {
-            var account = new OneDriveAccountInfo
-            {
-                AccountId = "Business1",
-                Email = "user@company.com",
-                UserFolder = tempFolder,
-                IsPrimary = true
-            };
+            AccountId = "Business1",
+            Email = "user@company.com",
+            UserFolder = tempFolder,
+            IsPrimary = true
+        };
 
-            _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-            _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(new List<OneDriveAccountInfo> { account });
-            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
-                .ReturnsAsync(true);
-            _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(false);
-            _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(new List<OneDriveSyncFolder>());
+        _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(new List<OneDriveAccountInfo> { account });
+        _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
+            .ReturnsAsync(true);
+        _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(false);
+        _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(new List<OneDriveSyncFolder>());
+        
+        // Configure file system mock to recognize the temp folder
+        _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(tempFolder))
+            .ReturnsAsync(true);
 
-            // Act
-            var status = await _detector.DetectOneDriveStatusAsync(userSid);
+        // Act
+        var status = await _detector.DetectOneDriveStatusAsync(userSid);
 
-            // Assert
-            Assert.True(status.IsInstalled);
-            Assert.True(status.IsRunning);
-            Assert.True(status.IsSignedIn);
-            Assert.Equal("user@company.com", status.AccountEmail);
-            Assert.Equal(tempFolder, status.SyncFolder);
-            Assert.NotNull(status.AccountInfo);
-            Assert.Equal("Business1", status.AccountInfo.AccountId);
-        }
-        finally
-        {
-            // Cleanup
-            if (Directory.Exists(tempFolder))
-            {
-                Directory.Delete(tempFolder, true);
-            }
-        }
+        // Assert
+        Assert.True(status.IsInstalled);
+        Assert.True(status.IsRunning);
+        Assert.True(status.IsSignedIn);
+        Assert.Equal("user@company.com", status.AccountEmail);
+        Assert.Equal(tempFolder, status.SyncFolder);
+        Assert.NotNull(status.AccountInfo);
+        Assert.Equal("Business1", status.AccountInfo.AccountId);
     }
 
     [Fact]
@@ -118,42 +110,34 @@ public class OneDriveDetectorTests
         // Arrange
         var userSid = "S-1-5-21-1234567890-1234567890-1234567890-1001";
         var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(tempFolder);
-
-        try
+        
+        var account = new OneDriveAccountInfo
         {
-            var account = new OneDriveAccountInfo
-            {
-                AccountId = "Business1",
-                Email = "user@company.com",
-                UserFolder = tempFolder,
-                IsPrimary = true
-            };
+            AccountId = "Business1",
+            Email = "user@company.com",
+            UserFolder = tempFolder,
+            IsPrimary = true
+        };
 
-            _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-            _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(new List<OneDriveAccountInfo> { account });
-            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
-                .ReturnsAsync(true);
-            _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(true);
-            _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(new List<OneDriveSyncFolder>());
+        _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(new List<OneDriveAccountInfo> { account });
+        _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
+            .ReturnsAsync(true);
+        _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(true);
+        _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(new List<OneDriveSyncFolder>());
+        
+        // Configure file system mock to recognize the temp folder
+        _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(tempFolder))
+            .ReturnsAsync(true);
 
-            // Act
-            var status = await _detector.DetectOneDriveStatusAsync(userSid);
+        // Act
+        var status = await _detector.DetectOneDriveStatusAsync(userSid);
 
-            // Assert
-            Assert.Equal(OneDriveSyncStatus.Paused, status.SyncStatus);
-        }
-        finally
-        {
-            // Cleanup
-            if (Directory.Exists(tempFolder))
-            {
-                Directory.Delete(tempFolder, true);
-            }
-        }
+        // Assert
+        Assert.Equal(OneDriveSyncStatus.Paused, status.SyncStatus);
     }
 
     [Fact]
@@ -176,34 +160,42 @@ public class OneDriveDetectorTests
     {
         // Arrange
         var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(tempFolder);
-
-        try
+        
+        // Create mock files - don't create real files, just mock them
+        var mockFiles = new List<IFileInfo>();
+        for (int i = 0; i < 5; i++)
         {
-            // Create some test files
-            for (int i = 0; i < 5; i++)
-            {
-                File.WriteAllText(Path.Combine(tempFolder, $"file{i}.txt"), "test content");
-            }
-
-            // Act
-            var progress = await _detector.GetSyncProgressAsync(tempFolder);
-
-            // Assert
-            Assert.Equal(tempFolder, progress.FolderPath);
-            Assert.Equal(5, progress.TotalFiles);
-            Assert.True(progress.TotalBytes > 0);
-            Assert.Equal(100, progress.PercentComplete); // All files are considered synced in test
-            Assert.True(progress.IsComplete);
+            var filePath = Path.Combine(tempFolder, $"file{i}.txt");
+            var mockFile = new Mock<IFileInfo>();
+            mockFile.Setup(f => f.FullName).Returns(filePath);
+            mockFile.Setup(f => f.Length).Returns(12); // "test content".Length
+            mockFile.Setup(f => f.Exists).Returns(true);
+            mockFile.Setup(f => f.Attributes).Returns(FileAttributes.Normal);
+            mockFiles.Add(mockFile.Object);
         }
-        finally
+
+        // Configure mocks
+        _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(tempFolder))
+            .ReturnsAsync(true);
+        _fileSystemServiceMock.Setup(fs => fs.GetFilesAsync(tempFolder, "*", SearchOption.AllDirectories))
+            .ReturnsAsync(mockFiles.ToArray());
+        
+        // Mock IsFileSyncedAsync to return true for all files (consider them synced)
+        foreach (var file in mockFiles)
         {
-            // Cleanup
-            if (Directory.Exists(tempFolder))
-            {
-                Directory.Delete(tempFolder, true);
-            }
+            _fileSystemServiceMock.Setup(fs => fs.GetFileInfoAsync(file.FullName))
+                .ReturnsAsync(file);
         }
+
+        // Act
+        var progress = await _detector.GetSyncProgressAsync(tempFolder);
+
+        // Assert
+        Assert.Equal(tempFolder, progress.FolderPath);
+        Assert.Equal(5, progress.TotalFiles);
+        Assert.True(progress.TotalBytes > 0);
+        Assert.Equal(100, progress.PercentComplete); // All files are considered synced in test
+        Assert.True(progress.IsComplete);
     }
 
     [Fact]
@@ -213,59 +205,47 @@ public class OneDriveDetectorTests
         var userSid = "S-1-5-21-1234567890-1234567890-1234567890-1001";
         var tempFolder1 = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         var tempFolder2 = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(tempFolder1);
-        Directory.CreateDirectory(tempFolder2);
-
-        try
+        
+        var accounts = new List<OneDriveAccountInfo>
         {
-            var accounts = new List<OneDriveAccountInfo>
+            new OneDriveAccountInfo
             {
-                new OneDriveAccountInfo
-                {
-                    AccountId = "Business2",
-                    Email = "user2@company.com",
-                    UserFolder = tempFolder2,
-                    IsPrimary = false
-                },
-                new OneDriveAccountInfo
-                {
-                    AccountId = "Business1",
-                    Email = "user1@company.com",
-                    UserFolder = tempFolder1,
-                    IsPrimary = true
-                }
-            };
-
-            _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-            _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(accounts);
-            _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
-                .ReturnsAsync(true);
-            _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(false);
-            _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
-                .ReturnsAsync(new List<OneDriveSyncFolder>());
-
-            // Act
-            var status = await _detector.DetectOneDriveStatusAsync(userSid);
-
-            // Assert
-            Assert.Equal("user1@company.com", status.AccountEmail);
-            Assert.Equal(tempFolder1, status.SyncFolder);
-            Assert.True(status.AccountInfo?.IsPrimary);
-        }
-        finally
-        {
-            // Cleanup
-            if (Directory.Exists(tempFolder1))
+                AccountId = "Business2",
+                Email = "user2@company.com",
+                UserFolder = tempFolder2,
+                IsPrimary = false
+            },
+            new OneDriveAccountInfo
             {
-                Directory.Delete(tempFolder1, true);
+                AccountId = "Business1",
+                Email = "user1@company.com",
+                UserFolder = tempFolder1,
+                IsPrimary = true
             }
+        };
 
-            if (Directory.Exists(tempFolder2))
-            {
-                Directory.Delete(tempFolder2, true);
-            }
-        }
+        _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(accounts);
+        _processDetectorMock.Setup(p => p.IsOneDriveRunningForUserAsync(It.IsAny<string>()))
+            .ReturnsAsync(true);
+        _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(false);
+        _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null))
+            .ReturnsAsync(new List<OneDriveSyncFolder>());
+        
+        // Configure file system mock to recognize both temp folders
+        _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(tempFolder1))
+            .ReturnsAsync(true);
+        _fileSystemServiceMock.Setup(fs => fs.DirectoryExistsAsync(tempFolder2))
+            .ReturnsAsync(true);
+
+        // Act
+        var status = await _detector.DetectOneDriveStatusAsync(userSid);
+
+        // Assert
+        Assert.Equal("user1@company.com", status.AccountEmail);
+        Assert.Equal(tempFolder1, status.SyncFolder);
+        Assert.True(status.AccountInfo?.IsPrimary);
     }
 }
