@@ -201,4 +201,61 @@ public class WindowsFileSystemService : IFileSystemService
             throw;
         }
     }
+
+    /// <inheritdoc/>
+    public async Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+        }
+
+        await Task.Run(() =>
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                    _logger.LogDebug("Successfully deleted file: {Path}", path);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete file: {Path}", path);
+                throw;
+            }
+        }, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task TouchFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+        }
+
+        await Task.Run(() =>
+        {
+            try
+            {
+                var fileInfo = new FileInfo(path);
+                if (fileInfo.Exists)
+                {
+                    fileInfo.LastWriteTime = DateTime.Now;
+                    _logger.LogDebug("Successfully touched file: {Path}", path);
+                }
+                else
+                {
+                    _logger.LogWarning("Cannot touch file that doesn't exist: {Path}", path);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to touch file: {Path}", path);
+                throw;
+            }
+        }, cancellationToken);
+    }
 }

@@ -15,17 +15,20 @@ public class OneDriveDetector : IOneDriveDetector
     private readonly IOneDriveRegistry _registry;
     private readonly IOneDriveProcessDetector _processDetector;
     private readonly IFileSystemService _fileSystemService;
+    private readonly IOneDriveAttributeService _attributeService;
 
     public OneDriveDetector(
         ILogger<OneDriveDetector> logger,
         IOneDriveRegistry registry,
         IOneDriveProcessDetector processDetector,
-        IFileSystemService fileSystemService)
+        IFileSystemService fileSystemService,
+        IOneDriveAttributeService attributeService)
     {
         _logger = logger;
         _registry = registry;
         _processDetector = processDetector;
         _fileSystemService = fileSystemService;
+        _attributeService = attributeService;
     }
 
     /// <summary>
@@ -406,7 +409,7 @@ public class OneDriveDetector : IOneDriveDetector
             var fileInfo = await _fileSystemService.GetFileInfoAsync(filePath);
             if (fileInfo == null || !fileInfo.Exists)
             {
-                status.State = FileSyncState.Error;
+                status.State = FileSyncState.Unknown;
                 status.ErrorMessage = "File does not exist";
                 return status;
             }
@@ -421,31 +424,10 @@ public class OneDriveDetector : IOneDriveDetector
                 return status;
             }
 
-            // Check file attributes
+            // Check file attributes using the attribute service
             var attributes = fileInfo.Attributes;
-
-            // OneDrive file attribute constants
-            const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000; // FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS
-            const FileAttributes RecallOnOpen = (FileAttributes)0x00040000; // FILE_ATTRIBUTE_RECALL_ON_OPEN
-            const FileAttributes Pinned = (FileAttributes)0x00080000; // FILE_ATTRIBUTE_PINNED
-            const FileAttributes Unpinned = (FileAttributes)0x00100000; // FILE_ATTRIBUTE_UNPINNED
-
-            // Check if it's a placeholder (cloud-only) file
-            if ((attributes & RecallOnDataAccess) != 0 || (attributes & RecallOnOpen) != 0)
-            {
-                status.State = FileSyncState.CloudOnly;
-            }
-            // Check if it's pinned (always available offline)
-            else if ((attributes & Pinned) != 0)
-            {
-                status.State = FileSyncState.LocallyAvailable;
-                status.IsPinned = true;
-            }
-            // File is in sync folder and not a placeholder
-            else
-            {
-                status.State = FileSyncState.InSync;
-            }
+            status.State = _attributeService.GetFileSyncState(attributes);
+            status.IsPinned = _attributeService.IsFilePinned(attributes);
 
             // Check for sync errors (look for conflict files or error markers)
             if (await HasSyncErrorsAsync(filePath))

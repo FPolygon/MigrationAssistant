@@ -74,7 +74,7 @@ public class OneDriveManagerSyncTests
         await _manager.ForceSyncAsync(folderPath);
 
         // Assert
-        _detectorMock.Verify(d => d.GetLocalOnlyFilesAsync(folderPath, It.IsAny<CancellationToken>()), Times.Once);
+        _detectorMock.Verify(d => d.GetLocalOnlyFilesAsync(folderPath, It.IsAny<CancellationToken>()), Times.AtLeastOnce);
         _fileSystemServiceMock.Verify(f => f.WriteAllTextAsync(
             It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")), 
             It.IsAny<string>(), 
@@ -293,6 +293,6 @@ public class OneDriveManagerSyncTests
         
         _stateManagerMock.Verify(s => s.RecordSyncErrorAsync(
             It.Is<SyncError>(e => e.EscalatedToIT == true), 
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 }

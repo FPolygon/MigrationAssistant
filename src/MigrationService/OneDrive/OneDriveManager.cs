@@ -218,7 +218,7 @@ public class OneDriveManager : IOneDriveManager
 
                     // Strategy 1: Create trigger file
                     var triggerFile = Path.Combine(folderPath, $".onedrive_sync_trigger_{Guid.NewGuid():N}");
-                    await File.WriteAllTextAsync(triggerFile, 
+                    await _fileSystemService.WriteAllTextAsync(triggerFile, 
                         $"Sync triggered at {DateTime.UtcNow:O} for {localOnlyFiles.Count} files", 
                         cancellationToken);
                     
@@ -231,13 +231,8 @@ public class OneDriveManager : IOneDriveManager
                     {
                         try
                         {
-                            var fileInfo = new FileInfo(file.FilePath);
-                            if (fileInfo.Exists)
-                            {
-                                // Update last write time to trigger sync
-                                fileInfo.LastWriteTime = DateTime.Now;
-                                _logger.LogDebug("Touched file to trigger sync: {FilePath}", file.FilePath);
-                            }
+                            await _fileSystemService.TouchFileAsync(file.FilePath, cancellationToken);
+                            _logger.LogDebug("Touched file to trigger sync: {FilePath}", file.FilePath);
                         }
                         catch (Exception ex)
                         {
@@ -261,9 +256,9 @@ public class OneDriveManager : IOneDriveManager
                         try
                         {
                             var tempFile = Path.Combine(dir, $".sync_{Guid.NewGuid():N}.tmp");
-                            await File.WriteAllTextAsync(tempFile, "sync", cancellationToken);
+                            await _fileSystemService.WriteAllTextAsync(tempFile, "sync", cancellationToken);
                             await Task.Delay(100, cancellationToken);
-                            File.Delete(tempFile);
+                            await _fileSystemService.DeleteFileAsync(tempFile, cancellationToken);
                         }
                         catch
                         {
@@ -274,7 +269,7 @@ public class OneDriveManager : IOneDriveManager
                     // Clean up main trigger file
                     try
                     {
-                        File.Delete(triggerFile);
+                        await _fileSystemService.DeleteFileAsync(triggerFile, cancellationToken);
                     }
                     catch
                     {

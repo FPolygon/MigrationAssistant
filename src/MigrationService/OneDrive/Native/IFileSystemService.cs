@@ -67,6 +67,22 @@ public interface IFileSystemService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Task representing the async operation</returns>
     Task WriteAllTextAsync(string path, string content, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a file asynchronously
+    /// </summary>
+    /// <param name="path">The file path to delete</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task representing the async operation</returns>
+    Task DeleteFileAsync(string path, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the last write time of a file to trigger sync
+    /// </summary>
+    /// <param name="path">The file path to touch</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task representing the async operation</returns>
+    Task TouchFileAsync(string path, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

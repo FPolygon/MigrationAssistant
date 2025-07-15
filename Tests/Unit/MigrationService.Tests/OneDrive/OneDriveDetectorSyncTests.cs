@@ -4,6 +4,7 @@ using Moq;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
+using MigrationService.Tests.OneDrive.TestUtilities;
 using Xunit;
 
 namespace MigrationService.Tests.OneDrive;
@@ -15,6 +16,7 @@ public class OneDriveDetectorSyncTests
     private readonly Mock<IOneDriveRegistry> _registryMock;
     private readonly Mock<IOneDriveProcessDetector> _processDetectorMock;
     private readonly Mock<IFileSystemService> _fileSystemServiceMock;
+    private readonly MockOneDriveAttributeService _attributeService;
     private readonly OneDriveDetector _detector;
 
     public OneDriveDetectorSyncTests()
@@ -23,12 +25,64 @@ public class OneDriveDetectorSyncTests
         _registryMock = new Mock<IOneDriveRegistry>();
         _processDetectorMock = new Mock<IOneDriveProcessDetector>();
         _fileSystemServiceMock = new Mock<IFileSystemService>();
+        _attributeService = new MockOneDriveAttributeService();
 
         _detector = new OneDriveDetector(
             _loggerMock.Object,
             _registryMock.Object,
             _processDetectorMock.Object,
-            _fileSystemServiceMock.Object);
+            _fileSystemServiceMock.Object,
+            _attributeService);
+
+        SetupOneDriveFolderMocks();
+        SetupAttributeServiceMocks();
+    }
+
+    private void SetupOneDriveFolderMocks()
+    {
+        var syncFolders = new List<OneDriveSyncFolder>
+        {
+            new OneDriveSyncFolder
+            {
+                LocalPath = @"C:\Users\TestUser\OneDrive - Contoso",
+                FolderType = SyncFolderType.Business,
+                DisplayName = "OneDrive - Contoso",
+                IsSyncing = true,
+                HasErrors = false
+            },
+            new OneDriveSyncFolder
+            {
+                LocalPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents",
+                FolderType = SyncFolderType.Business,
+                DisplayName = "Documents - Contoso",
+                IsSyncing = true,
+                HasErrors = false
+            }
+        };
+
+        _registryMock.Setup(r => r.GetSyncedFoldersAsync(string.Empty, null))
+            .ReturnsAsync(syncFolders);
+    }
+
+    private void SetupAttributeServiceMocks()
+    {
+        // Set up common OneDrive attribute mappings
+        _attributeService.SetupCommonMappings();
+
+        // Override specific mappings for test scenarios
+        // Normal file (LocalOnly when not in OneDrive folder, InSync when in OneDrive folder)
+        _attributeService.SetSyncState(FileAttributes.Normal, FileSyncState.InSync);
+        _attributeService.SetPinnedState(FileAttributes.Normal, false);
+
+        // Cloud-only file (RecallOnDataAccess)
+        var cloudOnlyAttributes = FileAttributes.Normal | (FileAttributes)0x00400000;
+        _attributeService.SetSyncState(cloudOnlyAttributes, FileSyncState.CloudOnly);
+        _attributeService.SetPinnedState(cloudOnlyAttributes, false);
+
+        // Pinned file (LocallyAvailable)
+        var pinnedAttributes = FileAttributes.Normal | (FileAttributes)0x00080000;
+        _attributeService.SetSyncState(pinnedAttributes, FileSyncState.LocallyAvailable);
+        _attributeService.SetPinnedState(pinnedAttributes, true);
     }
 
     [Fact]

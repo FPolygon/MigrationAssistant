@@ -169,61 +169,60 @@ public class OneDriveManagerTests
     public async Task ForceSyncAsync_CreatesAndDeletesTriggerFile()
     {
         // Arrange
-        var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(tempFolder);
+        var testFolder = @"C:\Users\TestUser\OneDrive - Contoso\Documents";
+        
+        // Mock directory exists
+        _fileSystemServiceMock.Setup(f => f.DirectoryExistsAsync(testFolder))
+            .ReturnsAsync(true);
 
-        try
+        // Mock local only files to trigger sync
+        var localOnlyFiles = new List<FileSyncStatus>
         {
-            // Act
-            await _manager.ForceSyncAsync(tempFolder);
+            new FileSyncStatus { FilePath = Path.Combine(testFolder, "test.txt"), State = FileSyncState.LocalOnly }
+        };
 
-            // Assert - Check if any .onedrive_sync_trigger file was created
-            // Note: The file might be deleted too quickly to catch, so we just verify no exceptions
-            Assert.True(Directory.Exists(tempFolder));
-        }
-        finally
-        {
-            // Cleanup
-            if (Directory.Exists(tempFolder))
-            {
-                Directory.Delete(tempFolder, true);
-            }
-        }
+        _detectorMock.Setup(d => d.GetLocalOnlyFilesAsync(testFolder, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(localOnlyFiles);
+
+        // Mock sync progress
+        _detectorMock.Setup(d => d.GetSyncProgressAsync(testFolder, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SyncProgress { Status = OneDriveSyncStatus.UpToDate });
+
+        // Act
+        await _manager.ForceSyncAsync(testFolder);
+
+        // Assert - Verify that trigger file was created and deleted
+        _fileSystemServiceMock.Verify(f => f.WriteAllTextAsync(
+            It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")), 
+            It.IsAny<string>(), 
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _fileSystemServiceMock.Verify(f => f.DeleteFileAsync(
+            It.Is<string>(s => s.Contains(".onedrive_sync_trigger_")), 
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task WaitForSyncAsync_WhenAlreadyComplete_ReturnsTrue()
     {
         // Arrange
-        var folderPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(folderPath);
+        var folderPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents";
 
-        try
+        var progress = new SyncProgress
         {
-            var progress = new SyncProgress
-            {
-                FolderPath = folderPath,
-                Status = MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate,
-                PercentComplete = 100
-            };
+            FolderPath = folderPath,
+            Status = MigrationTool.Service.OneDrive.Models.OneDriveSyncStatus.UpToDate,
+            PercentComplete = 100
+        };
 
-            _detectorMock.Setup(d => d.GetSyncProgressAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(progress);
+        _detectorMock.Setup(d => d.GetSyncProgressAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(progress);
 
-            // Act
-            var result = await _manager.WaitForSyncAsync(folderPath, TimeSpan.FromSeconds(5));
+        // Act
+        var result = await _manager.WaitForSyncAsync(folderPath, TimeSpan.FromSeconds(5));
 
-            // Assert
-            Assert.True(result);
-        }
-        finally
-        {
-            // Cleanup
-            if (Directory.Exists(folderPath))
-            {
-                Directory.Delete(folderPath, true);
-            }
-        }
+        // Assert
+        Assert.True(result);
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
+using MigrationService.Tests.OneDrive.TestUtilities;
 using Moq;
 using Xunit;
 
@@ -15,6 +16,7 @@ public class OneDriveDetectorTests
     private readonly Mock<IOneDriveRegistry> _registryMock;
     private readonly Mock<IOneDriveProcessDetector> _processDetectorMock;
     private readonly Mock<IFileSystemService> _fileSystemServiceMock;
+    private readonly MockOneDriveAttributeService _attributeService;
     private readonly OneDriveDetector _detector;
 
     public OneDriveDetectorTests()
@@ -23,7 +25,9 @@ public class OneDriveDetectorTests
         _registryMock = new Mock<IOneDriveRegistry>();
         _processDetectorMock = new Mock<IOneDriveProcessDetector>();
         _fileSystemServiceMock = new Mock<IFileSystemService>();
-        _detector = new OneDriveDetector(_loggerMock.Object, _registryMock.Object, _processDetectorMock.Object, _fileSystemServiceMock.Object);
+        _attributeService = new MockOneDriveAttributeService();
+        _attributeService.SetupCommonMappings();
+        _detector = new OneDriveDetector(_loggerMock.Object, _registryMock.Object, _processDetectorMock.Object, _fileSystemServiceMock.Object, _attributeService);
     }
 
     [Fact]

@@ -305,6 +305,43 @@ public class TestFileSystemService : IFileSystemService
 
         await Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    public async Task DeleteFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+        }
+
+        // Remove the file from the existing files set for testing
+        _existingFiles.Remove(path);
+        _fileInfos.Remove(path);
+
+        await Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public async Task TouchFileAsync(string path, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+        }
+
+        if (_existingFiles.Contains(path))
+        {
+            // Update the file info with a new timestamp
+            if (_fileInfos.TryGetValue(path, out var existingInfo))
+            {
+                // Create a new file info with updated timestamp
+                var updatedInfo = new MockFileInfo(path, existingInfo.Length, true);
+                _fileInfos[path] = updatedInfo;
+            }
+        }
+
+        await Task.CompletedTask;
+    }
 }
 
 /// <summary>
