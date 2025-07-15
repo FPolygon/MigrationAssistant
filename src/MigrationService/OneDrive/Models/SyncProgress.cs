@@ -48,7 +48,7 @@ public class SyncProgress
     /// <summary>
     /// Files that failed to sync
     /// </summary>
-    public List<SyncError> Errors { get; set; } = new();
+    public List<OneDriveSyncError> Errors { get; set; } = new();
 
     /// <summary>
     /// Estimated time remaining
@@ -70,7 +70,7 @@ public class SyncProgress
 /// <summary>
 /// Represents a synchronization error
 /// </summary>
-public class SyncError
+public class OneDriveSyncError
 {
     /// <summary>
     /// File path that failed to sync

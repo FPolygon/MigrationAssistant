@@ -58,6 +58,15 @@ public interface IFileSystemService
     /// <param name="path">The path to get the root for</param>
     /// <returns>The root path or null if invalid</returns>
     string? GetPathRoot(string path);
+
+    /// <summary>
+    /// Writes text to a file asynchronously
+    /// </summary>
+    /// <param name="path">The file path to write to</param>
+    /// <param name="content">The content to write</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task representing the async operation</returns>
+    Task WriteAllTextAsync(string path, string content, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -79,7 +88,9 @@ public interface IFileInfo
     long Length { get; }
     bool Exists { get; }
     string FullName { get; }
+    string Name { get; }
     FileAttributes Attributes { get; }
+    DateTime LastWriteTimeUtc { get; }
 }
 
 /// <summary>

@@ -317,7 +317,7 @@ public class MigrationStateOrchestratorTests
             LastUpdated = DateTime.UtcNow
         };
 
-        var syncStatus = new OneDriveSyncStatus
+        var syncStatus = new OneDriveSyncStatusRecord
         {
             QuotaAvailableMB = 500, // Less than 1000MB threshold
             ErrorCount = 0
@@ -351,7 +351,7 @@ public class MigrationStateOrchestratorTests
             LastUpdated = DateTime.UtcNow
         };
 
-        var syncStatus = new OneDriveSyncStatus
+        var syncStatus = new OneDriveSyncStatusRecord
         {
             ErrorCount = 10, // More than 5 errors threshold
             QuotaAvailableMB = 5000

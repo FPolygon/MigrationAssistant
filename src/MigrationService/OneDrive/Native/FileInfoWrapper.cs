@@ -25,5 +25,11 @@ public class FileInfoWrapper : IFileInfo
     public string FullName => _fileInfo.FullName;
 
     /// <inheritdoc/>
+    public string Name => _fileInfo.Name;
+
+    /// <inheritdoc/>
     public FileAttributes Attributes => _fileInfo.Attributes;
+
+    /// <inheritdoc/>
+    public DateTime LastWriteTimeUtc => _fileInfo.LastWriteTimeUtc;
 }

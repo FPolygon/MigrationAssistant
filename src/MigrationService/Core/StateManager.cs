@@ -656,7 +656,7 @@ public class StateManager : IStateManager, IDisposable
 
     #region OneDrive Sync Tracking
 
-    public async Task UpdateOneDriveSyncStatusAsync(OneDriveSyncStatus status, CancellationToken cancellationToken)
+    public async Task UpdateOneDriveSyncStatusAsync(OneDriveSyncStatusRecord status, CancellationToken cancellationToken)
     {
         try
         {
@@ -695,7 +695,7 @@ public class StateManager : IStateManager, IDisposable
         }
     }
 
-    public async Task<OneDriveSyncStatus?> GetOneDriveSyncStatusAsync(string userId, CancellationToken cancellationToken)
+    public async Task<OneDriveSyncStatusRecord?> GetOneDriveSyncStatusAsync(string userId, CancellationToken cancellationToken)
     {
         try
         {
@@ -727,9 +727,9 @@ public class StateManager : IStateManager, IDisposable
         return null;
     }
 
-    public async Task<IEnumerable<OneDriveSyncStatus>> GetUsersWithSyncErrorsAsync(CancellationToken cancellationToken)
+    public async Task<IEnumerable<OneDriveSyncStatusRecord>> GetUsersWithSyncErrorsAsync(CancellationToken cancellationToken)
     {
-        var statuses = new List<OneDriveSyncStatus>();
+        var statuses = new List<OneDriveSyncStatusRecord>();
 
         try
         {
@@ -2829,9 +2829,9 @@ public class StateManager : IStateManager, IDisposable
         };
     }
 
-    private OneDriveSyncStatus ReadOneDriveSyncStatus(SqliteDataReader reader)
+    private OneDriveSyncStatusRecord ReadOneDriveSyncStatus(SqliteDataReader reader)
     {
-        return new OneDriveSyncStatus
+        return new OneDriveSyncStatusRecord
         {
             Id = reader.GetInt32(0),
             UserId = reader.GetString(1),
@@ -2944,6 +2944,106 @@ public class StateManager : IStateManager, IDisposable
             ChangedBy = reader.GetString(5),
             Reason = reader.GetString(6)
         };
+    }
+
+    #endregion
+
+    #region Sync Operation Management (Phase 3.2 Placeholder)
+
+    public async Task<int> CreateSyncOperationAsync(SyncOperation operation, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Creating sync operation for user {UserId}, folder {Folder}", 
+            operation.UserSid, operation.FolderPath);
+        
+        // Placeholder implementation - return a dummy ID
+        await Task.CompletedTask;
+        return 1;
+    }
+
+    public async Task UpdateSyncOperationAsync(SyncOperation operation, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Updating sync operation {Id}", operation.Id);
+        await Task.CompletedTask;
+    }
+
+    public async Task<SyncOperation?> GetSyncOperationAsync(int operationId, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Getting sync operation {Id}", operationId);
+        await Task.CompletedTask;
+        return null;
+    }
+
+    public async Task<SyncOperation?> GetActiveSyncOperationAsync(string userSid, string folderPath, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Getting active sync operation for user {UserId}, folder {Folder}", 
+            userSid, folderPath);
+        await Task.CompletedTask;
+        return null;
+    }
+
+    public async Task<IEnumerable<SyncOperation>> GetSyncOperationsAsync(string userSid, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Getting sync operations for user {UserId}", userSid);
+        await Task.CompletedTask;
+        return Enumerable.Empty<SyncOperation>();
+    }
+
+    public async Task<IEnumerable<SyncOperation>> GetPendingSyncOperationsAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Getting pending sync operations");
+        await Task.CompletedTask;
+        return Enumerable.Empty<SyncOperation>();
+    }
+
+    public async Task IncrementSyncRetryCountAsync(int syncOperationId, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Incrementing retry count for sync operation {Id}", syncOperationId);
+        await Task.CompletedTask;
+    }
+
+    #endregion
+
+    #region Sync Error Management (Phase 3.2 Placeholder)
+
+    public async Task<int> RecordSyncErrorAsync(SyncError error, CancellationToken cancellationToken)
+    {
+        _logger.LogWarning("Recording sync error for file {FilePath}: {Error}", 
+            error.FilePath, error.ErrorMessage);
+        await Task.CompletedTask;
+        return 1;
+    }
+
+    public async Task<IEnumerable<SyncError>> GetSyncErrorsAsync(int syncOperationId, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Getting sync errors for operation {Id}", syncOperationId);
+        await Task.CompletedTask;
+        return Enumerable.Empty<SyncError>();
+    }
+
+    public async Task<IEnumerable<SyncError>> GetUnresolvedSyncOperationErrorsAsync(string userSid, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Getting unresolved sync errors for user {UserId}", userSid);
+        await Task.CompletedTask;
+        return Enumerable.Empty<SyncError>();
+    }
+
+    public async Task MarkSyncOperationErrorResolvedAsync(int errorId, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Marking sync error {Id} as resolved", errorId);
+        await Task.CompletedTask;
+    }
+
+    public async Task EscalateSyncErrorsAsync(int syncOperationId, CancellationToken cancellationToken)
+    {
+        _logger.LogWarning("Escalating sync errors for operation {Id}", syncOperationId);
+        await Task.CompletedTask;
+    }
+
+    public async Task<int> GetSyncErrorCountAsync(string userSid, bool unresolvedOnly = true, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting sync error count for user {UserId}", userSid);
+        await Task.CompletedTask;
+        return 0;
     }
 
     #endregion

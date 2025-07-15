@@ -181,4 +181,24 @@ public class WindowsFileSystemService : IFileSystemService
             return null;
         }
     }
+
+    /// <inheritdoc/>
+    public async Task WriteAllTextAsync(string path, string content, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+        }
+
+        try
+        {
+            await File.WriteAllTextAsync(path, content, cancellationToken);
+            _logger.LogDebug("Successfully wrote text to file: {Path}", path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to write text to file: {Path}", path);
+            throw;
+        }
+    }
 }

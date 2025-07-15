@@ -287,6 +287,24 @@ public class TestFileSystemService : IFileSystemService
             return null;
         }
     }
+
+    /// <inheritdoc/>
+    public async Task WriteAllTextAsync(string path, string content, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+        }
+
+        // Add the file to the existing files set for testing
+        _existingFiles.Add(path);
+        
+        // Create file info for the written file
+        var fileInfo = new MockFileInfo(path, content.Length, true);
+        _fileInfos[path] = fileInfo;
+
+        await Task.CompletedTask;
+    }
 }
 
 /// <summary>
@@ -331,6 +349,8 @@ public class MockFileInfo : IFileInfo
     public bool Exists => _exists;
     public string FullName => _path;
     public FileAttributes Attributes => FileAttributes.Normal;
+    public DateTime LastWriteTimeUtc => DateTime.UtcNow;
+    public string Name => Path.GetFileName(_path);
 }
 
 /// <summary>

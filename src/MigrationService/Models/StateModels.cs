@@ -102,7 +102,7 @@ public class BackupOperation
     public string? ManifestPath { get; set; }
 }
 
-public class OneDriveSyncStatus
+public class OneDriveSyncStatusRecord
 {
     public int Id { get; set; }
     public string UserId { get; set; } = string.Empty;
@@ -133,6 +133,15 @@ public class ITEscalation
     public DateTime? ResolvedAt { get; set; }
     public string? ResolutionNotes { get; set; }
     public bool AutoTriggered { get; set; } = true;
+    
+    /// <summary>
+    /// Alias for TriggerReason to maintain compatibility
+    /// </summary>
+    public string Reason
+    {
+        get => TriggerReason;
+        set => TriggerReason = value;
+    }
 }
 
 public class StateHistoryEntry
