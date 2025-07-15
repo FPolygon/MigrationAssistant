@@ -947,7 +947,7 @@ public class OneDriveManager : IOneDriveManager
                         AccountId = status.AccountInfo.AccountId,
                         LocalPath = folder.LocalPath,
                         RemotePath = folder.RemotePath,
-                        LibraryType = folder.LibraryType.ToString(),
+                        LibraryType = folder.LibraryType?.ToString() ?? string.Empty,
                         IsSyncing = folder.IsSyncing,
                         HasErrors = folder.HasErrors,
                         DisplayName = folder.DisplayName,

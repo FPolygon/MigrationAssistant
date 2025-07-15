@@ -361,7 +361,7 @@ public class OneDriveSyncController : IOneDriveSyncController
         try
         {
             // Get all accounts for the user
-            var accountsKey = await _registry.GetUserRegistryValueAsync(userSid, SelectiveSyncKey.TrimEnd('\\'), null);
+            var accountsKey = await _registry.GetUserRegistryValueAsync(userSid, SelectiveSyncKey.TrimEnd('\\'), string.Empty);
             if (accountsKey == null)
             {
                 return string.Empty;
@@ -381,7 +381,7 @@ public class OneDriveSyncController : IOneDriveSyncController
         }
     }
 
-    private async Task<bool> UpdateExcludedFoldersAsync(string userSid, string accountId, List<string> excludedFolders, CancellationToken cancellationToken)
+    private Task<bool> UpdateExcludedFoldersAsync(string userSid, string accountId, List<string> excludedFolders, CancellationToken cancellationToken)
     {
         try
         {
@@ -399,12 +399,12 @@ public class OneDriveSyncController : IOneDriveSyncController
             // await _registry.SetUserRegistryValueAsync(userSid, keyPath, ExcludedFoldersValue, excludedArray);
 
             // For now, return true to indicate the operation would succeed
-            return true;
+            return Task.FromResult(true);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update excluded folders for account {AccountId}", accountId);
-            return false;
+            return Task.FromResult(false);
         }
     }
 
