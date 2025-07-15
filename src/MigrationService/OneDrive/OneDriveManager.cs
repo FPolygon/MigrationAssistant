@@ -82,8 +82,14 @@ public class OneDriveManager : IOneDriveManager
                 return -1;
             }
 
-            // In a real implementation, we would query OneDrive API or use COM interfaces
-            // For now, we'll calculate based on local disk space as a placeholder
+            // Use the computed AvailableSpaceMB property from OneDriveAccountInfo
+            if (status.AccountInfo.AvailableSpaceMB > 0)
+            {
+                _logger.LogDebug("Available OneDrive space for user {Sid}: {SpaceMB} MB", userSid, status.AccountInfo.AvailableSpaceMB);
+                return status.AccountInfo.AvailableSpaceMB;
+            }
+
+            // Fallback to local disk space if OneDrive quota information is not available
             if (!string.IsNullOrEmpty(status.AccountInfo.UserFolder) &&
                 Directory.Exists(status.AccountInfo.UserFolder))
             {
@@ -91,7 +97,7 @@ public class OneDriveManager : IOneDriveManager
                 var availableBytes = driveInfo.AvailableFreeSpace;
                 var availableMB = availableBytes / (1024 * 1024);
 
-                _logger.LogDebug("Available space for user {Sid}: {SpaceMB} MB", userSid, availableMB);
+                _logger.LogDebug("Available local disk space for user {Sid}: {SpaceMB} MB", userSid, availableMB);
                 return availableMB;
             }
 

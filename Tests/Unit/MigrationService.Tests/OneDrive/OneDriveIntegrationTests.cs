@@ -72,8 +72,8 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
-        _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), null)).ReturnsAsync(false);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.IsSyncPausedAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(false);
 
         // Act
         var status = await _manager.GetStatusAsync(_testUserSid);
@@ -114,8 +114,8 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
-        _registryMock.Setup(r => r.GetKnownFolderMoveStatusAsync(It.IsAny<string>(), null)).ReturnsAsync(kfmStatus);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetKnownFolderMoveStatusAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(kfmStatus);
 
         // Act
         var status = await _manager.GetStatusAsync(_testUserSid);
@@ -147,7 +147,7 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
 
         // Act
         var status = await _manager.GetStatusAsync(_testUserSid);
@@ -173,7 +173,7 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
 
         // Act - First call (should hit registry and cache result)
         var status1 = await _manager.GetStatusAsync(_testUserSid);
@@ -213,7 +213,7 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
 
         // Act
         var availableSpace = await _manager.GetAvailableSpaceMBAsync(_testUserSid);
@@ -253,8 +253,8 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(user1Sid, null)).ReturnsAsync(user1Accounts);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(user2Sid, null)).ReturnsAsync(user2Accounts);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(user1Sid, It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(user1Accounts);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(user2Sid, It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(user2Accounts);
 
         // Act
         var status1 = await _manager.GetStatusAsync(user1Sid);
@@ -310,8 +310,8 @@ public class OneDriveIntegrationTests
         };
 
         _registryMock.Setup(r => r.IsOneDriveInstalled()).Returns(true);
-        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), null)).ReturnsAsync(accounts);
-        _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), null)).ReturnsAsync(syncedFolders);
+        _registryMock.Setup(r => r.GetUserAccountsAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(accounts);
+        _registryMock.Setup(r => r.GetSyncedFoldersAsync(It.IsAny<string>(), It.IsAny<Microsoft.Win32.RegistryKey?>())).ReturnsAsync(syncedFolders);
 
         // Act
         var status = await _manager.GetStatusAsync(_testUserSid);

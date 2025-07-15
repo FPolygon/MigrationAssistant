@@ -367,7 +367,7 @@ public class OneDriveRegistry : IOneDriveRegistry
     }
 
     /// <inheritdoc/>
-    public async Task<RegistryKey?> LoadUserRegistryHiveAsync(string userSid)
+    public virtual async Task<RegistryKey?> LoadUserRegistryHiveAsync(string userSid)
     {
         return await Task.Run(() =>
         {
