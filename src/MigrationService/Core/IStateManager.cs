@@ -30,9 +30,9 @@ public interface IStateManager : IDisposable
     Task RecordProviderResultAsync(ProviderResult result, CancellationToken cancellationToken);
 
     // OneDrive sync tracking (legacy)
-    Task UpdateOneDriveSyncStatusAsync(OneDriveSyncStatus status, CancellationToken cancellationToken);
-    Task<OneDriveSyncStatus?> GetOneDriveSyncStatusAsync(string userId, CancellationToken cancellationToken);
-    Task<IEnumerable<OneDriveSyncStatus>> GetUsersWithSyncErrorsAsync(CancellationToken cancellationToken);
+    Task UpdateOneDriveSyncStatusAsync(OneDriveSyncStatusRecord status, CancellationToken cancellationToken);
+    Task<OneDriveSyncStatusRecord?> GetOneDriveSyncStatusAsync(string userId, CancellationToken cancellationToken);
+    Task<IEnumerable<OneDriveSyncStatusRecord>> GetUsersWithSyncErrorsAsync(CancellationToken cancellationToken);
 
     // OneDrive status management (new detailed tracking)
     Task SaveOneDriveStatusAsync(OneDriveStatusRecord status, CancellationToken cancellationToken);
@@ -106,6 +106,23 @@ public interface IStateManager : IDisposable
     Task ExpireClassificationOverrideAsync(int overrideId, CancellationToken cancellationToken = default);
     Task SaveClassificationOverrideHistoryAsync(ClassificationOverrideHistory history, CancellationToken cancellationToken = default);
     Task<IEnumerable<ClassificationOverrideHistory>> GetClassificationOverrideHistoryAsync(string userId, int? limit = null, CancellationToken cancellationToken = default);
+
+    // Sync operation management
+    Task<int> CreateSyncOperationAsync(SyncOperation operation, CancellationToken cancellationToken);
+    Task UpdateSyncOperationAsync(SyncOperation operation, CancellationToken cancellationToken);
+    Task<SyncOperation?> GetSyncOperationAsync(int operationId, CancellationToken cancellationToken);
+    Task<SyncOperation?> GetActiveSyncOperationAsync(string userSid, string folderPath, CancellationToken cancellationToken);
+    Task<IEnumerable<SyncOperation>> GetSyncOperationsAsync(string userSid, CancellationToken cancellationToken);
+    Task<IEnumerable<SyncOperation>> GetPendingSyncOperationsAsync(CancellationToken cancellationToken);
+    Task IncrementSyncRetryCountAsync(int syncOperationId, CancellationToken cancellationToken);
+
+    // Sync error management
+    Task<int> RecordSyncErrorAsync(SyncError error, CancellationToken cancellationToken);
+    Task<IEnumerable<SyncError>> GetSyncErrorsAsync(int syncOperationId, CancellationToken cancellationToken);
+    Task<IEnumerable<SyncError>> GetUnresolvedSyncOperationErrorsAsync(string userSid, CancellationToken cancellationToken);
+    Task MarkSyncOperationErrorResolvedAsync(int errorId, CancellationToken cancellationToken);
+    Task EscalateSyncErrorsAsync(int syncOperationId, CancellationToken cancellationToken);
+    Task<int> GetSyncErrorCountAsync(string userSid, bool unresolvedOnly = true, CancellationToken cancellationToken = default);
 
     // Maintenance operations
     Task CleanupStaleOperationsAsync(TimeSpan staleThreshold, CancellationToken cancellationToken);

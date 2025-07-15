@@ -168,10 +168,10 @@ public class OneDriveModelsTests
     }
 
     [Fact]
-    public void SyncError_Properties_SetCorrectly()
+    public void OneDriveSyncError_Properties_SetCorrectly()
     {
         // Arrange & Act
-        var error = new SyncError
+        var error = new OneDriveSyncError
         {
             FilePath = @"C:\Users\Test\OneDrive\Document.docx",
             ErrorMessage = "File is locked by another process",

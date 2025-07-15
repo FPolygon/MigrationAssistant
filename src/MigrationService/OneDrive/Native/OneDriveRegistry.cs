@@ -544,5 +544,42 @@ public class OneDriveRegistry : IOneDriveRegistry
         return null;
     }
 
+    /// <inheritdoc/>
+    public async Task<object?> GetUserRegistryValueAsync(string userSid, string keyPath, string valueName)
+    {
+        try
+        {
+            var hive = await LoadUserRegistryHiveAsync(userSid);
+            if (hive == null)
+            {
+                _logger.LogWarning("Could not load user registry hive for user {Sid}", userSid);
+                return null;
+            }
+
+            try
+            {
+                using var key = hive.OpenSubKey(keyPath);
+                if (key == null)
+                {
+                    _logger.LogDebug("Registry key not found: {KeyPath} for user {Sid}", keyPath, userSid);
+                    return null;
+                }
+
+                var value = key.GetValue(valueName);
+                _logger.LogDebug("Retrieved registry value {ValueName} from {KeyPath} for user {Sid}", valueName, keyPath, userSid);
+                return value;
+            }
+            finally
+            {
+                hive?.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get registry value {ValueName} from {KeyPath} for user {Sid}", valueName, keyPath, userSid);
+            return null;
+        }
+    }
+
     #endregion
 }

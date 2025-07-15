@@ -46,10 +46,12 @@ public class OneDriveIntegrationTests
         // Initialize test services
         _testFileSystemService = new TestFileSystemService();
         _testProcessService = new TestProcessService();
+        var attributeService = new MockOneDriveAttributeService();
+        attributeService.SetupCommonMappings();
 
         // Create real components with mocked dependencies
         IOneDriveProcessDetector processDetector = new OneDriveProcessDetector(_processLoggerMock.Object, _testProcessService);
-        IOneDriveDetector detector = new OneDriveDetector(_detectorLoggerMock.Object, _registryMock.Object, processDetector, _testFileSystemService);
+        IOneDriveDetector detector = new OneDriveDetector(_detectorLoggerMock.Object, _registryMock.Object, processDetector, _testFileSystemService, attributeService);
         _cache = new OneDriveStatusCache(_cacheLoggerMock.Object, TimeSpan.FromMinutes(5));
 
         _manager = new OneDriveManager(

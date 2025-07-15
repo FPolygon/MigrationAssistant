@@ -110,6 +110,7 @@ public class Program
                 services.AddSingleton<IOneDriveDetector, OneDriveDetector>();
                 services.AddSingleton<IOneDriveStatusCache, OneDriveStatusCache>();
                 services.AddSingleton<IOneDriveManager, OneDriveManager>();
+                services.AddSingleton<IOneDriveSyncController, OneDriveSyncController>();
             });
 
             // Build and run the host

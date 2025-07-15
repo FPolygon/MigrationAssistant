@@ -15,17 +15,20 @@ public class OneDriveDetector : IOneDriveDetector
     private readonly IOneDriveRegistry _registry;
     private readonly IOneDriveProcessDetector _processDetector;
     private readonly IFileSystemService _fileSystemService;
+    private readonly IOneDriveAttributeService _attributeService;
 
     public OneDriveDetector(
         ILogger<OneDriveDetector> logger,
         IOneDriveRegistry registry,
         IOneDriveProcessDetector processDetector,
-        IFileSystemService fileSystemService)
+        IFileSystemService fileSystemService,
+        IOneDriveAttributeService attributeService)
     {
         _logger = logger;
         _registry = registry;
         _processDetector = processDetector;
         _fileSystemService = fileSystemService;
+        _attributeService = attributeService;
     }
 
     /// <summary>
@@ -121,7 +124,8 @@ public class OneDriveDetector : IOneDriveDetector
         var progress = new SyncProgress
         {
             FolderPath = folderPath,
-            Status = OneDriveSyncStatus.Unknown
+            Status = OneDriveSyncStatus.Unknown,
+            SyncStartTime = DateTime.UtcNow
         };
 
         try
@@ -129,7 +133,7 @@ public class OneDriveDetector : IOneDriveDetector
             if (!await _fileSystemService.DirectoryExistsAsync(folderPath))
             {
                 progress.Status = OneDriveSyncStatus.Error;
-                progress.Errors.Add(new SyncError
+                progress.Errors.Add(new OneDriveSyncError
                 {
                     FilePath = folderPath,
                     ErrorMessage = "Folder does not exist",
@@ -148,30 +152,99 @@ public class OneDriveDetector : IOneDriveDetector
             progress.TotalFiles = files.Length;
             progress.TotalBytes = files.Sum(f => f.Length);
 
-            // Check for OneDrive placeholder files (Files On-Demand)
-            var syncedCount = 0;
-            var syncedBytes = 0L;
+            // Track upload progress (files that need to be uploaded vs already in cloud)
+            var uploadedCount = 0;
+            var uploadedBytes = 0L;
+            var uploadingFiles = new List<string>();
+            var localOnlyCount = 0;
+            var localOnlyBytes = 0L;
+            var errorCount = 0;
 
             foreach (var file in files)
             {
-                if (await IsFileSyncedAsync(file.FullName))
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var fileSyncStatus = await GetFileSyncStatusAsync(file.FullName, cancellationToken);
+
+                switch (fileSyncStatus.State)
                 {
-                    syncedCount++;
-                    syncedBytes += file.Length;
+                    case FileSyncState.CloudOnly:
+                    case FileSyncState.LocallyAvailable:
+                    case FileSyncState.InSync:
+                        // File is already in the cloud
+                        uploadedCount++;
+                        uploadedBytes += file.Length;
+                        break;
+
+                    case FileSyncState.Uploading:
+                        // File is currently being uploaded
+                        uploadingFiles.Add(file.FullName);
+                        break;
+
+                    case FileSyncState.LocalOnly:
+                        // File needs to be uploaded
+                        localOnlyCount++;
+                        localOnlyBytes += file.Length;
+                        break;
+
+                    case FileSyncState.Error:
+                        errorCount++;
+                        progress.Errors.Add(new OneDriveSyncError
+                        {
+                            FilePath = file.FullName,
+                            ErrorMessage = fileSyncStatus.ErrorMessage ?? "Unknown sync error",
+                            ErrorTime = DateTime.UtcNow,
+                            IsRecoverable = true
+                        });
+                        break;
                 }
             }
 
-            progress.FilesSynced = syncedCount;
-            progress.BytesSynced = syncedBytes;
+            // Update progress based on upload status
+            progress.FilesSynced = uploadedCount;
+            progress.BytesSynced = uploadedBytes;
+            progress.ActiveFiles = uploadingFiles;
             progress.PercentComplete = progress.TotalFiles > 0
                 ? (double)progress.FilesSynced / progress.TotalFiles * 100
                 : 100;
+
+            // Calculate estimated time remaining if files are uploading
+            if (uploadingFiles.Count > 0 && progress.BytesSynced > 0)
+            {
+                var elapsedTime = DateTime.UtcNow - progress.SyncStartTime.Value;
+                if (elapsedTime.TotalSeconds > 0)
+                {
+                    var bytesPerSecond = progress.BytesSynced / elapsedTime.TotalSeconds;
+                    var remainingBytes = progress.TotalBytes - progress.BytesSynced;
+
+                    if (bytesPerSecond > 0)
+                    {
+                        progress.EstimatedTimeRemaining = TimeSpan.FromSeconds(remainingBytes / bytesPerSecond);
+                    }
+                }
+            }
+
+            // Update status based on the file states
+            if (errorCount > 0)
+            {
+                progress.Status = OneDriveSyncStatus.Error;
+            }
+            else if (localOnlyCount > 0 || uploadingFiles.Count > 0)
+            {
+                progress.Status = OneDriveSyncStatus.Syncing;
+                _logger.LogInformation("Sync in progress: {LocalFiles} files ({LocalBytes} bytes) need upload, {UploadingFiles} files uploading",
+                    localOnlyCount, localOnlyBytes, uploadingFiles.Count);
+            }
+            else if (progress.FilesSynced == progress.TotalFiles)
+            {
+                progress.Status = OneDriveSyncStatus.UpToDate;
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to get sync progress for folder {FolderPath}", folderPath);
             progress.Status = OneDriveSyncStatus.Error;
-            progress.Errors.Add(new SyncError
+            progress.Errors.Add(new OneDriveSyncError
             {
                 FilePath = folderPath,
                 ErrorMessage = ex.Message,
@@ -317,6 +390,198 @@ public class OneDriveDetector : IOneDriveDetector
         {
             // Assume synced if we can't check
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Gets the sync status of a specific file
+    /// </summary>
+    public async Task<FileSyncStatus> GetFileSyncStatusAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        var status = new FileSyncStatus
+        {
+            FilePath = filePath,
+            State = FileSyncState.Unknown
+        };
+
+        try
+        {
+            var fileInfo = await _fileSystemService.GetFileInfoAsync(filePath);
+            if (fileInfo == null || !fileInfo.Exists)
+            {
+                status.State = FileSyncState.Unknown;
+                status.ErrorMessage = "File does not exist";
+                return status;
+            }
+
+            status.FileSize = fileInfo.Length;
+
+            // Check if file is within a OneDrive sync folder
+            var isInSyncFolder = await IsFileInOneDriveFolderAsync(filePath, cancellationToken);
+            if (!isInSyncFolder)
+            {
+                status.State = FileSyncState.LocalOnly;
+                return status;
+            }
+
+            // Check file attributes using the attribute service
+            var attributes = fileInfo.Attributes;
+            status.State = _attributeService.GetFileSyncState(attributes);
+            status.IsPinned = _attributeService.IsFilePinned(attributes);
+
+            // Check for sync errors (look for conflict files or error markers)
+            if (await HasSyncErrorsAsync(filePath))
+            {
+                status.State = FileSyncState.Error;
+                status.ErrorMessage = "Sync conflict or error detected";
+            }
+
+            return status;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get sync status for file {FilePath}", filePath);
+            status.State = FileSyncState.Error;
+            status.ErrorMessage = ex.Message;
+            return status;
+        }
+    }
+
+    /// <summary>
+    /// Gets files that exist only locally and need to be uploaded
+    /// </summary>
+    public async Task<List<FileSyncStatus>> GetLocalOnlyFilesAsync(string folderPath, CancellationToken cancellationToken = default)
+    {
+        var localOnlyFiles = new List<FileSyncStatus>();
+
+        try
+        {
+            if (!await _fileSystemService.DirectoryExistsAsync(folderPath))
+            {
+                _logger.LogWarning("Folder does not exist: {FolderPath}", folderPath);
+                return localOnlyFiles;
+            }
+
+            var files = await _fileSystemService.GetFilesAsync(folderPath, "*", SearchOption.AllDirectories);
+
+            foreach (var file in files)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var syncStatus = await GetFileSyncStatusAsync(file.FullName, cancellationToken);
+
+                // We need to upload files that are:
+                // 1. Local only (not in OneDrive folder)
+                // 2. In OneDrive folder but not yet synced (no cloud attributes)
+                if (syncStatus.State == FileSyncState.LocalOnly ||
+                    (syncStatus.State == FileSyncState.InSync && !await IsFileUploadedAsync(file.FullName)))
+                {
+                    localOnlyFiles.Add(syncStatus);
+                }
+            }
+
+            _logger.LogInformation("Found {Count} local-only files in {FolderPath} requiring upload",
+                localOnlyFiles.Count, folderPath);
+
+            return localOnlyFiles;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get local-only files for {FolderPath}", folderPath);
+            return localOnlyFiles;
+        }
+    }
+
+    private async Task<bool> IsFileInOneDriveFolderAsync(string filePath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Get all OneDrive sync folders for all users
+            var syncFolders = await _registry.GetSyncedFoldersAsync(string.Empty);
+
+            foreach (var folder in syncFolders)
+            {
+                if (filePath.StartsWith(folder.LocalPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check if file is in OneDrive folder");
+            return false;
+        }
+    }
+
+    private async Task<bool> HasSyncErrorsAsync(string filePath)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(filePath);
+            var fileName = Path.GetFileName(filePath);
+
+            if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName))
+            {
+                return false;
+            }
+
+            // Check for conflict files (e.g., "Document-ComputerName.docx")
+            var conflictPattern = $"{Path.GetFileNameWithoutExtension(fileName)}-*{Path.GetExtension(fileName)}";
+            var conflictFiles = await _fileSystemService.GetFilesAsync(directory, conflictPattern, SearchOption.TopDirectoryOnly);
+
+            if (conflictFiles.Length > 0)
+            {
+                _logger.LogDebug("Found conflict files for {FilePath}", filePath);
+                return true;
+            }
+
+            // Check for .tmp or error marker files
+            var errorFiles = await _fileSystemService.GetFilesAsync(directory, $"{fileName}*.tmp", SearchOption.TopDirectoryOnly);
+
+            return errorFiles.Length > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check for sync errors");
+            return false;
+        }
+    }
+
+    private async Task<bool> IsFileUploadedAsync(string filePath)
+    {
+        try
+        {
+            // A file is considered uploaded if:
+            // 1. It has cloud attributes (checked in GetFileSyncStatusAsync)
+            // 2. OR it exists in OneDrive's internal database (would require parsing .db files)
+            // For now, we'll rely on file attributes and modification times
+
+            var fileInfo = await _fileSystemService.GetFileInfoAsync(filePath);
+            if (fileInfo == null)
+            {
+                return false;
+            }
+
+            // If file was modified very recently, it might not be uploaded yet
+            var timeSinceModified = DateTime.UtcNow - fileInfo.LastWriteTimeUtc;
+            if (timeSinceModified < TimeSpan.FromMinutes(5))
+            {
+                _logger.LogDebug("File {FilePath} was modified recently, may not be uploaded", filePath);
+                return false;
+            }
+
+            // Check OneDrive sync status file if available
+            // This would require parsing OneDrive's internal files
+            // For now, assume files older than 5 minutes are uploaded
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check if file is uploaded");
+            return true; // Assume uploaded if we can't check
         }
     }
 

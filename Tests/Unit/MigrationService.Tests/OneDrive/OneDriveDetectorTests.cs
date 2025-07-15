@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
+using MigrationService.Tests.OneDrive.TestUtilities;
 using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.OneDrive.Models;
 using MigrationTool.Service.OneDrive.Native;
@@ -15,6 +16,7 @@ public class OneDriveDetectorTests
     private readonly Mock<IOneDriveRegistry> _registryMock;
     private readonly Mock<IOneDriveProcessDetector> _processDetectorMock;
     private readonly Mock<IFileSystemService> _fileSystemServiceMock;
+    private readonly MockOneDriveAttributeService _attributeService;
     private readonly OneDriveDetector _detector;
 
     public OneDriveDetectorTests()
@@ -23,7 +25,37 @@ public class OneDriveDetectorTests
         _registryMock = new Mock<IOneDriveRegistry>();
         _processDetectorMock = new Mock<IOneDriveProcessDetector>();
         _fileSystemServiceMock = new Mock<IFileSystemService>();
-        _detector = new OneDriveDetector(_loggerMock.Object, _registryMock.Object, _processDetectorMock.Object, _fileSystemServiceMock.Object);
+        _attributeService = new MockOneDriveAttributeService();
+        _attributeService.SetupCommonMappings();
+        _detector = new OneDriveDetector(_loggerMock.Object, _registryMock.Object, _processDetectorMock.Object, _fileSystemServiceMock.Object, _attributeService);
+
+        SetupOneDriveFolderMocks();
+    }
+
+    private void SetupOneDriveFolderMocks()
+    {
+        var syncFolders = new List<OneDriveSyncFolder>
+        {
+            new OneDriveSyncFolder
+            {
+                LocalPath = @"C:\Users\TestUser\OneDrive - Contoso",
+                FolderType = SyncFolderType.Business,
+                DisplayName = "OneDrive - Contoso",
+                IsSyncing = true,
+                HasErrors = false
+            },
+            new OneDriveSyncFolder
+            {
+                LocalPath = @"C:\Users\TestUser\OneDrive - Contoso\Documents",
+                FolderType = SyncFolderType.Business,
+                DisplayName = "Documents - Contoso",
+                IsSyncing = true,
+                HasErrors = false
+            }
+        };
+
+        _registryMock.Setup(r => r.GetSyncedFoldersAsync(string.Empty, null))
+            .ReturnsAsync(syncFolders);
     }
 
     [Fact]
@@ -158,8 +190,8 @@ public class OneDriveDetectorTests
     [Fact]
     public async Task GetSyncProgressAsync_WithValidFolder_CalculatesProgress()
     {
-        // Arrange
-        var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        // Arrange - Use OneDrive folder to ensure files are detected as synced
+        var tempFolder = @"C:\Users\TestUser\OneDrive - Contoso\Documents\TestFolder";
 
         // Create mock files - don't create real files, just mock them
         var mockFiles = new List<IFileInfo>();

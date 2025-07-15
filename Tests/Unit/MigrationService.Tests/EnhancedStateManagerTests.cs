@@ -282,7 +282,7 @@ public class EnhancedStateManagerTests : IDisposable
         };
         await _stateManager.UpdateUserProfileAsync(userProfile, CancellationToken.None);
 
-        var status = new OneDriveSyncStatus
+        var status = new OneDriveSyncStatusRecord
         {
             UserId = "test-user",
             IsInstalled = true,
@@ -349,7 +349,7 @@ public class EnhancedStateManagerTests : IDisposable
         await _stateManager.UpdateUserProfileAsync(goodUserProfile, CancellationToken.None);
 
         // User with errors
-        await _stateManager.UpdateOneDriveSyncStatusAsync(new OneDriveSyncStatus
+        await _stateManager.UpdateOneDriveSyncStatusAsync(new OneDriveSyncStatusRecord
         {
             UserId = "error-user",
             IsInstalled = true,
@@ -360,7 +360,7 @@ public class EnhancedStateManagerTests : IDisposable
         }, CancellationToken.None);
 
         // User without errors
-        await _stateManager.UpdateOneDriveSyncStatusAsync(new OneDriveSyncStatus
+        await _stateManager.UpdateOneDriveSyncStatusAsync(new OneDriveSyncStatusRecord
         {
             UserId = "good-user",
             IsInstalled = true,
@@ -858,7 +858,7 @@ public class EnhancedStateManagerTests : IDisposable
         }, CancellationToken.None);
 
         // User with sync errors
-        await _stateManager.UpdateOneDriveSyncStatusAsync(new OneDriveSyncStatus
+        await _stateManager.UpdateOneDriveSyncStatusAsync(new OneDriveSyncStatusRecord
         {
             UserId = "sync-error-user",
             ErrorCount = 3,

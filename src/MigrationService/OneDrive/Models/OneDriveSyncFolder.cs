@@ -36,6 +36,16 @@ public class OneDriveSyncFolder
     public string? LibraryName { get; set; }
 
     /// <summary>
+    /// Type of SharePoint library
+    /// </summary>
+    public string? LibraryType { get; set; }
+
+    /// <summary>
+    /// Owner name of the SharePoint library
+    /// </summary>
+    public string? OwnerName { get; set; }
+
+    /// <summary>
     /// Whether this folder is currently syncing
     /// </summary>
     public bool IsSyncing { get; set; }

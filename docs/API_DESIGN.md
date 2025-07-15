@@ -162,15 +162,36 @@ public interface IServiceManager
 }
 ```
 
-**IStateManager** ✅
+**IStateManager** ✅ Enhanced in Phase 3.2
 ```csharp
 public interface IStateManager
 {
+    // Core state management
     Task<MigrationState> GetStateAsync();
     Task UpdateStateAsync(MigrationState state);
     Task<UserBackupState?> GetUserStateAsync(string userId);
     Task UpdateUserStateAsync(string userId, UserBackupState state);
     Task<List<UserBackupState>> GetAllUserStatesAsync();
+    
+    // Sync operation management ✅ (Phase 3.2)
+    Task<int> CreateSyncOperationAsync(SyncOperation operation, CancellationToken cancellationToken);
+    Task UpdateSyncOperationAsync(SyncOperation operation, CancellationToken cancellationToken);
+    Task<SyncOperation?> GetSyncOperationAsync(int operationId, CancellationToken cancellationToken);
+    Task<SyncOperation?> GetActiveSyncOperationAsync(string userSid, string folderPath, CancellationToken cancellationToken);
+    
+    // Sync error management ✅ (Phase 3.2)
+    Task<int> RecordSyncErrorAsync(SyncError error, CancellationToken cancellationToken);
+    Task<IEnumerable<SyncError>> GetUnresolvedSyncErrorsAsync(string userSid, CancellationToken cancellationToken);
+    Task MarkSyncErrorResolvedAsync(int errorId, CancellationToken cancellationToken);
+    
+    // IT escalation ✅ (Phase 3.2)
+    Task<int> CreateEscalationAsync(ITEscalation escalation, CancellationToken cancellationToken);
+    
+    // OneDrive status persistence (Phase 3.1)
+    Task SaveOneDriveStatusAsync(OneDriveStatusRecord status, CancellationToken cancellationToken);
+    Task SaveOneDriveAccountAsync(OneDriveAccount account, CancellationToken cancellationToken);
+    Task SaveOneDriveSyncedFolderAsync(OneDriveSyncedFolder folder, CancellationToken cancellationToken);
+    Task SaveKnownFolderMoveStatusAsync(KnownFolderMoveStatus status, CancellationToken cancellationToken);
 }
 ```
 
@@ -357,22 +378,22 @@ public class BackupProgress
 }
 ```
 
-### IOneDriveManager ✅ Phase 3.1 Complete
+### IOneDriveManager ✅ Phase 3.1-3.2 Complete
 
 ```csharp
 public interface IOneDriveManager
 {
-    // Core detection and status
+    // Core detection and status ✅
     Task<OneDriveStatus> GetStatusAsync(string userSid, CancellationToken cancellationToken = default);
     Task<long> GetAvailableSpaceMBAsync(string userSid, CancellationToken cancellationToken = default);
     
-    // Sync management (Phase 3.2)
+    // Sync management ✅ (Phase 3.2)
     Task<bool> EnsureFolderSyncedAsync(string folderPath, CancellationToken cancellationToken = default);
     Task<SyncProgress> GetSyncProgressAsync(string folderPath, CancellationToken cancellationToken = default);
     Task ForceSyncAsync(string folderPath, CancellationToken cancellationToken = default);
     Task<bool> WaitForSyncAsync(string folderPath, TimeSpan timeout, CancellationToken cancellationToken = default);
     
-    // Error recovery
+    // Error recovery ✅
     Task<bool> TryRecoverAuthenticationAsync(string userSid, CancellationToken cancellationToken = default);
     Task<bool> TryResolveSyncErrorsAsync(string userSid, CancellationToken cancellationToken = default);
 }
@@ -413,6 +434,102 @@ public class OneDriveAccountInfo
     public long? UsedSpaceBytes { get; set; }
     public long? TotalSpaceBytes { get; set; }
     public bool HasSyncErrors { get; set; }
+}
+```
+
+### IOneDriveDetector ✅ Phase 3.2 Enhanced
+
+```csharp
+public interface IOneDriveDetector
+{
+    // Existing methods from Phase 3.1
+    Task<OneDriveStatus> DetectOneDriveStatusAsync(string userSid, CancellationToken cancellationToken = default);
+    Task<SyncProgress> GetSyncProgressAsync(string folderPath, CancellationToken cancellationToken = default);
+    
+    // New Phase 3.2 methods ✅
+    Task<FileSyncStatus> GetFileSyncStatusAsync(string filePath, CancellationToken cancellationToken = default);
+    Task<List<FileSyncStatus>> GetLocalOnlyFilesAsync(string folderPath, CancellationToken cancellationToken = default);
+}
+
+// New Phase 3.2 models
+public class FileSyncStatus
+{
+    public string FilePath { get; set; }
+    public FileSyncState State { get; set; }
+    public long FileSize { get; set; }
+    public bool IsPinned { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
+public enum FileSyncState
+{
+    Unknown,
+    LocalOnly,      // File exists locally but not in cloud
+    Uploading,      // File is being uploaded to cloud
+    InSync,         // File is synced between local and cloud
+    CloudOnly,      // File exists only in cloud (placeholder)
+    LocallyAvailable, // Cloud file is pinned locally
+    Error           // Sync error for this file
+}
+```
+
+### IOneDriveSyncController ✅ Phase 3.2 Complete
+
+```csharp
+public interface IOneDriveSyncController
+{
+    // Selective sync management
+    Task<bool> AddFolderToSyncScopeAsync(string userSid, string accountId, string folderPath, CancellationToken cancellationToken = default);
+    Task<bool> RemoveFolderFromSyncScopeAsync(string userSid, string accountId, string folderPath, CancellationToken cancellationToken = default);
+    Task<bool> IsFolderInSyncScopeAsync(string userSid, string folderPath, CancellationToken cancellationToken = default);
+    Task<List<string>> GetExcludedFoldersAsync(string userSid, string accountId, CancellationToken cancellationToken = default);
+    Task<Dictionary<string, bool>> EnsureCriticalFoldersIncludedAsync(string userSid, string accountId, List<string> criticalFolders, CancellationToken cancellationToken = default);
+    Task<bool> ResetSelectiveSyncAsync(string userSid, string accountId, CancellationToken cancellationToken = default);
+}
+```
+
+### Sync Operation Models ✅ Phase 3.2
+
+```csharp
+public class SyncOperation
+{
+    public int Id { get; set; }
+    public string UserSid { get; set; }
+    public string FolderPath { get; set; }
+    public DateTime StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
+    public SyncOperationStatus Status { get; set; }
+    public int? FilesTotal { get; set; }
+    public int? FilesUploaded { get; set; }
+    public long? BytesTotal { get; set; }
+    public long? BytesUploaded { get; set; }
+    public int? LocalOnlyFiles { get; set; }
+    public int ErrorCount { get; set; }
+    public int RetryCount { get; set; }
+    public DateTime? LastRetryTime { get; set; }
+}
+
+public enum SyncOperationStatus
+{
+    Pending,
+    InProgress,
+    Completed,
+    Failed,
+    Cancelled,
+    TimedOut,
+    RequiresIntervention
+}
+
+public class SyncError
+{
+    public int Id { get; set; }
+    public int SyncOperationId { get; set; }
+    public string FilePath { get; set; }
+    public string ErrorMessage { get; set; }
+    public int RetryAttempts { get; set; }
+    public bool IsResolved { get; set; }
+    public bool EscalatedToIT { get; set; }
+    public DateTime ErrorTime { get; set; }
 }
 ```
 

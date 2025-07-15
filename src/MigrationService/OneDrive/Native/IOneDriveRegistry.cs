@@ -67,4 +67,13 @@ public interface IOneDriveRegistry
     /// <param name="userSid">User's security identifier</param>
     /// <returns>Registry key for the user's hive</returns>
     Task<Microsoft.Win32.RegistryKey?> LoadUserRegistryHiveAsync(string userSid);
+
+    /// <summary>
+    /// Gets a registry value from the user's registry hive
+    /// </summary>
+    /// <param name="userSid">User's security identifier</param>
+    /// <param name="keyPath">Registry key path</param>
+    /// <param name="valueName">Registry value name</param>
+    /// <returns>Registry value or null if not found</returns>
+    Task<object?> GetUserRegistryValueAsync(string userSid, string keyPath, string valueName);
 }

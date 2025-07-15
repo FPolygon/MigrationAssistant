@@ -66,6 +66,8 @@ public class OneDriveSyncedFolder
     public string? DisplayName { get; set; }
     public string? SharePointSiteUrl { get; set; }
     public string? LibraryName { get; set; }
+    public string? LibraryType { get; set; }
+    public string? OwnerName { get; set; }
     public long? SizeBytes { get; set; }
     public int? FileCount { get; set; }
     public bool IsSyncing { get; set; }
