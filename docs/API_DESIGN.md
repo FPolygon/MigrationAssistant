@@ -357,17 +357,24 @@ public class BackupProgress
 }
 ```
 
-### IOneDriveManager 📅 Phase 3
+### IOneDriveManager ✅ Phase 3.1 Complete
 
 ```csharp
 public interface IOneDriveManager
 {
-    Task<OneDriveStatus> GetStatusAsync(string userSid);
-    Task<long> GetAvailableSpaceMBAsync(string userSid);
-    Task<bool> EnsureFolderSyncedAsync(string folderPath);
-    Task<SyncProgress> GetSyncProgressAsync(string folderPath);
-    Task ForceSyncAsync(string folderPath);
-    Task<bool> WaitForSyncAsync(string folderPath, TimeSpan timeout);
+    // Core detection and status
+    Task<OneDriveStatus> GetStatusAsync(string userSid, CancellationToken cancellationToken = default);
+    Task<long> GetAvailableSpaceMBAsync(string userSid, CancellationToken cancellationToken = default);
+    
+    // Sync management (Phase 3.2)
+    Task<bool> EnsureFolderSyncedAsync(string folderPath, CancellationToken cancellationToken = default);
+    Task<SyncProgress> GetSyncProgressAsync(string folderPath, CancellationToken cancellationToken = default);
+    Task ForceSyncAsync(string folderPath, CancellationToken cancellationToken = default);
+    Task<bool> WaitForSyncAsync(string folderPath, TimeSpan timeout, CancellationToken cancellationToken = default);
+    
+    // Error recovery
+    Task<bool> TryRecoverAuthenticationAsync(string userSid, CancellationToken cancellationToken = default);
+    Task<bool> TryResolveSyncErrorsAsync(string userSid, CancellationToken cancellationToken = default);
 }
 
 public class OneDriveStatus
@@ -375,9 +382,12 @@ public class OneDriveStatus
     public bool IsInstalled { get; set; }
     public bool IsRunning { get; set; }
     public bool IsSignedIn { get; set; }
-    public string AccountEmail { get; set; }
-    public string SyncFolder { get; set; }
+    public string? AccountEmail { get; set; }
+    public string? SyncFolder { get; set; }
     public OneDriveSyncStatus SyncStatus { get; set; }
+    public OneDriveAccountInfo? AccountInfo { get; set; }
+    public string? ErrorDetails { get; set; }
+    public DateTime LastChecked { get; set; }
 }
 
 public enum OneDriveSyncStatus
@@ -386,7 +396,23 @@ public enum OneDriveSyncStatus
     UpToDate,
     Syncing,
     Paused,
-    Error
+    Error,
+    NotSignedIn,
+    AuthenticationRequired
+}
+
+// Additional models implemented in Phase 3.1
+public class OneDriveAccountInfo
+{
+    public string AccountId { get; set; }
+    public string Email { get; set; }
+    public string UserFolder { get; set; }
+    public List<OneDriveSyncFolder> SyncedFolders { get; set; }
+    public KnownFolderMoveStatus? KfmStatus { get; set; }
+    public bool IsPrimary { get; set; }
+    public long? UsedSpaceBytes { get; set; }
+    public long? TotalSpaceBytes { get; set; }
+    public bool HasSyncErrors { get; set; }
 }
 ```
 
