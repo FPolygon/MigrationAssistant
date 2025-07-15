@@ -766,6 +766,956 @@ public class StateManager : IStateManager, IDisposable
 
     #endregion
 
+    #region OneDrive Status Management (New Detailed Tracking)
+
+    public async Task SaveOneDriveStatusAsync(OneDriveStatusRecord status, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO OneDriveStatus 
+                (UserId, IsInstalled, IsRunning, IsSignedIn, AccountEmail, PrimaryAccountId,
+                 SyncFolder, SyncStatus, AvailableSpaceMB, UsedSpaceMB, HasSyncErrors,
+                 ErrorDetails, LastChecked, UpdatedAt)
+                VALUES (@userId, @isInstalled, @isRunning, @isSignedIn, @accountEmail, 
+                        @primaryAccountId, @syncFolder, @syncStatus, @availableSpace, @usedSpace,
+                        @hasSyncErrors, @errorDetails, @lastChecked, CURRENT_TIMESTAMP)
+                ON CONFLICT (UserId) 
+                DO UPDATE SET
+                    IsInstalled = @isInstalled,
+                    IsRunning = @isRunning,
+                    IsSignedIn = @isSignedIn,
+                    AccountEmail = @accountEmail,
+                    PrimaryAccountId = @primaryAccountId,
+                    SyncFolder = @syncFolder,
+                    SyncStatus = @syncStatus,
+                    AvailableSpaceMB = @availableSpace,
+                    UsedSpaceMB = @usedSpace,
+                    HasSyncErrors = @hasSyncErrors,
+                    ErrorDetails = @errorDetails,
+                    LastChecked = @lastChecked,
+                    UpdatedAt = CURRENT_TIMESTAMP";
+
+            command.Parameters.AddWithValue("@userId", status.UserId);
+            command.Parameters.AddWithValue("@isInstalled", status.IsInstalled);
+            command.Parameters.AddWithValue("@isRunning", status.IsRunning);
+            command.Parameters.AddWithValue("@isSignedIn", status.IsSignedIn);
+            command.Parameters.AddWithValue("@accountEmail", status.AccountEmail ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@primaryAccountId", status.PrimaryAccountId ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@syncFolder", status.SyncFolder ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@syncStatus", status.SyncStatus);
+            command.Parameters.AddWithValue("@availableSpace", status.AvailableSpaceMB ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@usedSpace", status.UsedSpaceMB ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@hasSyncErrors", status.HasSyncErrors);
+            command.Parameters.AddWithValue("@errorDetails", status.ErrorDetails ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@lastChecked", status.LastChecked);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save OneDrive status for user {UserId}", status.UserId);
+            throw;
+        }
+    }
+
+    public async Task<OneDriveStatusRecord?> GetOneDriveStatusAsync(string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, IsInstalled, IsRunning, IsSignedIn, AccountEmail,
+                       PrimaryAccountId, SyncFolder, SyncStatus, AvailableSpaceMB, UsedSpaceMB,
+                       HasSyncErrors, ErrorDetails, LastChecked, CreatedAt, UpdatedAt
+                FROM OneDriveStatus
+                WHERE UserId = @userId";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return new OneDriveStatusRecord
+                {
+                    Id = reader.GetInt32(0),
+                    UserId = reader.GetString(1),
+                    IsInstalled = reader.GetBoolean(2),
+                    IsRunning = reader.GetBoolean(3),
+                    IsSignedIn = reader.GetBoolean(4),
+                    AccountEmail = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    PrimaryAccountId = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    SyncFolder = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    SyncStatus = reader.GetString(8),
+                    AvailableSpaceMB = reader.IsDBNull(9) ? null : reader.GetInt64(9),
+                    UsedSpaceMB = reader.IsDBNull(10) ? null : reader.GetInt64(10),
+                    HasSyncErrors = reader.GetBoolean(11),
+                    ErrorDetails = reader.IsDBNull(12) ? null : reader.GetString(12),
+                    LastChecked = reader.GetDateTime(13),
+                    CreatedAt = reader.GetDateTime(14),
+                    UpdatedAt = reader.GetDateTime(15)
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get OneDrive status for user {UserId}", userId);
+        }
+
+        return null;
+    }
+
+    public async Task<IEnumerable<OneDriveStatusRecord>> GetAllOneDriveStatusesAsync(CancellationToken cancellationToken)
+    {
+        var statuses = new List<OneDriveStatusRecord>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, IsInstalled, IsRunning, IsSignedIn, AccountEmail,
+                       PrimaryAccountId, SyncFolder, SyncStatus, AvailableSpaceMB, UsedSpaceMB,
+                       HasSyncErrors, ErrorDetails, LastChecked, CreatedAt, UpdatedAt
+                FROM OneDriveStatus
+                ORDER BY UserId";
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                statuses.Add(new OneDriveStatusRecord
+                {
+                    Id = reader.GetInt32(0),
+                    UserId = reader.GetString(1),
+                    IsInstalled = reader.GetBoolean(2),
+                    IsRunning = reader.GetBoolean(3),
+                    IsSignedIn = reader.GetBoolean(4),
+                    AccountEmail = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    PrimaryAccountId = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    SyncFolder = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    SyncStatus = reader.GetString(8),
+                    AvailableSpaceMB = reader.IsDBNull(9) ? null : reader.GetInt64(9),
+                    UsedSpaceMB = reader.IsDBNull(10) ? null : reader.GetInt64(10),
+                    HasSyncErrors = reader.GetBoolean(11),
+                    ErrorDetails = reader.IsDBNull(12) ? null : reader.GetString(12),
+                    LastChecked = reader.GetDateTime(13),
+                    CreatedAt = reader.GetDateTime(14),
+                    UpdatedAt = reader.GetDateTime(15)
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all OneDrive statuses");
+        }
+
+        return statuses;
+    }
+
+    #endregion
+
+    #region OneDrive Account Management
+
+    public async Task SaveOneDriveAccountAsync(OneDriveAccount account, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO OneDriveAccounts 
+                (UserId, AccountId, Email, DisplayName, UserFolder, IsPrimary, LastSyncTime, UpdatedAt)
+                VALUES (@userId, @accountId, @email, @displayName, @userFolder, @isPrimary, 
+                        @lastSyncTime, CURRENT_TIMESTAMP)
+                ON CONFLICT (UserId, AccountId) 
+                DO UPDATE SET
+                    Email = @email,
+                    DisplayName = @displayName,
+                    UserFolder = @userFolder,
+                    IsPrimary = @isPrimary,
+                    LastSyncTime = @lastSyncTime,
+                    UpdatedAt = CURRENT_TIMESTAMP";
+
+            command.Parameters.AddWithValue("@userId", account.UserId);
+            command.Parameters.AddWithValue("@accountId", account.AccountId);
+            command.Parameters.AddWithValue("@email", account.Email);
+            command.Parameters.AddWithValue("@displayName", account.DisplayName ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@userFolder", account.UserFolder);
+            command.Parameters.AddWithValue("@isPrimary", account.IsPrimary);
+            command.Parameters.AddWithValue("@lastSyncTime", account.LastSyncTime ?? (object)DBNull.Value);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save OneDrive account for user {UserId}", account.UserId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<OneDriveAccount>> GetOneDriveAccountsAsync(string userId, CancellationToken cancellationToken)
+    {
+        var accounts = new List<OneDriveAccount>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, AccountId, Email, DisplayName, UserFolder, 
+                       IsPrimary, LastSyncTime, CreatedAt, UpdatedAt
+                FROM OneDriveAccounts
+                WHERE UserId = @userId
+                ORDER BY IsPrimary DESC, Email";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                accounts.Add(new OneDriveAccount
+                {
+                    Id = reader.GetInt32(0),
+                    UserId = reader.GetString(1),
+                    AccountId = reader.GetString(2),
+                    Email = reader.GetString(3),
+                    DisplayName = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    UserFolder = reader.GetString(5),
+                    IsPrimary = reader.GetBoolean(6),
+                    LastSyncTime = reader.IsDBNull(7) ? null : reader.GetDateTime(7),
+                    CreatedAt = reader.GetDateTime(8),
+                    UpdatedAt = reader.GetDateTime(9)
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get OneDrive accounts for user {UserId}", userId);
+        }
+
+        return accounts;
+    }
+
+    public async Task<OneDriveAccount?> GetPrimaryOneDriveAccountAsync(string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, AccountId, Email, DisplayName, UserFolder, 
+                       IsPrimary, LastSyncTime, CreatedAt, UpdatedAt
+                FROM OneDriveAccounts
+                WHERE UserId = @userId AND IsPrimary = 1
+                LIMIT 1";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return new OneDriveAccount
+                {
+                    Id = reader.GetInt32(0),
+                    UserId = reader.GetString(1),
+                    AccountId = reader.GetString(2),
+                    Email = reader.GetString(3),
+                    DisplayName = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    UserFolder = reader.GetString(5),
+                    IsPrimary = reader.GetBoolean(6),
+                    LastSyncTime = reader.IsDBNull(7) ? null : reader.GetDateTime(7),
+                    CreatedAt = reader.GetDateTime(8),
+                    UpdatedAt = reader.GetDateTime(9)
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get primary OneDrive account for user {UserId}", userId);
+        }
+
+        return null;
+    }
+
+    public async Task DeleteOneDriveAccountAsync(string userId, string accountId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                DELETE FROM OneDriveAccounts 
+                WHERE UserId = @userId AND AccountId = @accountId";
+            command.Parameters.AddWithValue("@userId", userId);
+            command.Parameters.AddWithValue("@accountId", accountId);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete OneDrive account {AccountId} for user {UserId}", accountId, userId);
+            throw;
+        }
+    }
+
+    #endregion
+
+    #region OneDrive Synced Folder Management
+
+    public async Task SaveOneDriveSyncedFolderAsync(OneDriveSyncedFolder folder, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            if (folder.Id == 0)
+            {
+                command.CommandText = @"
+                    INSERT INTO OneDriveSyncedFolders 
+                    (UserId, AccountId, LocalPath, RemotePath, FolderType, DisplayName,
+                     SharePointSiteUrl, LibraryName, SizeBytes, FileCount, IsSyncing,
+                     HasErrors, LastSyncCheck, UpdatedAt)
+                    VALUES (@userId, @accountId, @localPath, @remotePath, @folderType, @displayName,
+                            @sharePointSiteUrl, @libraryName, @sizeBytes, @fileCount, @isSyncing,
+                            @hasErrors, @lastSyncCheck, CURRENT_TIMESTAMP)";
+            }
+            else
+            {
+                command.CommandText = @"
+                    UPDATE OneDriveSyncedFolders 
+                    SET AccountId = @accountId,
+                        LocalPath = @localPath,
+                        RemotePath = @remotePath,
+                        FolderType = @folderType,
+                        DisplayName = @displayName,
+                        SharePointSiteUrl = @sharePointSiteUrl,
+                        LibraryName = @libraryName,
+                        SizeBytes = @sizeBytes,
+                        FileCount = @fileCount,
+                        IsSyncing = @isSyncing,
+                        HasErrors = @hasErrors,
+                        LastSyncCheck = @lastSyncCheck,
+                        UpdatedAt = CURRENT_TIMESTAMP
+                    WHERE Id = @id";
+
+                command.Parameters.AddWithValue("@id", folder.Id);
+            }
+
+            command.Parameters.AddWithValue("@userId", folder.UserId);
+            command.Parameters.AddWithValue("@accountId", folder.AccountId ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@localPath", folder.LocalPath);
+            command.Parameters.AddWithValue("@remotePath", folder.RemotePath ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@folderType", folder.FolderType.ToString());
+            command.Parameters.AddWithValue("@displayName", folder.DisplayName ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@sharePointSiteUrl", folder.SharePointSiteUrl ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@libraryName", folder.LibraryName ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@sizeBytes", folder.SizeBytes ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@fileCount", folder.FileCount ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@isSyncing", folder.IsSyncing);
+            command.Parameters.AddWithValue("@hasErrors", folder.HasErrors);
+            command.Parameters.AddWithValue("@lastSyncCheck", folder.LastSyncCheck ?? (object)DBNull.Value);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save OneDrive synced folder for user {UserId}", folder.UserId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<OneDriveSyncedFolder>> GetOneDriveSyncedFoldersAsync(string userId, CancellationToken cancellationToken)
+    {
+        var folders = new List<OneDriveSyncedFolder>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, AccountId, LocalPath, RemotePath, FolderType, DisplayName,
+                       SharePointSiteUrl, LibraryName, SizeBytes, FileCount, IsSyncing,
+                       HasErrors, LastSyncCheck, CreatedAt, UpdatedAt
+                FROM OneDriveSyncedFolders
+                WHERE UserId = @userId
+                ORDER BY FolderType, LocalPath";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                folders.Add(ReadSyncedFolder(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get OneDrive synced folders for user {UserId}", userId);
+        }
+
+        return folders;
+    }
+
+    public async Task<IEnumerable<OneDriveSyncedFolder>> GetOneDriveSyncedFoldersForAccountAsync(
+        string userId, string accountId, CancellationToken cancellationToken)
+    {
+        var folders = new List<OneDriveSyncedFolder>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, AccountId, LocalPath, RemotePath, FolderType, DisplayName,
+                       SharePointSiteUrl, LibraryName, SizeBytes, FileCount, IsSyncing,
+                       HasErrors, LastSyncCheck, CreatedAt, UpdatedAt
+                FROM OneDriveSyncedFolders
+                WHERE UserId = @userId AND AccountId = @accountId
+                ORDER BY FolderType, LocalPath";
+            command.Parameters.AddWithValue("@userId", userId);
+            command.Parameters.AddWithValue("@accountId", accountId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                folders.Add(ReadSyncedFolder(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get OneDrive synced folders for account {AccountId}", accountId);
+        }
+
+        return folders;
+    }
+
+    public async Task DeleteOneDriveSyncedFolderAsync(int folderId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM OneDriveSyncedFolders WHERE Id = @id";
+            command.Parameters.AddWithValue("@id", folderId);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete OneDrive synced folder {FolderId}", folderId);
+            throw;
+        }
+    }
+
+    public async Task UpdateSyncedFolderStatusAsync(int folderId, bool isSyncing, bool hasErrors, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                UPDATE OneDriveSyncedFolders 
+                SET IsSyncing = @isSyncing,
+                    HasErrors = @hasErrors,
+                    LastSyncCheck = CURRENT_TIMESTAMP,
+                    UpdatedAt = CURRENT_TIMESTAMP
+                WHERE Id = @id";
+            command.Parameters.AddWithValue("@id", folderId);
+            command.Parameters.AddWithValue("@isSyncing", isSyncing);
+            command.Parameters.AddWithValue("@hasErrors", hasErrors);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update sync status for folder {FolderId}", folderId);
+            throw;
+        }
+    }
+
+    private static OneDriveSyncedFolder ReadSyncedFolder(SqliteDataReader reader)
+    {
+        return new OneDriveSyncedFolder
+        {
+            Id = reader.GetInt32(0),
+            UserId = reader.GetString(1),
+            AccountId = reader.IsDBNull(2) ? null : reader.GetString(2),
+            LocalPath = reader.GetString(3),
+            RemotePath = reader.IsDBNull(4) ? null : reader.GetString(4),
+            FolderType = Enum.Parse<OneDriveFolderType>(reader.GetString(5)),
+            DisplayName = reader.IsDBNull(6) ? null : reader.GetString(6),
+            SharePointSiteUrl = reader.IsDBNull(7) ? null : reader.GetString(7),
+            LibraryName = reader.IsDBNull(8) ? null : reader.GetString(8),
+            SizeBytes = reader.IsDBNull(9) ? null : reader.GetInt64(9),
+            FileCount = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+            IsSyncing = reader.GetBoolean(11),
+            HasErrors = reader.GetBoolean(12),
+            LastSyncCheck = reader.IsDBNull(13) ? null : reader.GetDateTime(13),
+            CreatedAt = reader.GetDateTime(14),
+            UpdatedAt = reader.GetDateTime(15)
+        };
+    }
+
+    #endregion
+
+    #region Known Folder Move Management
+
+    public async Task SaveKnownFolderMoveStatusAsync(KnownFolderMoveStatus status, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO KnownFolderMoveStatus 
+                (UserId, AccountId, IsEnabled, DesktopRedirected, DesktopPath,
+                 DocumentsRedirected, DocumentsPath, PicturesRedirected, PicturesPath,
+                 ConfigurationSource, UpdatedAt)
+                VALUES (@userId, @accountId, @isEnabled, @desktopRedirected, @desktopPath,
+                        @documentsRedirected, @documentsPath, @picturesRedirected, @picturesPath,
+                        @configSource, CURRENT_TIMESTAMP)
+                ON CONFLICT (UserId, AccountId) 
+                DO UPDATE SET
+                    IsEnabled = @isEnabled,
+                    DesktopRedirected = @desktopRedirected,
+                    DesktopPath = @desktopPath,
+                    DocumentsRedirected = @documentsRedirected,
+                    DocumentsPath = @documentsPath,
+                    PicturesRedirected = @picturesRedirected,
+                    PicturesPath = @picturesPath,
+                    ConfigurationSource = @configSource,
+                    UpdatedAt = CURRENT_TIMESTAMP";
+
+            command.Parameters.AddWithValue("@userId", status.UserId);
+            command.Parameters.AddWithValue("@accountId", status.AccountId);
+            command.Parameters.AddWithValue("@isEnabled", status.IsEnabled);
+            command.Parameters.AddWithValue("@desktopRedirected", status.DesktopRedirected);
+            command.Parameters.AddWithValue("@desktopPath", status.DesktopPath ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@documentsRedirected", status.DocumentsRedirected);
+            command.Parameters.AddWithValue("@documentsPath", status.DocumentsPath ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@picturesRedirected", status.PicturesRedirected);
+            command.Parameters.AddWithValue("@picturesPath", status.PicturesPath ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@configSource", status.ConfigurationSource ?? (object)DBNull.Value);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save Known Folder Move status for user {UserId}", status.UserId);
+            throw;
+        }
+    }
+
+    public async Task<KnownFolderMoveStatus?> GetKnownFolderMoveStatusAsync(string userId, string accountId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, AccountId, IsEnabled, DesktopRedirected, DesktopPath,
+                       DocumentsRedirected, DocumentsPath, PicturesRedirected, PicturesPath,
+                       ConfigurationSource, CreatedAt, UpdatedAt
+                FROM KnownFolderMoveStatus
+                WHERE UserId = @userId AND AccountId = @accountId";
+            command.Parameters.AddWithValue("@userId", userId);
+            command.Parameters.AddWithValue("@accountId", accountId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return ReadKnownFolderMoveStatus(reader);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get Known Folder Move status for user {UserId}", userId);
+        }
+
+        return null;
+    }
+
+    public async Task<IEnumerable<KnownFolderMoveStatus>> GetAllKnownFolderMoveStatusesAsync(string userId, CancellationToken cancellationToken)
+    {
+        var statuses = new List<KnownFolderMoveStatus>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, AccountId, IsEnabled, DesktopRedirected, DesktopPath,
+                       DocumentsRedirected, DocumentsPath, PicturesRedirected, PicturesPath,
+                       ConfigurationSource, CreatedAt, UpdatedAt
+                FROM KnownFolderMoveStatus
+                WHERE UserId = @userId";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                statuses.Add(ReadKnownFolderMoveStatus(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all Known Folder Move statuses for user {UserId}", userId);
+        }
+
+        return statuses;
+    }
+
+    private static KnownFolderMoveStatus ReadKnownFolderMoveStatus(SqliteDataReader reader)
+    {
+        return new KnownFolderMoveStatus
+        {
+            Id = reader.GetInt32(0),
+            UserId = reader.GetString(1),
+            AccountId = reader.GetString(2),
+            IsEnabled = reader.GetBoolean(3),
+            DesktopRedirected = reader.GetBoolean(4),
+            DesktopPath = reader.IsDBNull(5) ? null : reader.GetString(5),
+            DocumentsRedirected = reader.GetBoolean(6),
+            DocumentsPath = reader.IsDBNull(7) ? null : reader.GetString(7),
+            PicturesRedirected = reader.GetBoolean(8),
+            PicturesPath = reader.IsDBNull(9) ? null : reader.GetString(9),
+            ConfigurationSource = reader.IsDBNull(10) ? null : reader.GetString(10),
+            CreatedAt = reader.GetDateTime(11),
+            UpdatedAt = reader.GetDateTime(12)
+        };
+    }
+
+    #endregion
+
+    #region OneDrive Sync Error Management
+
+    public async Task SaveOneDriveSyncErrorAsync(OneDriveSyncError error, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO OneDriveSyncErrors 
+                (UserId, FolderPath, FilePath, ErrorMessage, ErrorCode, IsRecoverable,
+                 AttemptedRecovery, RecoveryResult, ErrorTime, ResolvedTime)
+                VALUES (@userId, @folderPath, @filePath, @errorMessage, @errorCode, @isRecoverable,
+                        @attemptedRecovery, @recoveryResult, @errorTime, @resolvedTime)";
+
+            command.Parameters.AddWithValue("@userId", error.UserId);
+            command.Parameters.AddWithValue("@folderPath", error.FolderPath);
+            command.Parameters.AddWithValue("@filePath", error.FilePath ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@errorMessage", error.ErrorMessage);
+            command.Parameters.AddWithValue("@errorCode", error.ErrorCode ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@isRecoverable", error.IsRecoverable);
+            command.Parameters.AddWithValue("@attemptedRecovery", error.AttemptedRecovery);
+            command.Parameters.AddWithValue("@recoveryResult", error.RecoveryResult ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@errorTime", error.ErrorTime);
+            command.Parameters.AddWithValue("@resolvedTime", error.ResolvedTime ?? (object)DBNull.Value);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save OneDrive sync error for user {UserId}", error.UserId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<OneDriveSyncError>> GetOneDriveSyncErrorsAsync(string userId, int? limit = null, CancellationToken cancellationToken = default)
+    {
+        var errors = new List<OneDriveSyncError>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, FolderPath, FilePath, ErrorMessage, ErrorCode,
+                       IsRecoverable, AttemptedRecovery, RecoveryResult, ErrorTime,
+                       ResolvedTime, CreatedAt
+                FROM OneDriveSyncErrors
+                WHERE UserId = @userId
+                ORDER BY ErrorTime DESC";
+
+            if (limit.HasValue)
+            {
+                command.CommandText += " LIMIT @limit";
+                command.Parameters.AddWithValue("@limit", limit.Value);
+            }
+
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                errors.Add(ReadSyncError(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get OneDrive sync errors for user {UserId}", userId);
+        }
+
+        return errors;
+    }
+
+    public async Task<IEnumerable<OneDriveSyncError>> GetUnresolvedSyncErrorsAsync(string userId, CancellationToken cancellationToken)
+    {
+        var errors = new List<OneDriveSyncError>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, UserId, FolderPath, FilePath, ErrorMessage, ErrorCode,
+                       IsRecoverable, AttemptedRecovery, RecoveryResult, ErrorTime,
+                       ResolvedTime, CreatedAt
+                FROM OneDriveSyncErrors
+                WHERE UserId = @userId AND ResolvedTime IS NULL
+                ORDER BY ErrorTime DESC";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                errors.Add(ReadSyncError(reader));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get unresolved sync errors for user {UserId}", userId);
+        }
+
+        return errors;
+    }
+
+    public async Task MarkSyncErrorResolvedAsync(int errorId, string? recoveryResult = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                UPDATE OneDriveSyncErrors 
+                SET ResolvedTime = CURRENT_TIMESTAMP,
+                    RecoveryResult = COALESCE(@recoveryResult, RecoveryResult)
+                WHERE Id = @id";
+            command.Parameters.AddWithValue("@id", errorId);
+            command.Parameters.AddWithValue("@recoveryResult", recoveryResult ?? (object)DBNull.Value);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to mark sync error {ErrorId} as resolved", errorId);
+            throw;
+        }
+    }
+
+    public async Task<int> GetActiveSyncErrorCountAsync(string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT COUNT(*) 
+                FROM OneDriveSyncErrors
+                WHERE UserId = @userId AND ResolvedTime IS NULL";
+            command.Parameters.AddWithValue("@userId", userId);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt32(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get active sync error count for user {UserId}", userId);
+            return 0;
+        }
+    }
+
+    private static OneDriveSyncError ReadSyncError(SqliteDataReader reader)
+    {
+        return new OneDriveSyncError
+        {
+            Id = reader.GetInt32(0),
+            UserId = reader.GetString(1),
+            FolderPath = reader.GetString(2),
+            FilePath = reader.IsDBNull(3) ? null : reader.GetString(3),
+            ErrorMessage = reader.GetString(4),
+            ErrorCode = reader.IsDBNull(5) ? null : reader.GetString(5),
+            IsRecoverable = reader.GetBoolean(6),
+            AttemptedRecovery = reader.GetBoolean(7),
+            RecoveryResult = reader.IsDBNull(8) ? null : reader.GetString(8),
+            ErrorTime = reader.GetDateTime(9),
+            ResolvedTime = reader.IsDBNull(10) ? null : reader.GetDateTime(10),
+            CreatedAt = reader.GetDateTime(11)
+        };
+    }
+
+    #endregion
+
+    #region OneDrive Aggregated Queries
+
+    public async Task<OneDriveUserSummary> GetOneDriveUserSummaryAsync(string userId, CancellationToken cancellationToken)
+    {
+        var summary = new OneDriveUserSummary { UserId = userId };
+
+        summary.Status = await GetOneDriveStatusAsync(userId, cancellationToken);
+        summary.Accounts = (await GetOneDriveAccountsAsync(userId, cancellationToken)).ToList();
+        summary.SyncedFolders = (await GetOneDriveSyncedFoldersAsync(userId, cancellationToken)).ToList();
+
+        if (summary.Accounts.Any())
+        {
+            var primaryAccount = summary.Accounts.FirstOrDefault(a => a.IsPrimary);
+            if (primaryAccount != null)
+            {
+                summary.KnownFolderStatus = await GetKnownFolderMoveStatusAsync(userId, primaryAccount.AccountId, cancellationToken);
+            }
+        }
+
+        summary.RecentErrors = (await GetOneDriveSyncErrorsAsync(userId, 10, cancellationToken)).ToList();
+
+        return summary;
+    }
+
+    public async Task<IEnumerable<string>> GetUsersWithOneDriveErrorsAsync(CancellationToken cancellationToken)
+    {
+        var userIds = new List<string>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT DISTINCT UserId FROM (
+                    SELECT UserId FROM OneDriveStatus WHERE HasSyncErrors = 1
+                    UNION
+                    SELECT UserId FROM OneDriveSyncedFolders WHERE HasErrors = 1
+                    UNION
+                    SELECT UserId FROM OneDriveSyncErrors WHERE ResolvedTime IS NULL
+                )";
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                userIds.Add(reader.GetString(0));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get users with OneDrive errors");
+        }
+
+        return userIds;
+    }
+
+    public async Task<Dictionary<string, long>> GetOneDriveStorageUsageAsync(CancellationToken cancellationToken)
+    {
+        var usage = new Dictionary<string, long>();
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"
+                SELECT UserId, SUM(SizeBytes) as TotalBytes
+                FROM OneDriveSyncedFolders
+                WHERE SizeBytes IS NOT NULL
+                GROUP BY UserId";
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                usage[reader.GetString(0)] = reader.GetInt64(1);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get OneDrive storage usage");
+        }
+
+        return usage;
+    }
+
+    public async Task<bool> IsUserReadyForOneDriveBackupAsync(string userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var status = await GetOneDriveStatusAsync(userId, cancellationToken);
+            if (status == null || !status.IsInstalled || !status.IsSignedIn || status.HasSyncErrors)
+            {
+                return false;
+            }
+
+            var errorCount = await GetActiveSyncErrorCountAsync(userId, cancellationToken);
+            if (errorCount > 0)
+            {
+                return false;
+            }
+
+            var folders = await GetOneDriveSyncedFoldersAsync(userId, cancellationToken);
+            if (folders.Any(f => f.HasErrors))
+            {
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check if user {UserId} is ready for OneDrive backup", userId);
+            return false;
+        }
+    }
+
+    #endregion
+
     #region IT Escalation Management
 
     public async Task<int> CreateEscalationAsync(ITEscalation escalation, CancellationToken cancellationToken)

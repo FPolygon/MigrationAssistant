@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MigrationTool.Service.Core;
+using MigrationTool.Service.OneDrive;
+using MigrationTool.Service.OneDrive.Native;
 using MigrationTool.Service.ProfileManagement;
 using MigrationTool.Service.ProfileManagement.Native;
 using Serilog;
@@ -99,6 +101,13 @@ public class Program
                 // Add classification services
                 services.AddSingleton<ClassificationRuleEngine>();
                 services.AddSingleton<IClassificationOverrideManager, ClassificationOverrideManager>();
+
+                // Add OneDrive services
+                services.AddSingleton<IOneDriveRegistry, OneDriveRegistry>();
+                services.AddSingleton<OneDriveProcessDetector>();
+                services.AddSingleton<OneDriveDetector>();
+                services.AddSingleton<OneDriveStatusCache>();
+                services.AddSingleton<IOneDriveManager, OneDriveManager>();
             });
 
             // Build and run the host

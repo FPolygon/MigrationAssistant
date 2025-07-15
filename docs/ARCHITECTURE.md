@@ -68,7 +68,7 @@ The Windows Migration Tool is designed as a distributed system with multiple com
 - Process monitoring for meeting apps
 - Camera/microphone usage via Windows APIs
 - Fullscreen application detection
-- Calendar integration via Graph API
+- Calendar integration
 
 ### 3. MigrationBackup.dll (Backup Engine) 📅 Phase 5-6
 
@@ -113,10 +113,14 @@ BackupEngine
 - Printer configurations
 - Desktop customizations
 
-**OneDrive Integration**:
-- `OneDriveManager`: API wrapper and sync control
-- `QuotaChecker`: Space verification
-- `SyncMonitor`: Progress tracking
+**OneDrive Integration** (Phase 3.1 ✅ Complete):
+- `OneDriveManager`: Main orchestrator for OneDrive operations ✅
+- `OneDriveDetector`: Comprehensive status detection via registry ✅
+- `OneDriveRegistry`: Windows Registry access layer ✅
+- `OneDriveProcessDetector`: Process monitoring and ownership ✅
+- `OneDriveStatusCache`: 5-minute caching for performance ✅
+- `QuotaChecker`: Space verification (Phase 3.3) 📅
+- `SyncMonitor`: Progress tracking (Phase 3.2) 📅
 
 ### 4. MigrationRestore.exe (Restore Wizard) 📅 Phase 9
 
@@ -135,7 +139,7 @@ BackupEngine
 - Progress visualization
 - Error reporting
 
-## Current Implementation Status (Phase 1 Complete)
+## Current Implementation Status (Phase 1-2 Complete, Phase 3.1 Complete)
 
 ### Implemented Components
 
@@ -169,24 +173,44 @@ BackupEngine
    - Service management scripts
    - Build automation
 
+6. **User Profile Management** (Phase 2):
+   - Windows registry-based profile enumeration
+   - Multi-source activity detection (event logs, registry, file system)
+   - Weighted activity scoring algorithm (0-100 scale)
+   - Rule-based profile classification engine
+   - Manual classification override support
+   - Full audit trail for classification decisions
+
+7. **OneDrive Detection** (Phase 3.1):
+   - Registry-based OneDrive installation detection
+   - Business account configuration discovery
+   - SharePoint library enumeration
+   - Known Folder Move (KFM) status detection
+   - Sync status monitoring (UpToDate, Syncing, Paused, Error, etc.)
+   - Authentication error detection and handling
+   - 5-minute status caching for performance
+   - State persistence via extended IStateManager
+
 ### Test Coverage
 - Unit tests for core components
-- Integration tests for IPC
-- Current coverage: 53.2% (targeting 70%)
+- Integration tests for IPC and profile management
+- OneDrive detection tests with mocked registry
+- Current coverage: 55%+ (targeting 70%)
 
 ## Data Flow
 
 ### Backup Flow
 ```
-1. Service detects user profiles
-2. Service requests backup via agent
-3. Agent shows notification to user
-4. User initiates backup
-5. Backup engine creates manifest
-6. Providers backup data to staging
-7. OneDrive manager uploads to cloud
-8. Service tracks completion
-9. All users complete = allow reset
+1. Service detects user profiles (Phase 2 ✅)
+2. Service checks OneDrive readiness for each user (Phase 3.1 ✅)
+3. Service requests backup via agent (Phase 4 📅)
+4. Agent shows notification to user
+5. User initiates backup
+6. Backup engine creates manifest
+7. Providers backup data to staging
+8. OneDrive manager uploads to cloud
+9. Service tracks completion
+10. All users complete = allow reset
 ```
 
 ### Communication Architecture
@@ -351,3 +375,37 @@ CREATE TABLE escalations (
 - Cloud storage alternatives
 - Advanced scheduling options
 - Machine learning for user behavior
+
+## Phase 3.1 Architectural Decisions
+
+### OneDrive Detection Strategy
+**Decision**: Use Windows Registry for all OneDrive detection rather than Graph API
+**Rationale**: 
+- Works offline without internet connectivity
+- No authentication requirements for detection phase
+- Consistent behavior in SYSTEM service context
+- Registry provides all needed configuration data
+
+### Business Account Focus
+**Decision**: Support only OneDrive for Business accounts
+**Rationale**:
+- Enterprise migration tool targeting corporate environments
+- Personal accounts not typically used for work data
+- Simplifies account selection logic
+- Reduces testing complexity
+
+### Caching Strategy
+**Decision**: 5-minute cache duration for OneDrive status
+**Rationale**:
+- Registry access is expensive in SYSTEM context
+- OneDrive status changes infrequently
+- Balances performance with accuracy
+- Per-user caching prevents cross-contamination
+
+### Error Handling Philosophy
+**Decision**: Detect but don't block on authentication errors
+**Rationale**:
+- Users can resolve auth issues via agent UI (Phase 4)
+- Migration shouldn't fail due to transient auth problems
+- Service tracks errors for IT escalation
+- Graceful degradation improves user experience

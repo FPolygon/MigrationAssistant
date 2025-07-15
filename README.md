@@ -17,7 +17,7 @@ This migration tool is designed to:
 - Block system reset until all active users have completed their backups
 - Provide a post-reset restore wizard to help users recover their data
 
-**Current Implementation**: Phase 1 (Core Service Framework) and Phase 2 (User Detection and Profile Management) are complete. The system can now detect, classify, and manage user profiles on shared computers. User-facing features will be implemented in subsequent phases.
+**Current Implementation**: Phase 1 (Core Service Framework), Phase 2 (User Detection and Profile Management), and Phase 3.1 (OneDrive Detection) are complete. The system can now detect user profiles, classify their activity, and identify OneDrive installations with sync status. User-facing features and backup functionality will be implemented in subsequent phases.
 
 ## Key Features
 
@@ -70,8 +70,19 @@ This migration tool is designed to:
 - ✅ Manual classification overrides with audit trail
 - ✅ Database schema for profile tracking
 
+**Phase 3: OneDrive Integration** 
+- **Phase 3.1: OneDrive Detection** ✅ COMPLETED
+  - ✅ OneDrive for Business installation detection
+  - ✅ Account configuration and sync status monitoring
+  - ✅ SharePoint library and sync folder enumeration
+  - ✅ Known Folder Move (KFM) status detection
+  - ✅ Authentication error detection and handling
+  - ✅ 5-minute status caching for performance
+  - ✅ State persistence via extended IStateManager
+- **Phase 3.2: Sync Management** 📅 READY TO IMPLEMENT
+- **Phase 3.3: Quota Management** 📅 READY TO IMPLEMENT
+
 **Upcoming Phases**:
-- 📅 Phase 3: OneDrive Integration  
 - 📅 Phase 4: Notification System (Agent UI)
 - 📅 Phase 5-6: Backup System
 - 📅 Phase 7: Multi-User Coordination
@@ -200,6 +211,7 @@ MigrationAssistant/
 │   │   ├── IPC/            # Named pipe framework ✅
 │   │   ├── Logging/        # Structured logging system ✅
 │   │   ├── ProfileManagement/ # User detection and classification ✅
+│   │   ├── OneDrive/       # OneDrive detection and management ✅
 │   │   ├── Models/         # Data models and entities ✅
 │   │   └── Scripts/        # Service management scripts ✅
 │   ├── MigrationAgent/     # User notification agent (Phase 4) 📅
@@ -215,8 +227,7 @@ MigrationAssistant/
 │   ├── API_DESIGN.md
 │   ├── DEPLOYMENT_GUIDE.md
 │   └── IMPLEMENTATION_PLAN.md
-├── .github/                # GitHub Actions workflows ✅
-└── CLAUDE.md              # Development guidance ✅
+└── .github/                # GitHub Actions workflows ✅
 ```
 
 ## Documentation

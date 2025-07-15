@@ -29,10 +29,46 @@ public interface IStateManager : IDisposable
     Task<IEnumerable<BackupOperation>> GetUserBackupOperationsAsync(string userId, CancellationToken cancellationToken);
     Task RecordProviderResultAsync(ProviderResult result, CancellationToken cancellationToken);
 
-    // OneDrive sync tracking
+    // OneDrive sync tracking (legacy)
     Task UpdateOneDriveSyncStatusAsync(OneDriveSyncStatus status, CancellationToken cancellationToken);
     Task<OneDriveSyncStatus?> GetOneDriveSyncStatusAsync(string userId, CancellationToken cancellationToken);
     Task<IEnumerable<OneDriveSyncStatus>> GetUsersWithSyncErrorsAsync(CancellationToken cancellationToken);
+
+    // OneDrive status management (new detailed tracking)
+    Task SaveOneDriveStatusAsync(OneDriveStatusRecord status, CancellationToken cancellationToken);
+    Task<OneDriveStatusRecord?> GetOneDriveStatusAsync(string userId, CancellationToken cancellationToken);
+    Task<IEnumerable<OneDriveStatusRecord>> GetAllOneDriveStatusesAsync(CancellationToken cancellationToken);
+
+    // OneDrive account management
+    Task SaveOneDriveAccountAsync(OneDriveAccount account, CancellationToken cancellationToken);
+    Task<IEnumerable<OneDriveAccount>> GetOneDriveAccountsAsync(string userId, CancellationToken cancellationToken);
+    Task<OneDriveAccount?> GetPrimaryOneDriveAccountAsync(string userId, CancellationToken cancellationToken);
+    Task DeleteOneDriveAccountAsync(string userId, string accountId, CancellationToken cancellationToken);
+
+    // OneDrive synced folder management
+    Task SaveOneDriveSyncedFolderAsync(OneDriveSyncedFolder folder, CancellationToken cancellationToken);
+    Task<IEnumerable<OneDriveSyncedFolder>> GetOneDriveSyncedFoldersAsync(string userId, CancellationToken cancellationToken);
+    Task<IEnumerable<OneDriveSyncedFolder>> GetOneDriveSyncedFoldersForAccountAsync(string userId, string accountId, CancellationToken cancellationToken);
+    Task DeleteOneDriveSyncedFolderAsync(int folderId, CancellationToken cancellationToken);
+    Task UpdateSyncedFolderStatusAsync(int folderId, bool isSyncing, bool hasErrors, CancellationToken cancellationToken);
+
+    // Known Folder Move management
+    Task SaveKnownFolderMoveStatusAsync(KnownFolderMoveStatus status, CancellationToken cancellationToken);
+    Task<KnownFolderMoveStatus?> GetKnownFolderMoveStatusAsync(string userId, string accountId, CancellationToken cancellationToken);
+    Task<IEnumerable<KnownFolderMoveStatus>> GetAllKnownFolderMoveStatusesAsync(string userId, CancellationToken cancellationToken);
+
+    // OneDrive sync error management
+    Task SaveOneDriveSyncErrorAsync(OneDriveSyncError error, CancellationToken cancellationToken);
+    Task<IEnumerable<OneDriveSyncError>> GetOneDriveSyncErrorsAsync(string userId, int? limit = null, CancellationToken cancellationToken = default);
+    Task<IEnumerable<OneDriveSyncError>> GetUnresolvedSyncErrorsAsync(string userId, CancellationToken cancellationToken);
+    Task MarkSyncErrorResolvedAsync(int errorId, string? recoveryResult = null, CancellationToken cancellationToken = default);
+    Task<int> GetActiveSyncErrorCountAsync(string userId, CancellationToken cancellationToken);
+
+    // OneDrive aggregated queries
+    Task<OneDriveUserSummary> GetOneDriveUserSummaryAsync(string userId, CancellationToken cancellationToken);
+    Task<IEnumerable<string>> GetUsersWithOneDriveErrorsAsync(CancellationToken cancellationToken);
+    Task<Dictionary<string, long>> GetOneDriveStorageUsageAsync(CancellationToken cancellationToken);
+    Task<bool> IsUserReadyForOneDriveBackupAsync(string userId, CancellationToken cancellationToken);
 
     // IT escalation management
     Task<int> CreateEscalationAsync(ITEscalation escalation, CancellationToken cancellationToken);
