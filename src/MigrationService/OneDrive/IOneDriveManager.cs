@@ -1,3 +1,4 @@
+using MigrationTool.Service.Models;
 using MigrationTool.Service.OneDrive.Models;
 
 namespace MigrationTool.Service.OneDrive;
@@ -70,4 +71,48 @@ public interface IOneDriveManager
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if errors were resolved</returns>
     Task<bool> TryResolveSyncErrorsAsync(string userSid, CancellationToken cancellationToken = default);
+
+    #region Quota Management Methods (Phase 3.3)
+
+    /// <summary>
+    /// Calculates the backup space requirements for a user
+    /// </summary>
+    /// <param name="userSid">The user's security identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Detailed backup requirements including space breakdown</returns>
+    Task<BackupRequirements> CalculateBackupRequirementsAsync(string userSid, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Validates if a backup operation is feasible given current quota
+    /// </summary>
+    /// <param name="userSid">The user's security identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if backup is feasible, false otherwise</returns>
+    Task<bool> ValidateQuotaForBackupAsync(string userSid, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the comprehensive quota health status for a user
+    /// </summary>
+    /// <param name="userSid">The user's security identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Detailed quota status including health assessment and recommendations</returns>
+    Task<QuotaStatus> GetQuotaHealthStatusAsync(string userSid, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Performs proactive quota monitoring and returns any warnings
+    /// </summary>
+    /// <param name="userSid">The user's security identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of quota warnings that need attention</returns>
+    Task<List<QuotaWarning>> CheckQuotaWarningsAsync(string userSid, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Triggers quota monitoring and escalation if needed
+    /// </summary>
+    /// <param name="userSid">The user's security identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if escalation was triggered</returns>
+    Task<bool> TriggerQuotaEscalationIfNeededAsync(string userSid, CancellationToken cancellationToken = default);
+
+    #endregion
 }

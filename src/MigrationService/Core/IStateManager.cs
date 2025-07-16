@@ -128,4 +128,47 @@ public interface IStateManager : IDisposable
     Task CleanupStaleOperationsAsync(TimeSpan staleThreshold, CancellationToken cancellationToken);
     Task ArchiveCompletedMigrationsAsync(int daysToKeep, CancellationToken cancellationToken);
     Task<Dictionary<string, object>> GetDatabaseStatisticsAsync(CancellationToken cancellationToken);
+
+    #region Quota Management (Phase 3.3)
+
+    // Quota status management
+    Task SaveQuotaStatusAsync(QuotaStatusRecord status, CancellationToken cancellationToken = default);
+    Task<QuotaStatusRecord?> GetQuotaStatusAsync(string userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<QuotaStatusRecord>> GetAllQuotaStatusesAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<QuotaStatusRecord>> GetQuotaStatusByHealthLevelAsync(QuotaHealthLevel healthLevel, CancellationToken cancellationToken = default);
+
+    // Backup requirements management
+    Task SaveBackupRequirementsAsync(BackupRequirementsRecord requirements, CancellationToken cancellationToken = default);
+    Task<BackupRequirementsRecord?> GetBackupRequirementsAsync(string userId, CancellationToken cancellationToken = default);
+    Task<BackupRequirementsRecord?> GetLatestBackupRequirementsAsync(string userId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<BackupRequirementsRecord>> GetAllBackupRequirementsAsync(CancellationToken cancellationToken = default);
+
+    // Quota warning management
+    Task<int> CreateQuotaWarningAsync(QuotaWarning warning, CancellationToken cancellationToken = default);
+    Task UpdateQuotaWarningAsync(QuotaWarning warning, CancellationToken cancellationToken = default);
+    Task<QuotaWarning?> GetQuotaWarningAsync(int warningId, CancellationToken cancellationToken = default);
+    Task<List<QuotaWarning>> GetQuotaWarningsAsync(string userId, CancellationToken cancellationToken = default);
+    Task<List<QuotaWarning>> GetUnresolvedQuotaWarningsAsync(string userId, CancellationToken cancellationToken = default);
+    Task<List<QuotaWarning>> GetQuotaWarningsByLevelAsync(QuotaWarningLevel level, CancellationToken cancellationToken = default);
+    Task<List<QuotaWarning>> GetQuotaWarningsByTypeAsync(QuotaWarningType type, CancellationToken cancellationToken = default);
+    Task ResolveQuotaWarningAsync(int warningId, string resolutionNotes, CancellationToken cancellationToken = default);
+
+    // Quota escalation management
+    Task<int> CreateQuotaEscalationAsync(QuotaEscalation escalation, CancellationToken cancellationToken = default);
+    Task UpdateQuotaEscalationAsync(QuotaEscalation escalation, CancellationToken cancellationToken = default);
+    Task<QuotaEscalation?> GetQuotaEscalationAsync(int escalationId, CancellationToken cancellationToken = default);
+    Task<List<QuotaEscalation>> GetQuotaEscalationsAsync(string userId, CancellationToken cancellationToken = default);
+    Task<List<QuotaEscalation>> GetUnresolvedQuotaEscalationsAsync(CancellationToken cancellationToken = default);
+    Task<List<QuotaEscalation>> GetQuotaEscalationsBySeverityAsync(QuotaWarningLevel severity, CancellationToken cancellationToken = default);
+    Task ResolveQuotaEscalationAsync(int escalationId, string ticketNumber, string resolutionNotes, CancellationToken cancellationToken = default);
+
+    // Quota analytics and reporting
+    Task<Dictionary<QuotaHealthLevel, int>> GetQuotaHealthDistributionAsync(CancellationToken cancellationToken = default);
+    Task<List<string>> GetUsersRequiringQuotaAttentionAsync(CancellationToken cancellationToken = default);
+    Task<long> GetTotalRequiredBackupSpaceAsync(CancellationToken cancellationToken = default);
+    Task<Dictionary<string, long>> GetBackupSpaceByUserAsync(CancellationToken cancellationToken = default);
+    Task<int> GetActiveQuotaWarningCountAsync(CancellationToken cancellationToken = default);
+    Task<int> GetUnresolvedQuotaEscalationCountAsync(CancellationToken cancellationToken = default);
+
+    #endregion
 }

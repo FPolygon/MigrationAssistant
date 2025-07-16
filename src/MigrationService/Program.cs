@@ -111,6 +111,11 @@ public class Program
                 services.AddSingleton<IOneDriveStatusCache, OneDriveStatusCache>();
                 services.AddSingleton<IOneDriveManager, OneDriveManager>();
                 services.AddSingleton<IOneDriveSyncController, OneDriveSyncController>();
+
+                // Add quota management services (Phase 3.3)
+                services.AddSingleton<IBackupRequirementsCalculator, BackupRequirementsCalculator>();
+                services.AddSingleton<IOneDriveQuotaChecker, OneDriveQuotaChecker>();
+                services.AddSingleton<IQuotaWarningManager, QuotaWarningManager>();
             });
 
             // Build and run the host

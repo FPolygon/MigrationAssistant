@@ -1,3 +1,5 @@
+using MigrationTool.Service.Models;
+
 namespace MigrationTool.Service;
 
 public class ServiceConfiguration
@@ -7,4 +9,9 @@ public class ServiceConfiguration
     public string PipeName { get; set; } = "MigrationService_{ComputerName}";
     public int StateCheckIntervalSeconds { get; set; } = 300; // 5 minutes
     public bool EnableDebugLogging { get; set; } = false;
+
+    /// <summary>
+    /// Quota management configuration settings
+    /// </summary>
+    public QuotaManagementConfiguration QuotaManagement { get; set; } = new();
 }

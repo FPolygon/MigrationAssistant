@@ -3048,6 +3048,1473 @@ public class StateManager : IStateManager, IDisposable
 
     #endregion
 
+    #region Quota Management (Phase 3.3)
+
+    // Quota status management
+    public async Task SaveQuotaStatusAsync(QuotaStatusRecord status, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Saving quota status for user {UserId}", status.UserId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                INSERT OR REPLACE INTO QuotaStatus (
+                    UserId, TotalSpaceMB, UsedSpaceMB, AvailableSpaceMB, RequiredSpaceMB,
+                    HealthLevel, UsagePercentage, CanAccommodateBackup, ShortfallMB,
+                    Issues, Recommendations, LastChecked, CreatedAt, UpdatedAt
+                ) VALUES (
+                    @userId, @totalSpace, @usedSpace, @availableSpace, @requiredSpace,
+                    @healthLevel, @usagePercentage, @canAccommodate, @shortfall,
+                    @issues, @recommendations, @lastChecked, 
+                    COALESCE((SELECT CreatedAt FROM QuotaStatus WHERE UserId = @userId), @now),
+                    @now
+                )";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", status.UserId);
+            command.Parameters.AddWithValue("@totalSpace", status.TotalSpaceMB);
+            command.Parameters.AddWithValue("@usedSpace", status.UsedSpaceMB);
+            command.Parameters.AddWithValue("@availableSpace", status.AvailableSpaceMB);
+            command.Parameters.AddWithValue("@requiredSpace", status.RequiredSpaceMB);
+            command.Parameters.AddWithValue("@healthLevel", status.HealthLevel);
+            command.Parameters.AddWithValue("@usagePercentage", status.UsagePercentage);
+            command.Parameters.AddWithValue("@canAccommodate", status.CanAccommodateBackup);
+            command.Parameters.AddWithValue("@shortfall", status.ShortfallMB);
+            command.Parameters.AddWithValue("@issues", status.Issues ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@recommendations", status.Recommendations ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@lastChecked", status.LastChecked);
+            command.Parameters.AddWithValue("@now", DateTime.UtcNow);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save quota status for user {UserId}", status.UserId);
+            throw;
+        }
+    }
+
+    public async Task<QuotaStatusRecord?> GetQuotaStatusAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota status for user {UserId}", userId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, TotalSpaceMB, UsedSpaceMB, AvailableSpaceMB, RequiredSpaceMB,
+                       HealthLevel, UsagePercentage, CanAccommodateBackup, ShortfallMB,
+                       Issues, Recommendations, LastChecked, CreatedAt, UpdatedAt
+                FROM QuotaStatus 
+                WHERE UserId = @userId";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return new QuotaStatusRecord
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    TotalSpaceMB = reader.GetInt64("TotalSpaceMB"),
+                    UsedSpaceMB = reader.GetInt64("UsedSpaceMB"),
+                    AvailableSpaceMB = reader.GetInt64("AvailableSpaceMB"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    HealthLevel = reader.GetString("HealthLevel"),
+                    UsagePercentage = reader.GetDouble("UsagePercentage"),
+                    CanAccommodateBackup = reader.GetBoolean("CanAccommodateBackup"),
+                    ShortfallMB = reader.GetInt64("ShortfallMB"),
+                    Issues = reader.IsDBNull("Issues") ? null : reader.GetString("Issues"),
+                    Recommendations = reader.IsDBNull("Recommendations") ? null : reader.GetString("Recommendations"),
+                    LastChecked = reader.GetDateTime("LastChecked"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                };
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota status for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<QuotaStatusRecord>> GetAllQuotaStatusesAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting all quota statuses");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, TotalSpaceMB, UsedSpaceMB, AvailableSpaceMB, RequiredSpaceMB,
+                       HealthLevel, UsagePercentage, CanAccommodateBackup, ShortfallMB,
+                       Issues, Recommendations, LastChecked, CreatedAt, UpdatedAt
+                FROM QuotaStatus 
+                ORDER BY LastChecked DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var results = new List<QuotaStatusRecord>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(new QuotaStatusRecord
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    TotalSpaceMB = reader.GetInt64("TotalSpaceMB"),
+                    UsedSpaceMB = reader.GetInt64("UsedSpaceMB"),
+                    AvailableSpaceMB = reader.GetInt64("AvailableSpaceMB"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    HealthLevel = reader.GetString("HealthLevel"),
+                    UsagePercentage = reader.GetDouble("UsagePercentage"),
+                    CanAccommodateBackup = reader.GetBoolean("CanAccommodateBackup"),
+                    ShortfallMB = reader.GetInt64("ShortfallMB"),
+                    Issues = reader.IsDBNull("Issues") ? null : reader.GetString("Issues"),
+                    Recommendations = reader.IsDBNull("Recommendations") ? null : reader.GetString("Recommendations"),
+                    LastChecked = reader.GetDateTime("LastChecked"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                });
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all quota statuses");
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<QuotaStatusRecord>> GetQuotaStatusByHealthLevelAsync(QuotaHealthLevel healthLevel, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota statuses for health level {HealthLevel}", healthLevel);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, TotalSpaceMB, UsedSpaceMB, AvailableSpaceMB, RequiredSpaceMB,
+                       HealthLevel, UsagePercentage, CanAccommodateBackup, ShortfallMB,
+                       Issues, Recommendations, LastChecked, CreatedAt, UpdatedAt
+                FROM QuotaStatus 
+                WHERE HealthLevel = @healthLevel
+                ORDER BY LastChecked DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@healthLevel", healthLevel.ToString());
+
+            var results = new List<QuotaStatusRecord>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(new QuotaStatusRecord
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    TotalSpaceMB = reader.GetInt64("TotalSpaceMB"),
+                    UsedSpaceMB = reader.GetInt64("UsedSpaceMB"),
+                    AvailableSpaceMB = reader.GetInt64("AvailableSpaceMB"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    HealthLevel = reader.GetString("HealthLevel"),
+                    UsagePercentage = reader.GetDouble("UsagePercentage"),
+                    CanAccommodateBackup = reader.GetBoolean("CanAccommodateBackup"),
+                    ShortfallMB = reader.GetInt64("ShortfallMB"),
+                    Issues = reader.IsDBNull("Issues") ? null : reader.GetString("Issues"),
+                    Recommendations = reader.IsDBNull("Recommendations") ? null : reader.GetString("Recommendations"),
+                    LastChecked = reader.GetDateTime("LastChecked"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                });
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota statuses for health level {HealthLevel}", healthLevel);
+            throw;
+        }
+    }
+
+    // Backup requirements management
+    public async Task SaveBackupRequirementsAsync(BackupRequirementsRecord requirements, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Saving backup requirements for user {UserId}", requirements.UserId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                INSERT INTO BackupRequirements (
+                    UserId, ProfileSizeMB, EstimatedBackupSizeMB, CompressionFactor,
+                    RequiredSpaceMB, SizeBreakdown, CalculatedAt, CreatedAt, UpdatedAt
+                ) VALUES (
+                    @userId, @profileSize, @estimatedSize, @compressionFactor,
+                    @requiredSpace, @sizeBreakdown, @calculatedAt, @now, @now
+                )";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", requirements.UserId);
+            command.Parameters.AddWithValue("@profileSize", requirements.ProfileSizeMB);
+            command.Parameters.AddWithValue("@estimatedSize", requirements.EstimatedBackupSizeMB);
+            command.Parameters.AddWithValue("@compressionFactor", requirements.CompressionFactor);
+            command.Parameters.AddWithValue("@requiredSpace", requirements.RequiredSpaceMB);
+            command.Parameters.AddWithValue("@sizeBreakdown", requirements.SizeBreakdown ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@calculatedAt", requirements.CalculatedAt);
+            command.Parameters.AddWithValue("@now", DateTime.UtcNow);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save backup requirements for user {UserId}", requirements.UserId);
+            throw;
+        }
+    }
+
+    public async Task<BackupRequirementsRecord?> GetBackupRequirementsAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        return await GetLatestBackupRequirementsAsync(userId, cancellationToken);
+    }
+
+    public async Task<BackupRequirementsRecord?> GetLatestBackupRequirementsAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting latest backup requirements for user {UserId}", userId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, ProfileSizeMB, EstimatedBackupSizeMB, CompressionFactor,
+                       RequiredSpaceMB, SizeBreakdown, CalculatedAt, CreatedAt, UpdatedAt
+                FROM BackupRequirements 
+                WHERE UserId = @userId 
+                ORDER BY CalculatedAt DESC 
+                LIMIT 1";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", userId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return new BackupRequirementsRecord
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    ProfileSizeMB = reader.GetInt64("ProfileSizeMB"),
+                    EstimatedBackupSizeMB = reader.GetInt64("EstimatedBackupSizeMB"),
+                    CompressionFactor = reader.GetDouble("CompressionFactor"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    SizeBreakdown = reader.IsDBNull("SizeBreakdown") ? null : reader.GetString("SizeBreakdown"),
+                    CalculatedAt = reader.GetDateTime("CalculatedAt"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                };
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get backup requirements for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<BackupRequirementsRecord>> GetAllBackupRequirementsAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting all backup requirements");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, ProfileSizeMB, EstimatedBackupSizeMB, CompressionFactor,
+                       RequiredSpaceMB, SizeBreakdown, CalculatedAt, CreatedAt, UpdatedAt
+                FROM BackupRequirements 
+                ORDER BY CalculatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var results = new List<BackupRequirementsRecord>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(new BackupRequirementsRecord
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    ProfileSizeMB = reader.GetInt64("ProfileSizeMB"),
+                    EstimatedBackupSizeMB = reader.GetInt64("EstimatedBackupSizeMB"),
+                    CompressionFactor = reader.GetDouble("CompressionFactor"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    SizeBreakdown = reader.IsDBNull("SizeBreakdown") ? null : reader.GetString("SizeBreakdown"),
+                    CalculatedAt = reader.GetDateTime("CalculatedAt"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                });
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get all backup requirements");
+            throw;
+        }
+    }
+
+    // Quota warning management
+    public async Task<int> CreateQuotaWarningAsync(QuotaWarning warning, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Creating quota warning for user {UserId}", warning.UserId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                INSERT INTO QuotaWarnings (
+                    UserId, Level, Title, Message, Type, CurrentUsageMB, AvailableSpaceMB,
+                    RequiredSpaceMB, IsResolved, CreatedAt, UpdatedAt
+                ) VALUES (
+                    @userId, @level, @title, @message, @type, @currentUsage, @availableSpace,
+                    @requiredSpace, @isResolved, @now, @now
+                );
+                SELECT last_insert_rowid();";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", warning.UserId);
+            command.Parameters.AddWithValue("@level", warning.Level.ToString());
+            command.Parameters.AddWithValue("@title", warning.Title);
+            command.Parameters.AddWithValue("@message", warning.Message);
+            command.Parameters.AddWithValue("@type", warning.Type.ToString());
+            command.Parameters.AddWithValue("@currentUsage", warning.CurrentUsageMB);
+            command.Parameters.AddWithValue("@availableSpace", warning.AvailableSpaceMB);
+            command.Parameters.AddWithValue("@requiredSpace", warning.RequiredSpaceMB);
+            command.Parameters.AddWithValue("@isResolved", warning.IsResolved);
+            command.Parameters.AddWithValue("@now", DateTime.UtcNow);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt32(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create quota warning for user {UserId}", warning.UserId);
+            throw;
+        }
+    }
+
+    public async Task UpdateQuotaWarningAsync(QuotaWarning warning, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Updating quota warning {WarningId}", warning.Id);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                UPDATE QuotaWarnings SET
+                    Level = @level, Title = @title, Message = @message, Type = @type,
+                    CurrentUsageMB = @currentUsage, AvailableSpaceMB = @availableSpace,
+                    RequiredSpaceMB = @requiredSpace, IsResolved = @isResolved,
+                    ResolvedAt = @resolvedAt, ResolutionNotes = @resolutionNotes,
+                    UpdatedAt = @now
+                WHERE Id = @id";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@id", warning.Id);
+            command.Parameters.AddWithValue("@level", warning.Level.ToString());
+            command.Parameters.AddWithValue("@title", warning.Title);
+            command.Parameters.AddWithValue("@message", warning.Message);
+            command.Parameters.AddWithValue("@type", warning.Type.ToString());
+            command.Parameters.AddWithValue("@currentUsage", warning.CurrentUsageMB);
+            command.Parameters.AddWithValue("@availableSpace", warning.AvailableSpaceMB);
+            command.Parameters.AddWithValue("@requiredSpace", warning.RequiredSpaceMB);
+            command.Parameters.AddWithValue("@isResolved", warning.IsResolved);
+            command.Parameters.AddWithValue("@resolvedAt", warning.ResolvedAt ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@resolutionNotes", warning.ResolutionNotes ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@now", DateTime.UtcNow);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update quota warning {WarningId}", warning.Id);
+            throw;
+        }
+    }
+
+    public async Task<QuotaWarning?> GetQuotaWarningAsync(int warningId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota warning {WarningId}", warningId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, Level, Title, Message, Type, CurrentUsageMB,
+                       AvailableSpaceMB, RequiredSpaceMB, IsResolved, ResolvedAt,
+                       ResolutionNotes, CreatedAt, UpdatedAt
+                FROM QuotaWarnings 
+                WHERE Id = @id";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@id", warningId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return new QuotaWarning
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    Level = Enum.Parse<QuotaWarningLevel>(reader.GetString("Level")),
+                    Title = reader.GetString("Title"),
+                    Message = reader.GetString("Message"),
+                    Type = Enum.Parse<QuotaWarningType>(reader.GetString("Type")),
+                    CurrentUsageMB = reader.GetInt64("CurrentUsageMB"),
+                    AvailableSpaceMB = reader.GetInt64("AvailableSpaceMB"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    IsResolved = reader.GetBoolean("IsResolved"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt")
+                };
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota warning {WarningId}", warningId);
+            throw;
+        }
+    }
+
+    public async Task<List<QuotaWarning>> GetQuotaWarningsAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota warnings for user {UserId}", userId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, Level, Title, Message, Type, CurrentUsageMB,
+                       AvailableSpaceMB, RequiredSpaceMB, IsResolved, ResolvedAt,
+                       ResolutionNotes, CreatedAt, UpdatedAt
+                FROM QuotaWarnings 
+                WHERE UserId = @userId
+                ORDER BY CreatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", userId);
+
+            var results = new List<QuotaWarning>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(new QuotaWarning
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    Level = Enum.Parse<QuotaWarningLevel>(reader.GetString("Level")),
+                    Title = reader.GetString("Title"),
+                    Message = reader.GetString("Message"),
+                    Type = Enum.Parse<QuotaWarningType>(reader.GetString("Type")),
+                    CurrentUsageMB = reader.GetInt64("CurrentUsageMB"),
+                    AvailableSpaceMB = reader.GetInt64("AvailableSpaceMB"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    IsResolved = reader.GetBoolean("IsResolved"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt")
+                });
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota warnings for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<List<QuotaWarning>> GetUnresolvedQuotaWarningsAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting unresolved quota warnings for user {UserId}", userId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, Level, Title, Message, Type, CurrentUsageMB,
+                       AvailableSpaceMB, RequiredSpaceMB, IsResolved, ResolvedAt,
+                       ResolutionNotes, CreatedAt, UpdatedAt
+                FROM QuotaWarnings 
+                WHERE UserId = @userId AND IsResolved = 0
+                ORDER BY CreatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", userId);
+
+            var results = new List<QuotaWarning>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(new QuotaWarning
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    Level = Enum.Parse<QuotaWarningLevel>(reader.GetString("Level")),
+                    Title = reader.GetString("Title"),
+                    Message = reader.GetString("Message"),
+                    Type = Enum.Parse<QuotaWarningType>(reader.GetString("Type")),
+                    CurrentUsageMB = reader.GetInt64("CurrentUsageMB"),
+                    AvailableSpaceMB = reader.GetInt64("AvailableSpaceMB"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    IsResolved = reader.GetBoolean("IsResolved"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt")
+                });
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get unresolved quota warnings for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<List<QuotaWarning>> GetQuotaWarningsByLevelAsync(QuotaWarningLevel level, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota warnings for level {Level}", level);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, Level, Title, Message, Type, CurrentUsageMB,
+                       AvailableSpaceMB, RequiredSpaceMB, IsResolved, ResolvedAt,
+                       ResolutionNotes, CreatedAt, UpdatedAt
+                FROM QuotaWarnings 
+                WHERE Level = @level
+                ORDER BY CreatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@level", level.ToString());
+
+            var results = new List<QuotaWarning>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(new QuotaWarning
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    Level = Enum.Parse<QuotaWarningLevel>(reader.GetString("Level")),
+                    Title = reader.GetString("Title"),
+                    Message = reader.GetString("Message"),
+                    Type = Enum.Parse<QuotaWarningType>(reader.GetString("Type")),
+                    CurrentUsageMB = reader.GetInt64("CurrentUsageMB"),
+                    AvailableSpaceMB = reader.GetInt64("AvailableSpaceMB"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    IsResolved = reader.GetBoolean("IsResolved"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt")
+                });
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota warnings for level {Level}", level);
+            throw;
+        }
+    }
+
+    public async Task<List<QuotaWarning>> GetQuotaWarningsByTypeAsync(QuotaWarningType type, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota warnings for type {Type}", type);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, Level, Title, Message, Type, CurrentUsageMB,
+                       AvailableSpaceMB, RequiredSpaceMB, IsResolved, ResolvedAt,
+                       ResolutionNotes, CreatedAt, UpdatedAt
+                FROM QuotaWarnings 
+                WHERE Type = @type
+                ORDER BY CreatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@type", type.ToString());
+
+            var results = new List<QuotaWarning>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                results.Add(new QuotaWarning
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    Level = Enum.Parse<QuotaWarningLevel>(reader.GetString("Level")),
+                    Title = reader.GetString("Title"),
+                    Message = reader.GetString("Message"),
+                    Type = Enum.Parse<QuotaWarningType>(reader.GetString("Type")),
+                    CurrentUsageMB = reader.GetInt64("CurrentUsageMB"),
+                    AvailableSpaceMB = reader.GetInt64("AvailableSpaceMB"),
+                    RequiredSpaceMB = reader.GetInt64("RequiredSpaceMB"),
+                    IsResolved = reader.GetBoolean("IsResolved"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt")
+                });
+            }
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota warnings for type {Type}", type);
+            throw;
+        }
+    }
+
+    public async Task ResolveQuotaWarningAsync(int warningId, string resolutionNotes, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Resolving quota warning {WarningId}", warningId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                UPDATE QuotaWarnings SET
+                    IsResolved = 1,
+                    ResolvedAt = @resolvedAt,
+                    ResolutionNotes = @resolutionNotes,
+                    UpdatedAt = @now
+                WHERE Id = @id";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@id", warningId);
+            command.Parameters.AddWithValue("@resolvedAt", DateTime.UtcNow);
+            command.Parameters.AddWithValue("@resolutionNotes", resolutionNotes);
+            command.Parameters.AddWithValue("@now", DateTime.UtcNow);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to resolve quota warning {WarningId}", warningId);
+            throw;
+        }
+    }
+
+    // Quota escalation management
+    public async Task<int> CreateQuotaEscalationAsync(QuotaEscalation escalation, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Creating quota escalation for user {UserId} with type {Type}", escalation.UserId, escalation.EscalationType);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                INSERT INTO QuotaEscalations (
+                    UserId, EscalationType, Priority, Title, Description, 
+                    IssueDetails, RecommendedActions, CreatedAt
+                ) VALUES (
+                    @userId, @escalationType, @priority, @title, @description,
+                    @issueDetails, @recommendedActions, @createdAt
+                );
+                SELECT last_insert_rowid();";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", escalation.UserId);
+            command.Parameters.AddWithValue("@escalationType", escalation.EscalationType.ToString());
+            command.Parameters.AddWithValue("@priority", escalation.Priority.ToString());
+            command.Parameters.AddWithValue("@title", escalation.Title);
+            command.Parameters.AddWithValue("@description", escalation.Description);
+            command.Parameters.AddWithValue("@issueDetails", escalation.IssueDetails);
+            command.Parameters.AddWithValue("@recommendedActions", escalation.RecommendedActions);
+            command.Parameters.AddWithValue("@createdAt", escalation.CreatedAt);
+
+            var escalationId = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+            _logger.LogInformation("Created quota escalation {EscalationId} for user {UserId}", escalationId, escalation.UserId);
+            return escalationId;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create quota escalation for user {UserId}", escalation.UserId);
+            throw;
+        }
+    }
+
+    public async Task UpdateQuotaEscalationAsync(QuotaEscalation escalation, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Updating quota escalation {EscalationId}", escalation.Id);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                UPDATE QuotaEscalations 
+                SET Status = @status,
+                    AssignedTo = @assignedTo,
+                    ResolutionNotes = @resolutionNotes,
+                    ResolvedAt = @resolvedAt,
+                    UpdatedAt = @updatedAt
+                WHERE Id = @id";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@id", escalation.Id);
+            command.Parameters.AddWithValue("@status", escalation.Status.ToString());
+            command.Parameters.AddWithValue("@assignedTo", (object?)escalation.AssignedTo ?? DBNull.Value);
+            command.Parameters.AddWithValue("@resolutionNotes", (object?)escalation.ResolutionNotes ?? DBNull.Value);
+            command.Parameters.AddWithValue("@resolvedAt", (object?)escalation.ResolvedAt ?? DBNull.Value);
+            command.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            _logger.LogInformation("Updated quota escalation {EscalationId}", escalation.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update quota escalation {EscalationId}", escalation.Id);
+            throw;
+        }
+    }
+
+    public async Task<QuotaEscalation?> GetQuotaEscalationAsync(int escalationId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota escalation {EscalationId}", escalationId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, EscalationType, Priority, Status, Title, Description,
+                       IssueDetails, RecommendedActions, AssignedTo, ResolutionNotes,
+                       CreatedAt, ResolvedAt, UpdatedAt
+                FROM QuotaEscalations 
+                WHERE Id = @id";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@id", escalationId);
+
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                return new QuotaEscalation
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    EscalationType = Enum.Parse<QuotaEscalationType>(reader.GetString("EscalationType")),
+                    Priority = Enum.Parse<EscalationPriority>(reader.GetString("Priority")),
+                    Status = Enum.Parse<EscalationStatus>(reader.GetString("Status")),
+                    Title = reader.GetString("Title"),
+                    Description = reader.GetString("Description"),
+                    IssueDetails = reader.GetString("IssueDetails"),
+                    RecommendedActions = reader.GetString("RecommendedActions"),
+                    AssignedTo = reader.IsDBNull("AssignedTo") ? null : reader.GetString("AssignedTo"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                };
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota escalation {EscalationId}", escalationId);
+            throw;
+        }
+    }
+
+    public async Task<List<QuotaEscalation>> GetQuotaEscalationsAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota escalations for user {UserId}", userId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, EscalationType, Priority, Status, Title, Description,
+                       IssueDetails, RecommendedActions, AssignedTo, ResolutionNotes,
+                       CreatedAt, ResolvedAt, UpdatedAt
+                FROM QuotaEscalations 
+                WHERE UserId = @userId
+                ORDER BY CreatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@userId", userId);
+
+            var escalations = new List<QuotaEscalation>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                escalations.Add(new QuotaEscalation
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    EscalationType = Enum.Parse<QuotaEscalationType>(reader.GetString("EscalationType")),
+                    Priority = Enum.Parse<EscalationPriority>(reader.GetString("Priority")),
+                    Status = Enum.Parse<EscalationStatus>(reader.GetString("Status")),
+                    Title = reader.GetString("Title"),
+                    Description = reader.GetString("Description"),
+                    IssueDetails = reader.GetString("IssueDetails"),
+                    RecommendedActions = reader.GetString("RecommendedActions"),
+                    AssignedTo = reader.IsDBNull("AssignedTo") ? null : reader.GetString("AssignedTo"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                });
+            }
+
+            return escalations;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota escalations for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<List<QuotaEscalation>> GetOpenQuotaEscalationsAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting all open quota escalations");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, EscalationType, Priority, Status, Title, Description,
+                       IssueDetails, RecommendedActions, AssignedTo, ResolutionNotes,
+                       CreatedAt, ResolvedAt, UpdatedAt
+                FROM QuotaEscalations 
+                WHERE Status IN ('Open', 'InProgress', 'Investigating')
+                ORDER BY Priority DESC, CreatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var escalations = new List<QuotaEscalation>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                escalations.Add(new QuotaEscalation
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    EscalationType = Enum.Parse<QuotaEscalationType>(reader.GetString("EscalationType")),
+                    Priority = Enum.Parse<EscalationPriority>(reader.GetString("Priority")),
+                    Status = Enum.Parse<EscalationStatus>(reader.GetString("Status")),
+                    Title = reader.GetString("Title"),
+                    Description = reader.GetString("Description"),
+                    IssueDetails = reader.GetString("IssueDetails"),
+                    RecommendedActions = reader.GetString("RecommendedActions"),
+                    AssignedTo = reader.IsDBNull("AssignedTo") ? null : reader.GetString("AssignedTo"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                });
+            }
+
+            return escalations;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get open quota escalations");
+            throw;
+        }
+    }
+
+    public async Task ResolveQuotaEscalationAsync(int escalationId, string resolutionNotes, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Resolving quota escalation {EscalationId}", escalationId);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                UPDATE QuotaEscalations 
+                SET Status = 'Resolved',
+                    ResolutionNotes = @resolutionNotes,
+                    ResolvedAt = @resolvedAt,
+                    UpdatedAt = @updatedAt
+                WHERE Id = @id";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@id", escalationId);
+            command.Parameters.AddWithValue("@resolutionNotes", resolutionNotes);
+            command.Parameters.AddWithValue("@resolvedAt", DateTime.UtcNow);
+            command.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            _logger.LogInformation("Resolved quota escalation {EscalationId}", escalationId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to resolve quota escalation {EscalationId}", escalationId);
+            throw;
+        }
+    }
+
+    // Quota analytics and reporting
+    public async Task<Dictionary<QuotaHealthLevel, int>> GetQuotaHealthDistributionAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota health distribution");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT HealthLevel, COUNT(*) as Count
+                FROM QuotaStatus
+                WHERE LastChecked >= datetime('now', '-24 hours')
+                GROUP BY HealthLevel";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var distribution = new Dictionary<QuotaHealthLevel, int>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var healthLevelStr = reader.GetString("HealthLevel");
+                if (Enum.TryParse<QuotaHealthLevel>(healthLevelStr, out var healthLevel))
+                {
+                    distribution[healthLevel] = reader.GetInt32("Count");
+                }
+            }
+
+            return distribution;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota health distribution");
+            throw;
+        }
+    }
+
+    public async Task<List<string>> GetUsersRequiringQuotaAttentionAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting users requiring quota attention");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT DISTINCT q.UserId
+                FROM QuotaStatus q
+                WHERE q.LastChecked >= datetime('now', '-24 hours')
+                  AND (q.HealthLevel IN ('Critical', 'Warning') OR q.CanAccommodateBackup = 0)
+                
+                UNION
+                
+                SELECT DISTINCT w.UserId
+                FROM QuotaWarnings w
+                WHERE w.IsResolved = 0
+                  AND w.CreatedAt >= datetime('now', '-7 days')
+                
+                UNION
+                
+                SELECT DISTINCT e.UserId
+                FROM QuotaEscalations e
+                WHERE e.Status IN ('Open', 'InProgress', 'Investigating')
+                
+                ORDER BY UserId";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var users = new List<string>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                users.Add(reader.GetString("UserId"));
+            }
+
+            return users;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get users requiring quota attention");
+            throw;
+        }
+    }
+
+    public async Task<QuotaMetrics> GetQuotaMetricsAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota metrics from {StartDate} to {EndDate}", startDate, endDate);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            // Get warning counts by type and level
+            const string warningsSql = @"
+                SELECT 
+                    WarningType,
+                    Level,
+                    COUNT(*) as Count
+                FROM QuotaWarnings
+                WHERE CreatedAt BETWEEN @startDate AND @endDate
+                GROUP BY WarningType, Level";
+
+            var warningCounts = new Dictionary<string, Dictionary<string, int>>();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = warningsSql;
+                command.Parameters.AddWithValue("@startDate", startDate);
+                command.Parameters.AddWithValue("@endDate", endDate);
+
+                using var reader = await command.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var type = reader.GetString("WarningType");
+                    var level = reader.GetString("Level");
+                    var count = reader.GetInt32("Count");
+
+                    if (!warningCounts.ContainsKey(type))
+                    {
+                        warningCounts[type] = new Dictionary<string, int>();
+                    }
+
+                    warningCounts[type][level] = count;
+                }
+            }
+
+            // Get escalation counts by type and priority
+            const string escalationsSql = @"
+                SELECT 
+                    EscalationType,
+                    Priority,
+                    COUNT(*) as Count
+                FROM QuotaEscalations
+                WHERE CreatedAt BETWEEN @startDate AND @endDate
+                GROUP BY EscalationType, Priority";
+
+            var escalationCounts = new Dictionary<string, Dictionary<string, int>>();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = escalationsSql;
+                command.Parameters.AddWithValue("@startDate", startDate);
+                command.Parameters.AddWithValue("@endDate", endDate);
+
+                using var reader = await command.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var type = reader.GetString("EscalationType");
+                    var priority = reader.GetString("Priority");
+                    var count = reader.GetInt32("Count");
+
+                    if (!escalationCounts.ContainsKey(type))
+                    {
+                        escalationCounts[type] = new Dictionary<string, int>();
+                    }
+
+                    escalationCounts[type][priority] = count;
+                }
+            }
+
+            // Get space utilization statistics
+            const string spaceStatsSql = @"
+                SELECT 
+                    AVG(CAST(UsedSpaceMB AS REAL) / CAST(TotalSpaceMB AS REAL) * 100) as AvgUsagePercentage,
+                    MIN(CAST(UsedSpaceMB AS REAL) / CAST(TotalSpaceMB AS REAL) * 100) as MinUsagePercentage,
+                    MAX(CAST(UsedSpaceMB AS REAL) / CAST(TotalSpaceMB AS REAL) * 100) as MaxUsagePercentage,
+                    COUNT(*) as TotalUsers,
+                    SUM(CASE WHEN CanAccommodateBackup = 1 THEN 1 ELSE 0 END) as UsersWithSufficientSpace
+                FROM QuotaStatus
+                WHERE LastChecked BETWEEN @startDate AND @endDate";
+
+            double avgUsage = 0, minUsage = 0, maxUsage = 0;
+            int totalUsers = 0, usersWithSpace = 0;
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = spaceStatsSql;
+                command.Parameters.AddWithValue("@startDate", startDate);
+                command.Parameters.AddWithValue("@endDate", endDate);
+
+                using var reader = await command.ExecuteReaderAsync(cancellationToken);
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    avgUsage = reader.IsDBNull("AvgUsagePercentage") ? 0 : reader.GetDouble("AvgUsagePercentage");
+                    minUsage = reader.IsDBNull("MinUsagePercentage") ? 0 : reader.GetDouble("MinUsagePercentage");
+                    maxUsage = reader.IsDBNull("MaxUsagePercentage") ? 0 : reader.GetDouble("MaxUsagePercentage");
+                    totalUsers = reader.GetInt32("TotalUsers");
+                    usersWithSpace = reader.GetInt32("UsersWithSufficientSpace");
+                }
+            }
+
+            return new QuotaMetrics
+            {
+                StartDate = startDate,
+                EndDate = endDate,
+                WarningCountsByType = warningCounts,
+                EscalationCountsByType = escalationCounts,
+                AverageSpaceUsagePercentage = avgUsage,
+                MinSpaceUsagePercentage = minUsage,
+                MaxSpaceUsagePercentage = maxUsage,
+                TotalUsersAnalyzed = totalUsers,
+                UsersWithSufficientSpace = usersWithSpace,
+                UsersRequiringAttention = totalUsers - usersWithSpace
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota metrics");
+            throw;
+        }
+    }
+
+    // Additional quota analytics methods
+
+    public async Task<List<QuotaEscalation>> GetUnresolvedQuotaEscalationsAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting all unresolved quota escalations");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, EscalationType, Priority, Status, Title, Description,
+                       IssueDetails, RecommendedActions, AssignedTo, ResolutionNotes,
+                       CreatedAt, ResolvedAt, UpdatedAt
+                FROM QuotaEscalations 
+                WHERE Status NOT IN ('Resolved', 'Closed')
+                ORDER BY Priority DESC, CreatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var escalations = new List<QuotaEscalation>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                escalations.Add(new QuotaEscalation
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    EscalationType = Enum.Parse<QuotaEscalationType>(reader.GetString("EscalationType")),
+                    Priority = Enum.Parse<EscalationPriority>(reader.GetString("Priority")),
+                    Status = Enum.Parse<EscalationStatus>(reader.GetString("Status")),
+                    Title = reader.GetString("Title"),
+                    Description = reader.GetString("Description"),
+                    IssueDetails = reader.GetString("IssueDetails"),
+                    RecommendedActions = reader.GetString("RecommendedActions"),
+                    AssignedTo = reader.IsDBNull("AssignedTo") ? null : reader.GetString("AssignedTo"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                });
+            }
+
+            return escalations;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get unresolved quota escalations");
+            throw;
+        }
+    }
+
+    public async Task<List<QuotaEscalation>> GetQuotaEscalationsBySeverityAsync(QuotaWarningLevel level, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting quota escalations by severity level {Level}", level);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT Id, UserId, EscalationType, Priority, Status, Title, Description,
+                       IssueDetails, RecommendedActions, AssignedTo, ResolutionNotes,
+                       CreatedAt, ResolvedAt, UpdatedAt
+                FROM QuotaEscalations 
+                WHERE Priority = @priority
+                ORDER BY CreatedAt DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@priority", level.ToString());
+
+            var escalations = new List<QuotaEscalation>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                escalations.Add(new QuotaEscalation
+                {
+                    Id = reader.GetInt32("Id"),
+                    UserId = reader.GetString("UserId"),
+                    EscalationType = Enum.Parse<QuotaEscalationType>(reader.GetString("EscalationType")),
+                    Priority = Enum.Parse<EscalationPriority>(reader.GetString("Priority")),
+                    Status = Enum.Parse<EscalationStatus>(reader.GetString("Status")),
+                    Title = reader.GetString("Title"),
+                    Description = reader.GetString("Description"),
+                    IssueDetails = reader.GetString("IssueDetails"),
+                    RecommendedActions = reader.GetString("RecommendedActions"),
+                    AssignedTo = reader.IsDBNull("AssignedTo") ? null : reader.GetString("AssignedTo"),
+                    ResolutionNotes = reader.IsDBNull("ResolutionNotes") ? null : reader.GetString("ResolutionNotes"),
+                    CreatedAt = reader.GetDateTime("CreatedAt"),
+                    ResolvedAt = reader.IsDBNull("ResolvedAt") ? null : reader.GetDateTime("ResolvedAt"),
+                    UpdatedAt = reader.GetDateTime("UpdatedAt")
+                });
+            }
+
+            return escalations;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota escalations by severity {Level}", level);
+            throw;
+        }
+    }
+
+    public async Task ResolveQuotaEscalationAsync(int escalationId, string resolutionNotes, string resolvedBy, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Resolving quota escalation {EscalationId} by {ResolvedBy}", escalationId, resolvedBy);
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                UPDATE QuotaEscalations 
+                SET Status = 'Resolved',
+                    ResolutionNotes = @resolutionNotes,
+                    AssignedTo = @resolvedBy,
+                    ResolvedAt = @resolvedAt,
+                    UpdatedAt = @updatedAt
+                WHERE Id = @id";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("@id", escalationId);
+            command.Parameters.AddWithValue("@resolutionNotes", resolutionNotes);
+            command.Parameters.AddWithValue("@resolvedBy", resolvedBy);
+            command.Parameters.AddWithValue("@resolvedAt", DateTime.UtcNow);
+            command.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            _logger.LogInformation("Resolved quota escalation {EscalationId} by {ResolvedBy}", escalationId, resolvedBy);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to resolve quota escalation {EscalationId}", escalationId);
+            throw;
+        }
+    }
+
+    public async Task<long> GetTotalRequiredBackupSpaceAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting total required backup space across all users");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT COALESCE(SUM(RequiredSpaceMB), 0) as TotalRequiredMB
+                FROM BackupRequirements
+                WHERE LastCalculated >= datetime('now', '-7 days')";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt64(result ?? 0L);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get total required backup space");
+            throw;
+        }
+    }
+
+    public async Task<Dictionary<string, long>> GetBackupSpaceByUserAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting backup space requirements by user");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT UserId, RequiredSpaceMB
+                FROM BackupRequirements
+                WHERE LastCalculated >= datetime('now', '-7 days')
+                ORDER BY RequiredSpaceMB DESC";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var result = new Dictionary<string, long>();
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                result[reader.GetString("UserId")] = reader.GetInt64("RequiredSpaceMB");
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get backup space by user");
+            throw;
+        }
+    }
+
+    public async Task<int> GetActiveQuotaWarningCountAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting active quota warning count");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT COUNT(*) as Count
+                FROM QuotaWarnings
+                WHERE IsResolved = 0
+                  AND CreatedAt >= datetime('now', '-30 days')";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt32(result ?? 0);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get active quota warning count");
+            throw;
+        }
+    }
+
+    public async Task<int> GetUnresolvedQuotaEscalationCountAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting unresolved quota escalation count");
+
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            const string sql = @"
+                SELECT COUNT(*) as Count
+                FROM QuotaEscalations
+                WHERE Status NOT IN ('Resolved', 'Closed')";
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt32(result ?? 0);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get unresolved quota escalation count");
+            throw;
+        }
+    }
+
+    #endregion
+
     public void Dispose()
     {
         // SQLite connections are disposed after each use

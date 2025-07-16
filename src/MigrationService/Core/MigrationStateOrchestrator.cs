@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MigrationTool.Service.Models;
+using MigrationTool.Service.OneDrive;
 using MigrationTool.Service.ProfileManagement;
 
 namespace MigrationTool.Service.Core;
@@ -9,15 +10,21 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
     private readonly ILogger<MigrationStateOrchestrator> _logger;
     private readonly IStateManager _stateManager;
     private readonly IUserProfileManager _profileManager;
+    private readonly IOneDriveManager _oneDriveManager;
+    private readonly IQuotaWarningManager _quotaWarningManager;
 
     public MigrationStateOrchestrator(
         ILogger<MigrationStateOrchestrator> logger,
         IStateManager stateManager,
-        IUserProfileManager profileManager)
+        IUserProfileManager profileManager,
+        IOneDriveManager oneDriveManager,
+        IQuotaWarningManager quotaWarningManager)
     {
         _logger = logger;
         _stateManager = stateManager;
         _profileManager = profileManager;
+        _oneDriveManager = oneDriveManager;
+        _quotaWarningManager = quotaWarningManager;
     }
 
     /// <summary>
@@ -28,6 +35,9 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
         try
         {
             var activeMigrations = await _stateManager.GetActiveMigrationsAsync(cancellationToken);
+
+            // Run proactive quota monitoring for all users
+            await ProcessProactiveQuotaMonitoringAsync(activeMigrations, cancellationToken);
 
             foreach (var migration in activeMigrations)
             {
@@ -94,8 +104,26 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
     private async Task<MigrationStateType?> DetermineNextStateAsync(
         MigrationState migration, CancellationToken cancellationToken)
     {
+        // Always check quota health before any state transitions
+        var quotaStatus = await _oneDriveManager.GetQuotaHealthStatusAsync(migration.UserId, cancellationToken);
+        if (quotaStatus != null && !quotaStatus.CanAccommodateBackup)
+        {
+            // Quota issues prevent progression
+            _logger.LogWarning("User {UserId} has quota issues preventing state transition: {Issues}",
+                migration.UserId, quotaStatus.Issues);
+            return null;
+        }
+
         switch (migration.State)
         {
+            case MigrationStateType.WaitingForUser:
+                // Check if user has sufficient quota before allowing backup to start
+                if (quotaStatus != null && quotaStatus.CanAccommodateBackup)
+                {
+                    return StateTransitionRules.GetAutomaticTransition(migration);
+                }
+                break;
+
             case MigrationStateType.BackupInProgress:
                 // Check backup status
                 var backupOps = await _stateManager.GetUserBackupOperationsAsync(
@@ -169,17 +197,38 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
                 return !escalations.Any(e => e.Status == "Open");
         }
 
-        // Check OneDrive issues
-        var syncState = await _stateManager.GetOneDriveSyncStatusAsync(migration.UserId, cancellationToken);
-        if (syncState != null)
+        // Check comprehensive quota health
+        var quotaStatus = await _oneDriveManager.GetQuotaHealthStatusAsync(migration.UserId, cancellationToken);
+        if (quotaStatus != null)
         {
-            // Escalate for quota issues
-            if (syncState.QuotaAvailableMB.HasValue && syncState.QuotaAvailableMB < 1000)
+            // Escalate for critical quota issues
+            if (quotaStatus.HealthLevel == "Critical")
             {
-                migration.AttentionReason = "OneDrive quota insufficient";
+                migration.AttentionReason = $"Critical OneDrive quota issue: {quotaStatus.Issues}";
                 return true;
             }
 
+            // Escalate if backup cannot be accommodated
+            if (!quotaStatus.CanAccommodateBackup && quotaStatus.ShortfallMB > 0)
+            {
+                migration.AttentionReason = $"Insufficient OneDrive space for backup (need {quotaStatus.ShortfallMB}MB more)";
+                return true;
+            }
+        }
+
+        // Check for open quota escalations
+        var openQuotaEscalations = await _stateManager.GetOpenQuotaEscalationsAsync(cancellationToken);
+        var userQuotaEscalations = openQuotaEscalations.Where(e => e.UserId == migration.UserId).ToList();
+        if (userQuotaEscalations.Any(e => e.Priority == EscalationPriority.Critical))
+        {
+            migration.AttentionReason = "Critical quota escalation requires immediate attention";
+            return true;
+        }
+
+        // Check OneDrive sync issues
+        var syncState = await _stateManager.GetOneDriveSyncStatusAsync(migration.UserId, cancellationToken);
+        if (syncState != null)
+        {
             // Escalate for persistent sync errors
             if (syncState.ErrorCount >= 5)
             {
@@ -528,6 +577,122 @@ public class MigrationStateOrchestrator : IMigrationStateOrchestrator
         {
             _logger.LogError(ex, "Error getting migration readiness status");
             return new MigrationReadinessStatus { CanReset = false };
+        }
+    }
+
+    /// <summary>
+    /// Process proactive quota monitoring for all active users
+    /// </summary>
+    private async Task ProcessProactiveQuotaMonitoringAsync(
+        IEnumerable<MigrationState> activeMigrations, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogDebug("Starting proactive quota monitoring for active users");
+
+            var monitoringTasks = activeMigrations.Select(async migration =>
+            {
+                try
+                {
+                    // Check quota health for each user
+                    var quotaStatus = await _oneDriveManager.GetQuotaHealthStatusAsync(migration.UserId, cancellationToken);
+                    if (quotaStatus == null)
+                    {
+                        return;
+                    }
+
+                    // Calculate backup requirements if not recently done
+                    var lastRequirements = await _stateManager.GetBackupRequirementsAsync(migration.UserId, cancellationToken);
+                    if (lastRequirements == null ||
+                        (DateTime.UtcNow - lastRequirements.LastCalculated).TotalHours > 24)
+                    {
+                        var requirements = await _oneDriveManager.CalculateBackupRequirementsAsync(migration.UserId, cancellationToken);
+                        await _stateManager.SaveBackupRequirementsAsync(requirements.ToRecord(), cancellationToken);
+                    }
+
+                    // Save current quota status
+                    await _stateManager.SaveQuotaStatusAsync(quotaStatus.ToRecord(), cancellationToken);
+
+                    // Process warnings and escalations through the warning manager
+                    await _quotaWarningManager.ProcessUserWarningsAsync(migration.UserId, cancellationToken);
+
+                    // Check for immediate quota issues that need attention
+                    if (quotaStatus.HealthLevel == "Critical" || !quotaStatus.CanAccommodateBackup)
+                    {
+                        await HandleQuotaCriticalIssueAsync(migration, quotaStatus, cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error during proactive quota monitoring for user {UserId}", migration.UserId);
+                }
+            });
+
+            await Task.WhenAll(monitoringTasks);
+            _logger.LogDebug("Completed proactive quota monitoring for {Count} users", activeMigrations.Count());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in proactive quota monitoring");
+        }
+    }
+
+    /// <summary>
+    /// Handle critical quota issues requiring immediate attention
+    /// </summary>
+    private async Task HandleQuotaCriticalIssueAsync(
+        MigrationState migration, QuotaStatus quotaStatus, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogWarning("Critical quota issue detected for user {UserId}: {HealthLevel}",
+                migration.UserId, quotaStatus.HealthLevel);
+
+            // Update migration state with attention reason
+            if (string.IsNullOrEmpty(migration.AttentionReason) ||
+                !migration.AttentionReason.Contains("quota", StringComparison.OrdinalIgnoreCase))
+            {
+                migration.AttentionReason = quotaStatus.CanAccommodateBackup
+                    ? $"OneDrive quota at {quotaStatus.HealthLevel} level: {quotaStatus.Issues}"
+                    : $"Insufficient OneDrive space for backup: {quotaStatus.Issues}";
+
+                await _stateManager.UpdateMigrationStateAsync(migration, cancellationToken);
+            }
+
+            // Create critical escalation if none exists
+            var existingEscalations = await _stateManager.GetQuotaEscalationsAsync(migration.UserId, cancellationToken);
+            var hasCriticalEscalation = existingEscalations.Any(e =>
+                e.Priority == EscalationPriority.Critical &&
+                e.Status != EscalationStatus.Resolved);
+
+            if (!hasCriticalEscalation)
+            {
+                var escalation = new QuotaEscalation
+                {
+                    UserId = migration.UserId,
+                    EscalationType = quotaStatus.CanAccommodateBackup
+                        ? QuotaEscalationType.QuotaWarning
+                        : QuotaEscalationType.InsufficientSpace,
+                    Priority = EscalationPriority.Critical,
+                    Status = EscalationStatus.Open,
+                    Title = $"Critical OneDrive quota issue for user {migration.UserId}",
+                    Description = quotaStatus.Issues ?? "Critical quota issue detected",
+                    IssueDetails = $"Health Level: {quotaStatus.HealthLevel}, " +
+                                 $"Available: {quotaStatus.AvailableSpaceMB}MB, " +
+                                 $"Required: {quotaStatus.RequiredSpaceMB}MB, " +
+                                 $"Can Accommodate: {quotaStatus.CanAccommodateBackup}",
+                    RecommendedActions = quotaStatus.Recommendations ?? "Review quota and take appropriate action",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _stateManager.CreateQuotaEscalationAsync(escalation, cancellationToken);
+                _logger.LogWarning("Created critical quota escalation for user {UserId}", migration.UserId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling critical quota issue for user {UserId}", migration.UserId);
         }
     }
 }
