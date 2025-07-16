@@ -21,6 +21,11 @@ public class OneDriveManager : IOneDriveManager
     private readonly IStateManager _stateManager;
     private readonly IFileSystemService _fileSystemService;
 
+    // Phase 3.3 quota management dependencies
+    private readonly IBackupRequirementsCalculator _requirementsCalculator;
+    private readonly IOneDriveQuotaChecker _quotaChecker;
+    private readonly IQuotaWarningManager _warningManager;
+
     public OneDriveManager(
         ILogger<OneDriveManager> logger,
         IOneDriveDetector detector,
@@ -28,7 +33,10 @@ public class OneDriveManager : IOneDriveManager
         IOneDriveRegistry registry,
         IOneDriveProcessDetector processDetector,
         IStateManager stateManager,
-        IFileSystemService fileSystemService)
+        IFileSystemService fileSystemService,
+        IBackupRequirementsCalculator requirementsCalculator,
+        IOneDriveQuotaChecker quotaChecker,
+        IQuotaWarningManager warningManager)
     {
         _logger = logger;
         _detector = detector;
@@ -37,6 +45,9 @@ public class OneDriveManager : IOneDriveManager
         _processDetector = processDetector;
         _stateManager = stateManager;
         _fileSystemService = fileSystemService;
+        _requirementsCalculator = requirementsCalculator;
+        _quotaChecker = quotaChecker;
+        _warningManager = warningManager;
     }
 
     /// <inheritdoc/>
@@ -986,6 +997,181 @@ public class OneDriveManager : IOneDriveManager
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to log authentication issue for user {Sid}", userSid);
+        }
+    }
+
+    #endregion
+
+    #region Quota Management Methods (Phase 3.3)
+
+    /// <inheritdoc/>
+    public async Task<BackupRequirements> CalculateBackupRequirementsAsync(string userSid, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Calculating backup requirements for user {UserSid}", userSid);
+
+        try
+        {
+            var requirements = await _requirementsCalculator.CalculateRequiredSpaceMBAsync(userSid, cancellationToken);
+
+            // Store the calculated requirements for future reference
+            var requirementsRecord = new BackupRequirementsRecord
+            {
+                UserId = userSid,
+                ProfileSizeMB = requirements.ProfileSizeMB,
+                EstimatedBackupSizeMB = requirements.EstimatedBackupSizeMB,
+                CompressionFactor = requirements.CompressionFactor,
+                RequiredSpaceMB = requirements.RequiredSpaceMB,
+                SizeBreakdown = System.Text.Json.JsonSerializer.Serialize(requirements.Breakdown),
+                CalculatedAt = requirements.CalculatedAt
+            };
+
+            await _stateManager.SaveBackupRequirementsAsync(requirementsRecord, cancellationToken);
+
+            _logger.LogDebug("Backup requirements calculated for user {UserSid}: {RequiredMB} MB",
+                userSid, requirements.RequiredSpaceMB);
+
+            return requirements;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to calculate backup requirements for user {UserSid}", userSid);
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> ValidateQuotaForBackupAsync(string userSid, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Validating quota for backup for user {UserSid}", userSid);
+
+        try
+        {
+            var requirements = await _requirementsCalculator.CalculateRequiredSpaceMBAsync(userSid, cancellationToken);
+            var isFeasible = await _quotaChecker.ValidateBackupFeasibilityAsync(userSid, requirements.RequiredSpaceMB, cancellationToken);
+
+            _logger.LogDebug("Quota validation for user {UserSid}: {IsFeasible} (required: {RequiredMB} MB)",
+                userSid, isFeasible, requirements.RequiredSpaceMB);
+
+            return isFeasible;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to validate quota for user {UserSid}", userSid);
+            return false;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<QuotaStatus> GetQuotaHealthStatusAsync(string userSid, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Getting quota health status for user {UserSid}", userSid);
+
+        try
+        {
+            var quotaStatus = await _quotaChecker.CheckQuotaStatusAsync(userSid, cancellationToken);
+
+            // Store the quota status for tracking
+            var statusRecord = new QuotaStatusRecord
+            {
+                UserId = userSid,
+                TotalSpaceMB = quotaStatus.TotalSpaceMB,
+                UsedSpaceMB = quotaStatus.UsedSpaceMB,
+                AvailableSpaceMB = quotaStatus.AvailableSpaceMB,
+                RequiredSpaceMB = quotaStatus.RequiredSpaceMB,
+                HealthLevel = quotaStatus.HealthLevel.ToString(),
+                UsagePercentage = quotaStatus.UsagePercentage,
+                CanAccommodateBackup = quotaStatus.CanAccommodateBackup,
+                ShortfallMB = quotaStatus.ShortfallMB,
+                Issues = quotaStatus.Issues.Any() ? System.Text.Json.JsonSerializer.Serialize(quotaStatus.Issues) : null,
+                Recommendations = quotaStatus.Recommendations.Any() ? System.Text.Json.JsonSerializer.Serialize(quotaStatus.Recommendations) : null,
+                LastChecked = quotaStatus.LastChecked
+            };
+
+            await _stateManager.SaveQuotaStatusAsync(statusRecord, cancellationToken);
+
+            _logger.LogDebug("Quota health status for user {UserSid}: {HealthLevel}",
+                userSid, quotaStatus.HealthLevel);
+
+            return quotaStatus;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get quota health status for user {UserSid}", userSid);
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<QuotaWarning>> CheckQuotaWarningsAsync(string userSid, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Checking quota warnings for user {UserSid}", userSid);
+
+        try
+        {
+            var warnings = await _warningManager.CheckForWarningConditionsAsync(userSid, cancellationToken);
+
+            // Trigger any new warnings found
+            foreach (var warning in warnings)
+            {
+                // Check if we've already warned about this recently to avoid spam
+                var existingWarnings = await _warningManager.GetUnresolvedWarningsAsync(userSid, cancellationToken);
+                var recentSimilarWarning = existingWarnings.FirstOrDefault(w =>
+                    w.Type == warning.Type &&
+                    w.CreatedAt > DateTime.UtcNow.AddHours(-1));
+
+                if (recentSimilarWarning == null)
+                {
+                    await _warningManager.TriggerQuotaWarningAsync(userSid, warning.Level,
+                        warning.Type, warning.Message, cancellationToken);
+                }
+            }
+
+            _logger.LogDebug("Found {WarningCount} quota warnings for user {UserSid}", warnings.Count, userSid);
+            return warnings;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check quota warnings for user {UserSid}", userSid);
+            return new List<QuotaWarning>();
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> TriggerQuotaEscalationIfNeededAsync(string userSid, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Checking if quota escalation is needed for user {UserSid}", userSid);
+
+        try
+        {
+            var quotaStatus = await _quotaChecker.CheckQuotaStatusAsync(userSid, cancellationToken);
+
+            if (await _warningManager.ShouldEscalateAsync(userSid, quotaStatus, cancellationToken))
+            {
+                // Determine escalation type based on quota status
+                var issueType = QuotaIssueType.InsufficientQuota;
+                if (quotaStatus.HealthLevel == QuotaHealthLevel.Unknown)
+                {
+                    issueType = QuotaIssueType.ConfigurationError;
+                }
+                else if (quotaStatus.RequiredSpaceMB > quotaStatus.TotalSpaceMB * 0.5)
+                {
+                    issueType = QuotaIssueType.BackupTooLarge;
+                }
+
+                var issueDetails = await _warningManager.CreateIssueDetailsAsync(userSid, quotaStatus, issueType, cancellationToken);
+                await _warningManager.EscalateQuotaIssueAsync(userSid, issueDetails, cancellationToken);
+
+                _logger.LogWarning("Quota escalation triggered for user {UserSid}: {IssueType}", userSid, issueType);
+                return true;
+            }
+
+            _logger.LogDebug("No quota escalation needed for user {UserSid}", userSid);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check quota escalation for user {UserSid}", userSid);
+            return false;
         }
     }
 

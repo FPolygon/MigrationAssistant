@@ -533,6 +533,233 @@ public class SyncError
 }
 ```
 
+## Quota Management APIs ✅ Phase 3.3 Complete
+
+### IBackupRequirementsCalculator ✅
+
+```csharp
+public interface IBackupRequirementsCalculator
+{
+    Task<BackupRequirements> CalculateAsync(string userSid, double? compressionFactor = null, CancellationToken cancellationToken = default);
+    Task<long> EstimateProfileSizeAsync(string profilePath, CancellationToken cancellationToken = default);
+    Task<Dictionary<string, long>> GetFolderBreakdownAsync(string profilePath, CancellationToken cancellationToken = default);
+}
+
+public class BackupRequirements
+{
+    public string UserId { get; set; } = string.Empty;
+    public long ProfileSizeMB { get; set; }
+    public long EstimatedBackupSizeMB { get; set; }
+    public double CompressionFactor { get; set; } = 0.7;
+    public long RequiredSpaceMB { get; set; }
+    public Dictionary<string, long> FolderBreakdown { get; set; } = new();
+    public DateTime LastCalculated { get; set; }
+    public string? CalculationNotes { get; set; }
+}
+```
+
+### IOneDriveQuotaChecker ✅
+
+```csharp
+public interface IOneDriveQuotaChecker
+{
+    Task<QuotaStatus?> CheckQuotaHealthAsync(string userSid, CancellationToken cancellationToken = default);
+    Task<bool> ValidateBackupFeasibilityAsync(string userSid, CancellationToken cancellationToken = default);
+    Task<List<QuotaIssue>> IdentifyQuotaIssuesAsync(string userSid, CancellationToken cancellationToken = default);
+    Task<List<string>> GenerateRecommendationsAsync(QuotaStatus quotaStatus, CancellationToken cancellationToken = default);
+}
+
+public class QuotaStatus
+{
+    public string UserId { get; set; } = string.Empty;
+    public long TotalSpaceMB { get; set; }
+    public long UsedSpaceMB { get; set; }
+    public long AvailableSpaceMB { get; set; }
+    public long RequiredSpaceMB { get; set; }
+    public QuotaHealthLevel HealthLevel { get; set; }
+    public double UsagePercentage { get; set; }
+    public bool CanAccommodateBackup { get; set; }
+    public long ShortfallMB { get; set; }
+    public string? Issues { get; set; }
+    public string? Recommendations { get; set; }
+    public DateTime LastChecked { get; set; }
+}
+
+public enum QuotaHealthLevel
+{
+    Good,
+    Warning,
+    Critical
+}
+```
+
+### IQuotaWarningManager ✅
+
+```csharp
+public interface IQuotaWarningManager
+{
+    Task ProcessUserWarningsAsync(string userSid, CancellationToken cancellationToken = default);
+    Task ProcessAllUsersWarningsAsync(CancellationToken cancellationToken = default);
+    Task<bool> ShouldCreateWarningAsync(string userSid, QuotaWarningType warningType, CancellationToken cancellationToken = default);
+    Task<bool> ShouldEscalateAsync(string userSid, QuotaWarningType warningType, CancellationToken cancellationToken = default);
+}
+
+public class QuotaWarning
+{
+    public int Id { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public QuotaWarningType WarningType { get; set; }
+    public QuotaWarningLevel Level { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string? Details { get; set; }
+    public string? Recommendations { get; set; }
+    public bool IsResolved { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+    public string? ResolvedBy { get; set; }
+    public string? ResolutionNotes { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public enum QuotaWarningType
+{
+    HighUsage,
+    LowSpace,
+    InsufficientBackupSpace,
+    QuotaApproaching
+}
+
+public enum QuotaWarningLevel
+{
+    Info,
+    Warning,
+    Critical
+}
+```
+
+### Enhanced IStateManager ✅ (Quota Methods)
+
+**New quota management methods added to IStateManager:**
+
+```csharp
+// Quota status management
+Task SaveQuotaStatusAsync(QuotaStatusRecord status, CancellationToken cancellationToken = default);
+Task<QuotaStatusRecord?> GetQuotaStatusAsync(string userId, CancellationToken cancellationToken = default);
+Task<List<QuotaStatusRecord>> GetQuotaStatusByHealthLevelAsync(string healthLevel, CancellationToken cancellationToken = default);
+
+// Backup requirements management  
+Task SaveBackupRequirementsAsync(BackupRequirementsRecord requirements, CancellationToken cancellationToken = default);
+Task<BackupRequirementsRecord?> GetBackupRequirementsAsync(string userId, CancellationToken cancellationToken = default);
+
+// Quota warning management
+Task<int> CreateQuotaWarningAsync(QuotaWarning warning, CancellationToken cancellationToken = default);
+Task UpdateQuotaWarningAsync(QuotaWarning warning, CancellationToken cancellationToken = default);
+Task<List<QuotaWarning>> GetUnresolvedQuotaWarningsAsync(string userId, CancellationToken cancellationToken = default);
+Task ResolveQuotaWarningAsync(int warningId, string resolutionNotes, CancellationToken cancellationToken = default);
+
+// Quota escalation management
+Task<int> CreateQuotaEscalationAsync(QuotaEscalation escalation, CancellationToken cancellationToken = default);
+Task<List<QuotaEscalation>> GetOpenQuotaEscalationsAsync(CancellationToken cancellationToken = default);
+Task ResolveQuotaEscalationAsync(int escalationId, string resolutionNotes, string resolvedBy, CancellationToken cancellationToken = default);
+
+// Quota analytics and reporting
+Task<Dictionary<QuotaHealthLevel, int>> GetQuotaHealthDistributionAsync(CancellationToken cancellationToken = default);
+Task<List<string>> GetUsersRequiringQuotaAttentionAsync(CancellationToken cancellationToken = default);
+Task<QuotaMetrics> GetQuotaMetricsAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
+Task<long> GetTotalRequiredBackupSpaceAsync(CancellationToken cancellationToken = default);
+Task<int> GetActiveQuotaWarningCountAsync(CancellationToken cancellationToken = default);
+```
+
+### Enhanced IOneDriveManager ✅ (Quota Methods)
+
+**New quota management methods added to IOneDriveManager:**
+
+```csharp
+// Quota management region (Phase 3.3)
+Task<BackupRequirements> CalculateBackupRequirementsAsync(string userSid, CancellationToken cancellationToken = default);
+Task<bool> ValidateQuotaForBackupAsync(string userSid, CancellationToken cancellationToken = default);
+Task<QuotaStatus> GetQuotaHealthStatusAsync(string userSid, CancellationToken cancellationToken = default);
+Task<List<QuotaIssue>> IdentifyQuotaIssuesAsync(string userSid, CancellationToken cancellationToken = default);
+Task<List<string>> GetQuotaRecommendationsAsync(string userSid, CancellationToken cancellationToken = default);
+Task RefreshQuotaStatusAsync(string userSid, CancellationToken cancellationToken = default);
+```
+
+### Database Schema Extensions ✅
+
+**Migration006_AddQuotaManagement.cs** adds four new tables:
+
+```sql
+-- Quota status tracking
+CREATE TABLE QuotaStatus (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId TEXT NOT NULL UNIQUE,
+    TotalSpaceMB INTEGER NOT NULL,
+    UsedSpaceMB INTEGER NOT NULL,
+    AvailableSpaceMB INTEGER NOT NULL,
+    RequiredSpaceMB INTEGER NOT NULL,
+    HealthLevel TEXT NOT NULL,
+    UsagePercentage REAL NOT NULL,
+    CanAccommodateBackup BOOLEAN NOT NULL,
+    ShortfallMB INTEGER NOT NULL DEFAULT 0,
+    Issues TEXT,
+    Recommendations TEXT,
+    LastChecked DATETIME NOT NULL,
+    CreatedAt DATETIME NOT NULL,
+    UpdatedAt DATETIME NOT NULL
+);
+
+-- Backup space requirements
+CREATE TABLE BackupRequirements (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId TEXT NOT NULL UNIQUE,
+    ProfileSizeMB INTEGER NOT NULL,
+    EstimatedBackupSizeMB INTEGER NOT NULL,
+    CompressionFactor REAL NOT NULL,
+    RequiredSpaceMB INTEGER NOT NULL,
+    FolderBreakdown TEXT, -- JSON
+    LastCalculated DATETIME NOT NULL,
+    CreatedAt DATETIME NOT NULL,
+    UpdatedAt DATETIME NOT NULL
+);
+
+-- Quota warnings
+CREATE TABLE QuotaWarnings (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId TEXT NOT NULL,
+    WarningType TEXT NOT NULL,
+    Level TEXT NOT NULL,
+    Title TEXT NOT NULL,
+    Message TEXT NOT NULL,
+    Details TEXT,
+    Recommendations TEXT,
+    IsResolved BOOLEAN NOT NULL DEFAULT 0,
+    ResolvedAt DATETIME,
+    ResolvedBy TEXT,
+    ResolutionNotes TEXT,
+    CreatedAt DATETIME NOT NULL,
+    UpdatedAt DATETIME NOT NULL
+);
+
+-- IT escalations for quota issues
+CREATE TABLE QuotaEscalations (
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId TEXT NOT NULL,
+    EscalationType TEXT NOT NULL,
+    Priority TEXT NOT NULL,
+    Status TEXT NOT NULL DEFAULT 'Open',
+    Title TEXT NOT NULL,
+    Description TEXT NOT NULL,
+    IssueDetails TEXT NOT NULL,
+    RecommendedActions TEXT NOT NULL,
+    AssignedTo TEXT,
+    ResolutionNotes TEXT,
+    CreatedAt DATETIME NOT NULL,
+    ResolvedAt DATETIME,
+    UpdatedAt DATETIME NOT NULL
+);
+```
+
 ### INotificationManager 📅 Phase 4
 
 ```csharp
